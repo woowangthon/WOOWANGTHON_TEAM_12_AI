@@ -15,10 +15,15 @@ Closes #
 - [ ] 검증 명령 통과 (`AGENTS.md` 「이 레포」)
 - [ ] 직접 실행해 확인
 
-## 계약 · 명세 영향
+## 함께 고칠 문서 (ETC)
 
-- [ ] 없음
-- [ ] ETC 계약 · SPEC PR: 
+- [ ] 해당 없음
+- [ ] AI 모델 · 외부 API · 라이브러리 · 데이터셋을 바꿨다 → `docs/ai-scope.md`
+- [ ] `MOCK(…)` · `SAMPLE(…)` 마커를 넣거나 뺐다 → `docs/ai-scope.md` §3
+- [ ] FE · BE · AI 사이 요청 · 응답을 바꿨다 → `docs/contracts/` (반대편 담당 승인)
+- [ ] 요구사항 · 결정이 바뀌었다 → `docs/SPEC.md` 또는 ADR
+
+ETC PR 링크: 
 
 ## 남은 것
 
