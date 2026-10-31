@@ -1,0 +1,26 @@
+name: 버그
+description: 동작이 SPEC 이나 기대와 다르다
+labels: ["fix"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: 무엇이 잘못됐나
+      description: 기대한 것 / 실제로 일어난 것
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 재현 방법
+      value: "1. "
+  - type: textarea
+    id: log
+    attributes:
+      label: 로그 · 화면
+      render: text
+  - type: input
+    id: spec
+    attributes:
+      label: 관련 SPEC
+      placeholder: "S-03"

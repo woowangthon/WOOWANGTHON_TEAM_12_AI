@@ -1,0 +1,13 @@
+# 비밀값 — 공개 레포
+.env
+.env.*
+!.env.example
+
+# 에디터 · OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 에이전트 개인 설정
+.claude/settings.local.json

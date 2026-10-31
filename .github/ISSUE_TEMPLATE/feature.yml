@@ -1,0 +1,34 @@
+name: 기능
+description: SPEC 항목 하나를 이 레포에서 구현한다 (한 이슈 = 한 PR)
+labels: ["feat"]
+body:
+  - type: input
+    id: spec
+    attributes:
+      label: SPEC 참조
+      placeholder: "F-01 / S-02"
+  - type: textarea
+    id: goal
+    attributes:
+      label: 목적
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: 완료 조건
+      value: "- [ ] "
+  - type: textarea
+    id: out
+    attributes:
+      label: 범위 제외
+  - type: textarea
+    id: read
+    attributes:
+      label: 읽을 것
+      description: 파일 · 계약 · SPEC 절
+  - type: input
+    id: blocked
+    attributes:
+      label: 선행 이슈
+      description: 적고 나서 이슈 화면의 Relationships 에서 blocked by 로도 건다
