@@ -23,4 +23,10 @@ body:
     id: spec
     attributes:
       label: 관련 SPEC
+      description: SPEC 에 없는 동작이면 「명세 없음」 — 버그가 아니라 sync-spec 대상인지 먼저 본다
       placeholder: "S-03"
+  - type: textarea
+    id: read
+    attributes:
+      label: 읽을 것
+      description: 고치기 전에 읽을 문서 · 코드. 문서는 절까지
