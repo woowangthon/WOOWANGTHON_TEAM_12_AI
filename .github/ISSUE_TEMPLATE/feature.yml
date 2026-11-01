@@ -38,4 +38,4 @@ body:
     id: blocked
     attributes:
       label: 선행 이슈
-      description: 적고 나서 이슈 화면의 Relationships 에서 blocked by 로도 건다
+      description: 없으면 「없음」. 적은 것은 전부 GitHub 선행(blocked by)으로도 건다 — 이슈 화면 Relationships 또는 `bash .claude/skills/plan-feature/link.sh blocked <이 이슈> <선행>`. 안 걸면 next-up 추천 순서가 틀린다

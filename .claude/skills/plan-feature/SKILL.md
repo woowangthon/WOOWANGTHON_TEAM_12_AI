@@ -20,16 +20,14 @@ SPEC 항목 하나를 **한 레포 · 한 PR** 크기의 이슈들로 나눈다.
    - **담당은 비운다** — 시작하는 사람이 건다(ADR-002).
    - 누구의 에이전트든 **본문만 읽고 시작할 수 있게** 쓴다. Notion 내용은 필요한 만큼 본문에 옮기고 링크는 덧붙이기만.
 5. **바로 만든다** — 묻지 않는다. 이슈는 그때그때 만들고, 틀리면 고치거나 닫는다.
-6. 만든 뒤 연결한다. 본문에 「선행: #3」이라고만 쓰면 GitHub 이 모른다.
+6. **만든 뒤 반드시 GitHub 에 연결한다.** 본문 「선행 이슈」에 적은 것은 **전부** 선행(blocked by)으로 건다 — 본문에만 쓰면 GitHub 도 `next-up` 도 모르고, 추천 순서가 틀린다. 선행이 없으면 본문에 「없음」.
 
    ```bash
-   # 하위 이슈: 부모 이슈에 자식을 붙인다 (자식은 다른 레포여도 된다)
-   CHILD=$(gh api repos/woowangthon/<자식 레포>/issues/<자식번호> --jq .id)
-   gh api --method POST repos/woowangthon/<부모 레포>/issues/<부모번호>/sub_issues -F sub_issue_id="$CHILD"
-
-   # 선행: <번호> 는 <선행번호> 에 막혀 있다
-   PRE=$(gh api repos/woowangthon/<선행 레포>/issues/<선행번호> --jq .id)
-   gh api --method POST repos/woowangthon/<레포>/issues/<번호>/dependencies/blocked_by -F issue_id="$PRE"
+   bash .claude/skills/plan-feature/link.sh blocked FE#7 FE#5 BE#4   # FE#7 은 FE#5 · BE#4 에 막혀 있다
+   bash .claude/skills/plan-feature/link.sh sub ETC#5 FE#4 BE#4      # epic 의 하위 이슈 (다른 레포여도 된다)
+   bash .claude/skills/plan-feature/link.sh check                    # 본문 「선행 이슈」와 GitHub 선행이 같은지
    ```
+
+   `check` 가 아무 줄도 내지 않아야 끝이다. 다른 레포 이슈는 본문에 `woowangthon/WOOWANGTHON_TEAM_12_BE#4` 처럼 전체 이름으로 쓴다(같은 레포는 `#4`).
 
 7. 만든 이슈 목록(레포 · 번호 · 제목 · 선행)을 한 번에 보고한다.
