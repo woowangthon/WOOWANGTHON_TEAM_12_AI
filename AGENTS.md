@@ -3,12 +3,13 @@
 
 2026 AI 우왕톤. 제출 **2026-11-15(일) 18:00** · 본선 11-21(토).
 이 레포에서 일하는 모든 AI 에이전트(Claude Code · Codex · Gemini …)는 이 파일을 먼저 읽는다. `CLAUDE.md` 는 이 파일을 가리키기만 한다.
+개인 · 전역 지시와 이 파일이 부딪치면 **이 파일이 이긴다.**
 
 ## 레포 지도
 
 | 레포 | 역할 |
 | --- | --- |
-| `WOOWANGTHON_TEAM_12_ETC` | 명세(`docs/SPEC.md`) · 레포 사이 계약(`docs/contracts/`) · 결정(`docs/decisions/`) · 이 공통 규칙 · 스킬 · 템플릿의 원본 |
+| `WOOWANGTHON_TEAM_12_ETC` | 명세(`docs/SPEC.md`) · 레포 사이 계약(`docs/contracts/`) · 결정(`docs/decisions/`) · 대회 규칙(`docs/hackathon.md`) · AI 범위(`docs/ai-scope.md`) · 이 공통 규칙 · 스킬 · 템플릿의 원본 |
 | `WOOWANGTHON_TEAM_12_FE` | 프론트엔드 |
 | `WOOWANGTHON_TEAM_12_BE` | 백엔드 |
 | `WOOWANGTHON_TEAM_12_AI` | AI 서버 |
@@ -27,6 +28,16 @@
 
 - Notion 에서 정한 것은 SPEC 에 옮겨져야 개발 요구사항이 된다(`sync-spec`).
 - SPEC 에 없는 사용자 동작 · 정책은 추측해서 넣지 않는다 — SPEC 「미결정 질문」에 적고 묻는다.
+
+## 대회 규칙 — 속도와 바꾸지 않는다
+
+대회 사실은 ETC `docs/hackathon.md` 한 곳. 어기면 감점 · 실격이다.
+
+1. **고정 결과를 실제 작동처럼 보이지 않는다.** 목 · 샘플 · 테스트 계정은 코드에 `MOCK(<id>):` / `SAMPLE(<id>):` 주석을 달고 ETC `docs/ai-scope.md` §3 에 한 줄 — 같은 PR 에서.
+2. **실패를 그럴듯한 답으로 덮지 않는다.** AI · API 호출이 실패하면 오류 상태 · 다시 시도를 보여 준다. 정해진 답으로 돌아가는 코드가 필요하면 그건 `MOCK` 이고 등록한다.
+3. **AI 범위를 밝힌다.** AI 모델 · 외부 API · 라이브러리 · 데이터셋을 더하거나 바꾸거나 빼면 ETC `docs/ai-scope.md` 를 같은 PR 에서 — AI 를 안 썼거나 검증 못 한 것까지.
+4. **데모 흐름이 먼저다.** SPEC 의 `P0` 가 다 돌기 전엔 `P1` 을 시작하지 않는다. 데모에 없는 설정 · 추상화 · 확장 지점을 만들지 않는다.
+5. **11-15 17:00 이후 main 에 아무것도 올리지 않는다.** 그 뒤 push 는 먼저 경고한다.
 
 ## 행동 원칙
 
