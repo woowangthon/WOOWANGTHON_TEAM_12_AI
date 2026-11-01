@@ -14,6 +14,11 @@ body:
     validations:
       required: true
   - type: textarea
+    id: context
+    attributes:
+      label: 맥락
+      description: 왜 하나 · 사용자에게 어떻게 보이나 · 기획 의도. 누구의 에이전트든 이 본문만 보고 시작할 수 있게 — Notion 은 링크만 덧붙인다
+  - type: textarea
     id: done
     attributes:
       label: 완료 조건

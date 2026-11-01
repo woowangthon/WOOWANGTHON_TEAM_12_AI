@@ -17,6 +17,7 @@ description: GitHub Issue 하나를 SPEC 기준으로 구현 · 검증하고 PR 
    ```
 
    인계 댓글(「한 것 / 남은 것 / 막힌 곳」)이 있으면 거기서 이어 간다.
+   담당이 비어 있으면 시작하면서 건다 — `gh issue edit <번호> --add-assignee @me`. 다른 사람이 담당이면 아래 게이트 「남의 것」.
 2. 이슈의 SPEC 참조(`R-` / `F-` / `S-`)를 `../WOOWANGTHON_TEAM_12_ETC/docs/SPEC.md` 에서 **그 절만** 읽는다. 부모 이슈(ETC `epic`)가 있으면 그것도.
 3. 관련 코드와 ETC `docs/contracts/` 의 해당 계약.
 4. 이슈에 SPEC 참조 · 완료 조건 · 범위 제외가 비어 있으면, 읽은 것으로 **직접 채워 이슈 본문을 고친다.** 사람에게 채워 달라고 하지 않는다.
