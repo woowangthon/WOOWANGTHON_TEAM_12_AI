@@ -29,7 +29,7 @@ def show(path: Path, data) -> None:
         p = act.period
         print(f"\n■ {act.name}  [{p.start} ~ {'진행 중' if p.ongoing else p.end}]")
         for exp in act.experiences:
-            print(f"  - ({exp.actor:<7} · {exp.perspective}) {exp.content}")
+            print(f"  - ({exp.actor:<7} · {', '.join(exp.competencies)}) {exp.content}")
             for c in exp.citations:
                 print(f"      └ 「{c.quote}」")
 
