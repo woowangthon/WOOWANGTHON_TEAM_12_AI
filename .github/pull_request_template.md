@@ -24,7 +24,7 @@ Closes #
 - [ ] 해당 없음
 - [ ] AI 모델 · 외부 API · 라이브러리 · 데이터셋을 바꿨다 → `docs/ai-scope.md`
 - [ ] `MOCK(…)` · `SAMPLE(…)` 마커를 넣거나 뺐다 → `docs/ai-scope.md` §3
-- [ ] FE · BE · AI 사이 요청 · 응답을 바꿨다 → `docs/contracts/` (반대편 담당 승인)
+- [ ] FE · BE · AI 사이 요청 · 응답을 바꿨다 → `docs/contracts/` (반대편 이슈에 알림)
 - [ ] 요구사항 · 결정이 바뀌었다 → `docs/SPEC.md` 또는 ADR
 
 ETC PR 링크: 
