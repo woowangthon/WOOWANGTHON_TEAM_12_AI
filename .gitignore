@@ -11,3 +11,9 @@ Thumbs.db
 
 # 에이전트 개인 설정
 .claude/settings.local.json
+
+# 파이썬 · uv
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
