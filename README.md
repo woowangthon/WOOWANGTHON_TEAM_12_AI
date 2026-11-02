@@ -19,7 +19,13 @@ cp .env.example .env        # OPENAI_API_KEY(필수) · GEMINI_API_KEY(선택)�
 uv run uvicorn app.main:app --env-file .env --port 8000
 ```
 
-- `GET /health` → `{"status":"ok"}` (LLM 을 부르지 않는다)
+도커로(배포 Compose 와 같은 이미지 — ETC ADR-004. 다른 기계에서 ARM 서버용이면 `docker buildx build --platform linux/arm64 -t woowang-ai .`):
+
+```bash
+docker build -t woowang-ai . && docker run --rm --env-file .env -p 8000:8000 woowang-ai
+```
+
+- `GET /health` → `{"status":"ok"}` (LLM 을 부르지 않는다 — 이미지 HEALTHCHECK 도 이것)
 - `POST /extract` → `{"sourceName": "회고.md", "text": "..."}`
 
 진짜 LLM 으로 시험 자료를 돌려 결과를 눈으로 보기(파일마다 LLM 1회, 규칙 위반이면 1회 더):

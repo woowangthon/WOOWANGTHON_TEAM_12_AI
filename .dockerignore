@@ -1,0 +1,14 @@
+# 비밀값은 이미지에 넣지 않는다
+.env
+.env.*
+
+.git/
+.github/
+.claude/
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+tests/
+samples/
+scripts/
