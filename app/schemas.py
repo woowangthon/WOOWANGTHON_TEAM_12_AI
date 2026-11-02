@@ -1,9 +1,9 @@
 """요청 · 응답 · LLM 출력 모양 — ETC docs/contracts/ai-api.md 「POST /extract」."""
 
 import re
-from typing import Annotated, Literal
+from typing import Annotated, Literal, get_args
 
-from pydantic import AfterValidator, BaseModel, model_validator
+from pydantic import AfterValidator, BaseModel, Field, model_validator
 
 
 def _not_blank(value: str) -> str:
@@ -25,6 +25,37 @@ def _period_format(value: str) -> str:
 NonBlank = Annotated[str, AfterValidator(_not_blank)]
 PeriodValue = Annotated[str, AfterValidator(_period_format)]
 Actor = Literal["ME", "TEAM", "UNKNOWN"]
+
+# 역량 — 닫힌 목록. 원본은 ETC docs/contracts/README.md 「값 목록」(바꾸려면 SPEC 미결정 2 부터)
+Competency = Literal[
+    "IMPLEMENTATION",
+    "PROBLEM_SOLVING",
+    "PLANNING",
+    "ANALYSIS",
+    "OPERATION",
+    "COLLABORATION",
+    "COMMUNICATION",
+    "LEADERSHIP",
+    "INITIATIVE",
+    "RESPONSIBILITY",
+    "PERSEVERANCE",
+    "LEARNING",
+    "PRESENTATION",
+]
+COMPETENCIES: tuple[str, ...] = get_args(Competency)
+
+
+def _no_duplicates(values: list[str]) -> list[str]:
+    # 중복을 지우지 않고 규칙 위반으로 본다 — 조용히 고쳐 넣지 않는다
+    if len(set(values)) != len(values):
+        raise ValueError("역량이 중복됐다")
+    return values
+
+
+# LLM 은 1 ~ 3개(계약). 사용자가 지워 0개가 되는 건 BE 쪽 일이다
+Competencies = Annotated[
+    list[Competency], Field(min_length=1, max_length=3), AfterValidator(_no_duplicates)
+]
 
 
 # ---- 요청 ----
@@ -56,7 +87,7 @@ class Period(BaseModel):
 
 class LLMExperience(BaseModel):
     content: NonBlank
-    perspective: NonBlank
+    competencies: Competencies
     actor: Actor
     quotes: list[NonBlank]
 
@@ -87,7 +118,7 @@ class Citation(BaseModel):
 
 class Experience(BaseModel):
     content: str
-    perspective: str
+    competencies: list[Competency]
     actor: Actor
     sourceStatus: Literal["SOURCE_CONFIRMED", "NEEDS_REVIEW"]
     citations: list[Citation]

@@ -19,13 +19,13 @@ GOOD = {
             "experiences": [
                 {
                     "content": "폴링을 WebSocket 으로 바꿨다",
-                    "perspective": "문제 해결",
+                    "competencies": ["PROBLEM_SOLVING", "IMPLEMENTATION"],
                     "actor": "ME",
                     "quotes": ["내가 폴링을 WebSocket 으로 바꿔 해결했다."],
                 },
                 {
                     "content": "AWS 에 배포했다",
-                    "perspective": "기술 구현",
+                    "competencies": ["IMPLEMENTATION"],
                     "actor": "TEAM",
                     "quotes": [],
                 },
@@ -90,6 +90,23 @@ def test_extract_contract_shape(client_with):
     ]
     assert exps[1]["citations"] == []
     assert exps[1]["actor"] == "TEAM"
+    # 역량은 LLM 이 준 순서 그대로(가장 잘 맞는 것부터) · 관점 문자열은 없다
+    assert exps[0]["competencies"] == ["PROBLEM_SOLVING", "IMPLEMENTATION"]
+    assert "perspective" not in exps[0]
+
+
+def test_competency_meanings_match_contract_list():
+    # 프롬프트의 역량 설명이 계약 목록(app.schemas.COMPETENCIES)과 같은 값 · 같은 순서인지
+    from app.extract import COMPETENCY_MEANINGS, LLM_JSON_SCHEMA, SYSTEM_PROMPT
+    from app.schemas import COMPETENCIES
+
+    assert len(COMPETENCIES) == 13
+    assert tuple(COMPETENCY_MEANINGS) == COMPETENCIES
+    assert all(f"- {value}:" in SYSTEM_PROMPT for value in COMPETENCIES)
+    exp = LLM_JSON_SCHEMA["properties"]["activities"]["items"]["properties"]["experiences"]
+    comp = exp["items"]["properties"]["competencies"]
+    assert comp["items"]["enum"] == list(COMPETENCIES)
+    assert (comp["minItems"], comp["maxItems"]) == (1, 3)
 
 
 def test_no_activities_is_ok(client_with):
@@ -134,7 +151,20 @@ BAD_OUTPUTS = [
     _bad(lambda d: d["activities"][0]["period"].update(start="2025년 3월")),
     _bad(lambda d: d["activities"][0]["period"].update(start="2025-13")),
     _bad(lambda d: d["activities"][0]["period"].update(ongoing=True)),  # ongoing 인데 end 가 있음
-    _bad(lambda d: d["activities"][0]["experiences"][0].pop("perspective")),
+    _bad(lambda d: d["activities"][0]["experiences"][0].pop("competencies")),
+    # 역량: 목록 밖 · 한국어 · 0개 · 4개 이상 · 중복 · 문자열 하나 — 고쳐 넣지 않고 오류
+    _bad(lambda d: d["activities"][0]["experiences"][0].update(competencies=["TEAMWORK"])),
+    _bad(lambda d: d["activities"][0]["experiences"][0].update(competencies=["협업"])),
+    _bad(lambda d: d["activities"][0]["experiences"][0].update(competencies=[])),
+    _bad(
+        lambda d: d["activities"][0]["experiences"][0].update(
+            competencies=["PLANNING", "ANALYSIS", "LEARNING", "OPERATION"]
+        )
+    ),
+    _bad(
+        lambda d: d["activities"][0]["experiences"][0].update(competencies=["PLANNING", "PLANNING"])
+    ),
+    _bad(lambda d: d["activities"][0]["experiences"][0].update(competencies="PLANNING")),
 ]
 
 
