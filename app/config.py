@@ -3,14 +3,20 @@
 import os
 from dataclasses import dataclass
 
-DEFAULT_MODELS = "gemini-3.5-flash,gemini-3.8-flash,gemini-3.5-flash-lite"
+PROVIDERS = ("openai", "gemini")
+# 기본은 팀 OpenAI 크레딧. Gemini 는 GEMINI_API_KEY 가 있을 때만 쓰는 선택 폴백
+DEFAULT_MODELS = (
+    "openai:gpt-5-mini,openai:gpt-5-nano,gemini:gemini-3.5-flash,gemini:gemini-3.5-flash-lite"
+)
 
 
 @dataclass(frozen=True)
 class Settings:
+    openai_api_key: str | None
     gemini_api_key: str | None
-    # 앞에서부터 쓰고, 「지금 못 씀」(503 · 429 · 5xx · 404 · 시간 초과)이면 다음 모델로 넘어간다
-    llm_models: tuple[str, ...]
+    # (제공사, 모델). 앞에서부터 쓰고, 「지금 못 씀」(404 · 429 · 5xx · 시간 초과)이면 다음으로.
+    # 키가 없는 제공사는 건너뛴다
+    llm_models: tuple[tuple[str, str], ...]
     # BE 제한 시간(제안 120초)보다 짧게 — 폴백 · 다시 시도까지 합친 전체 시간
     llm_timeout_seconds: float
     # 모델 하나를 한 번 부를 때 제한 시간 — 한 모델이 전체 시간을 다 먹지 않게
@@ -21,17 +27,25 @@ class Settings:
     max_attempts: int
 
 
-def _models(raw: str) -> tuple[str, ...]:
-    models = tuple(m.strip() for m in raw.split(",") if m.strip())
+def parse_models(raw: str) -> tuple[tuple[str, str], ...]:
+    models = []
+    for item in (m.strip() for m in raw.split(",")):
+        if not item:
+            continue
+        provider, sep, model = item.partition(":")
+        if not sep or provider not in PROVIDERS or not model:
+            raise ValueError(f"LLM_MODELS 항목은 「제공사:모델」(제공사 {PROVIDERS}) — {item!r}")
+        models.append((provider, model))
     if not models:
         raise ValueError("LLM_MODELS 가 비었습니다")
-    return models
+    return tuple(models)
 
 
 def load_settings() -> Settings:
     return Settings(
+        openai_api_key=os.environ.get("OPENAI_API_KEY") or None,
         gemini_api_key=os.environ.get("GEMINI_API_KEY") or None,
-        llm_models=_models(os.environ.get("LLM_MODELS", DEFAULT_MODELS)),
+        llm_models=parse_models(os.environ.get("LLM_MODELS", DEFAULT_MODELS)),
         llm_timeout_seconds=float(os.environ.get("LLM_TIMEOUT_SECONDS", "100")),
         llm_call_timeout_seconds=float(os.environ.get("LLM_CALL_TIMEOUT_SECONDS", "45")),
         max_text_chars=int(os.environ.get("MAX_TEXT_CHARS", "50000")),

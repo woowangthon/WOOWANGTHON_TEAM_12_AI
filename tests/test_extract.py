@@ -174,10 +174,10 @@ def test_unexpected_error_is_internal(client_with):
     assert res.json()["error"]["code"] == "INTERNAL_ERROR"
 
 
-def test_missing_api_key_is_llm_error(client_with):
-    from app.llm import GeminiLLM
+def test_missing_api_keys_is_llm_error(client_with):
+    from app.llm import build_llm
 
-    llm = GeminiLLM(api_key=None, models=("m1", "m2"), call_timeout=5)
-    res = client_with(llm).post("/extract", json=BODY)
+    settings = replace(load_settings(), openai_api_key=None, gemini_api_key=None)
+    res = client_with(build_llm(settings)).post("/extract", json=BODY)
     assert res.status_code == 502
     assert res.json()["error"]["code"] == "LLM_ERROR"

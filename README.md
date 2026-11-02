@@ -9,13 +9,13 @@ BE 가 원본 텍스트를 보내면 활동 · 경험 · 근거 JSON 을 돌려�
 
 ## 스택
 
-Python 3.12 · FastAPI · [uv](https://docs.astral.sh/uv/) · Gemini(`google-genai`) — 모델은 `LLM_MODELS` 순서대로 쓰고 지금 못 쓰면 다음으로 넘어간다(기본 `gemini-3.5-flash` → `gemini-3.8-flash` → `gemini-3.5-flash-lite`)
+Python 3.12 · FastAPI · [uv](https://docs.astral.sh/uv/) · OpenAI(기본, 팀 크레딧) · Gemini(선택) — 모델은 `LLM_MODELS` 순서대로 쓰고 지금 못 쓰면 다음으로 넘어간다. 키가 없는 제공사는 건너뛴다
 
 ## 실행 방법
 
 ```bash
 uv sync
-cp .env.example .env        # GEMINI_API_KEY 는 사람이 넣는다
+cp .env.example .env        # OPENAI_API_KEY(필수) · GEMINI_API_KEY(선택)는 사람이 넣는다
 uv run uvicorn app.main:app --env-file .env --port 8000
 ```
 
@@ -42,6 +42,6 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest -q
 | --- | --- |
 | `app/main.py` | 엔드포인트 · 오류 응답 모양 |
 | `app/extract.py` | 프롬프트 · LLM 출력 검사 · 다시 시도 · 응답 만들기 |
-| `app/llm.py` | Gemini 호출 — 모델을 바꾸면 여기 |
+| `app/llm.py` | OpenAI · Gemini 호출과 폴백 — 제공사를 더하면 여기 |
 | `app/schemas.py` | 요청 · 응답 · LLM 출력 모양과 규칙 |
 | `app/config.py` | 환경 변수 — 뜻은 `.env.example` |

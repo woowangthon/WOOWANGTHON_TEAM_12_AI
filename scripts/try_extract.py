@@ -2,7 +2,7 @@
 
     uv run python scripts/try_extract.py samples/*.md [--json out_dir]
 
-파일 하나에 LLM 을 1번(규칙 위반이면 최대 LLM_MAX_ATTEMPTS 번) 부른다 — GEMINI_API_KEY 필요.
+파일 하나에 LLM 을 1번(규칙 위반이면 최대 LLM_MAX_ATTEMPTS 번) 부른다 — .env 의 OPENAI_API_KEY(또는 GEMINI_API_KEY).
 결과는 화면에만 찍는다. 실제 노트를 넣었다면 결과를 커밋하지 않는다.
 """
 
@@ -11,12 +11,15 @@ import asyncio
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from dotenv import load_dotenv  # noqa: E402
 
 from app.config import load_settings  # noqa: E402
 from app.errors import ApiError  # noqa: E402
 from app.extract import extract  # noqa: E402
-from app.llm import GeminiLLM  # noqa: E402
+from app.llm import build_llm  # noqa: E402
 from app.schemas import ExtractRequest  # noqa: E402
 
 
@@ -37,8 +40,9 @@ async def main() -> None:
     parser.add_argument("--json", type=Path, help="응답 JSON 을 이 폴더에 저장")
     args = parser.parse_args()
 
+    load_dotenv(ROOT / ".env")  # 값은 화면에 찍지 않는다
     settings = load_settings()
-    llm = GeminiLLM(settings.gemini_api_key, settings.llm_models, settings.llm_call_timeout_seconds)
+    llm = build_llm(settings)
     for path in args.files:
         req = ExtractRequest(sourceName=path.name, text=path.read_text(encoding="utf-8"))
         try:

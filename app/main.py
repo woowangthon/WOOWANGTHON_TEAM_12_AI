@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from app.config import Settings, load_settings
 from app.errors import ApiError
 from app.extract import extract
-from app.llm import GeminiLLM, JsonLLM
+from app.llm import JsonLLM, build_llm
 from app.schemas import ExtractRequest, ExtractResponse
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -27,12 +27,7 @@ def get_settings() -> Settings:
 
 @lru_cache
 def get_llm() -> JsonLLM:
-    settings = get_settings()
-    return GeminiLLM(
-        api_key=settings.gemini_api_key,
-        models=settings.llm_models,
-        call_timeout=settings.llm_call_timeout_seconds,
-    )
+    return build_llm(get_settings())
 
 
 def _error(status: int, code: str, message: str) -> JSONResponse:
