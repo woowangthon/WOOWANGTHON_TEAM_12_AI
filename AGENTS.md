@@ -107,7 +107,7 @@ SPEC 항목 → plan-feature 로 이슈 → implement-issue: 읽기 → (모르�
 
 ## 이 레포 — AI (AI 서버)
 
-- 스택: Python 3.12 · FastAPI · uv · Gemini(`google-genai`) — 모델 · 라이브러리를 바꾸면 ETC `docs/ai-scope.md` 를 같은 PR 에서
+- 스택: Python 3.12 · FastAPI · uv · OpenAI(기본) · Gemini(선택) — 모델 · 라이브러리를 바꾸면 ETC `docs/ai-scope.md` 를 같은 PR 에서
 - 실행: `uv sync` → `uv run uvicorn app.main:app --env-file .env --port 8000` (`.env` 는 사람이 만든다 — `.env.example`)
 - 검증 명령: `uv run ruff check . && uv run ruff format --check . && uv run pytest -q`
 - 추출 품질은 테스트가 아니라 `uv run python scripts/try_extract.py samples/*.md` 로 손으로 본다(LLM 을 부른다 — 횟수를 PR 에 적는다). 시험 자료는 지어낸 것만 커밋한다(`samples/`)
