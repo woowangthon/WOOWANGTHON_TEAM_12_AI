@@ -31,8 +31,8 @@ class ScriptedProvider:
         return out
 
 
-def make(models, *providers, call_timeout=5.0):
-    return FallbackLLM(parse_models(models), {p.name: p for p in providers}, call_timeout)
+def make(models, *providers, call_timeout=5.0, min_call=0.01):
+    return FallbackLLM(parse_models(models), {p.name: p for p in providers}, call_timeout, min_call)
 
 
 def run(llm, budget=10.0):
@@ -98,10 +98,18 @@ def test_all_slow_is_timeout():
 
 
 def test_budget_runs_out_is_timeout():
+    # 첫 호출이 남은 시간을 다 쓰면, 시간이 조금 남아도(타이머 오차) 다음 모델을 부르지 않는다
     oa = ScriptedProvider("openai", {"a": 1.0, "b": "{}"})
     with pytest.raises(LLMTimeout):
-        run(make("openai:a,openai:b", oa), budget=0.05)
+        run(make("openai:a,openai:b", oa, min_call=0.2), budget=0.3)
     assert oa.called == ["a"]
+
+
+def test_too_little_time_does_not_start_a_call():
+    oa = ScriptedProvider("openai", {"a": "{}"})
+    with pytest.raises(LLMTimeout):
+        run(make("openai:a", oa, min_call=1.0), budget=0.5)
+    assert oa.called == []
 
 
 @pytest.mark.parametrize("raw", ["gpt-x", "claude:x", "openai:", ""])

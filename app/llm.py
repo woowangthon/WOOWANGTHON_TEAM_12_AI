@@ -141,10 +141,13 @@ class FallbackLLM:
         models: tuple[tuple[str, str], ...],
         providers: dict[str, Provider],
         call_timeout: float,
+        min_call_seconds: float = 1.0,
     ):
         self.models = models
         self.providers = providers
         self.call_timeout = call_timeout
+        # 남은 시간이 이보다 짧으면 새 호출을 시작하지 않는다 — 답을 받을 수 없는 호출이다
+        self.min_call_seconds = min_call_seconds
 
     async def generate_json(
         self, system: str, user: str, schema: dict[str, Any], deadline: float
@@ -158,7 +161,7 @@ class FallbackLLM:
         for provider_name, model in usable:
             name = f"{provider_name}:{model}"
             remaining = deadline - time.monotonic()
-            if remaining <= 0:
+            if remaining < self.min_call_seconds:
                 ran_out_of_time = True
                 break
             timeout = min(self.call_timeout, remaining)
