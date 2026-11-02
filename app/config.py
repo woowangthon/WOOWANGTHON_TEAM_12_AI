@@ -6,7 +6,7 @@ from dataclasses import dataclass
 PROVIDERS = ("openai", "gemini")
 # 기본은 팀 OpenAI 크레딧. Gemini 는 GEMINI_API_KEY 가 있을 때만 쓰는 선택 폴백
 DEFAULT_MODELS = (
-    "openai:gpt-5-mini,openai:gpt-5-nano,gemini:gemini-3.5-flash,gemini:gemini-3.5-flash-lite"
+    "openai:gpt-5.4-mini,openai:gpt-5.4-nano,gemini:gemini-3.5-flash,gemini:gemini-3.5-flash-lite"
 )
 
 
