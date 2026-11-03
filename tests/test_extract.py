@@ -83,16 +83,37 @@ def test_extract_contract_shape(client_with):
     # 경험 없는 활동은 빠진다
     assert [a["name"] for a in data["activities"]] == ["바꿔요"]
     exps = data["activities"][0]["experiences"]
-    # 근거 대조 전 — 전부 matched: null · NEEDS_REVIEW
-    assert all(e["sourceStatus"] == "NEEDS_REVIEW" for e in exps)
+    # 근거를 원본에서 찾았다 → SOURCE_CONFIRMED · 줄 번호
+    assert exps[0]["sourceStatus"] == "SOURCE_CONFIRMED"
     assert exps[0]["citations"] == [
-        {"quote": "내가 폴링을 WebSocket 으로 바꿔 해결했다.", "matched": None, "location": None}
+        {
+            "quote": "내가 폴링을 WebSocket 으로 바꿔 해결했다.",
+            "matched": True,
+            "location": {"startLine": 1, "endLine": 1},
+        }
     ]
+    # 근거가 없으면 확인 필요
+    assert exps[1]["sourceStatus"] == "NEEDS_REVIEW"
     assert exps[1]["citations"] == []
     assert exps[1]["actor"] == "TEAM"
     # 역량은 LLM 이 준 순서 그대로(가장 잘 맞는 것부터) · 관점 문자열은 없다
     assert exps[0]["competencies"] == ["PROBLEM_SOLVING", "IMPLEMENTATION"]
     assert "perspective" not in exps[0]
+
+
+def test_quote_not_in_source_needs_review(client_with):
+    # 근거 하나라도 원본에 없으면 그 경험은 확인 필요(S-04) — 찾은 근거는 그대로 matched: true
+    out = _bad(
+        lambda d: d["activities"][0]["experiences"][0]["quotes"].append(
+            "나는 백엔드 API 설계를 전부 맡았다."
+        )
+    )
+    res = client_with(FakeLLM(out)).post("/extract", json=BODY)
+    assert res.status_code == 200
+    exp = res.json()["activities"][0]["experiences"][0]
+    assert exp["sourceStatus"] == "NEEDS_REVIEW"
+    assert [c["matched"] for c in exp["citations"]] == [True, False]
+    assert exp["citations"][1]["location"] is None
 
 
 def test_competency_meanings_match_contract_list():
