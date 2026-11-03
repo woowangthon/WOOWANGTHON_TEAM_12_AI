@@ -13,7 +13,7 @@ BE 가 원본 텍스트를 보내면 활동 · 경험 · 근거 JSON 을 돌려�
 
 - **추출(F-02)** — 지어낸 시험 자료 10건 · 손으로 적은 정답 · `scripts/eval_extract.py` 로 모델 3종을 채점했다(2026-11-03). 근거 발췌문은 LLM 이 아니라 코드(`app/citations.py`)가 원본과 대조하고, 우리 프롬프트로 뽑은 발췌문은 전부 원본에서 찾았다. 원문에 없는 수치 0건. 같은 모델에 범용 프롬프트(「이 자료에서 내 경험을 정리해 줘」)만 줄 때보다 경험을 6 ~ 9개 더 찾았다.
 - **매칭(F-06 · F-08)** — 지어낸 경험 20개 · 문항 10개 · 손으로 적은 정답 · `scripts/eval_match.py` 로 모델 3종을 채점했다(2026-11-03). 추천의 경험 · 근거 · 보완 ID 는 코드가 요청과 대조해 지어낸 ID 면 오류로 돌려준다. 맞는 경험이 없는 문항엔 모든 실행이 0개, 원문에 없는 수치 0건, 팀 · 모름 경험을 「내 일」로 말한 것 0건. 데모 두 문항(기술 문제 · 조율)에서 같은 활동의 다른 경험이 골라졌다. 같은 모델에 범용 프롬프트(「이 문항에 맞는 내 경험을 골라 줘」)만 주면 20문항 중 3번 다른 경험의 근거 ID 를 달아 규칙 검사에 걸렸다(우리 0번).
-- **되묻기(F-07)** — 아직 검증 전(AI#21).
+- **되묻기(F-07 · F-08)** — 매칭과 같은 LLM 호출에서 문항당 0 ~ 3개를 묻는다. 질문이 추천한 경험에 붙었는지 · 3개를 넘지 않는지는 코드가 확인해 어기면 오류로 돌려준다. 같은 자료로 채점했다(2026-11-04, `scripts/eval_match.py`): 앞에서 답한 보완이 있으면 「직접 고친 부분」을 다시 묻지 않고 「고친 뒤 어떻게 확인했나요?」를 묻고, 보완을 빼면 「어떤 부분을 고쳤나요?」를 묻는다(3회 모두). 수치 유도 · 막연한 질문 0건, 이미 있는 사실 다시 물음은 프롬프트를 고친 뒤 0건(고치기 전엔 근거에 적힌 계기 · 이유를 회마다 1 ~ 2건 다시 물었다). 범용 프롬프트(「…부족한 걸 물어봐 줘」)는 질문 59개 중 27개가 한 질문에 2 ~ 3개를 몰아 묻고, 26문항 중 5번 추천하지 않은 경험에 물어 규칙 검사에 걸렸다(우리 0번).
 - **한계** — 정답은 AI 에이전트가 초안을 썼고 팀원 검토 전이다(AI#22). 표본이 작고 실제 노트는 1건이다. 근거 대조는 글이 원본에 있는지만 보고, 해석이 맞는지는 사람이 본다.
 
 ## 스택
@@ -36,7 +36,7 @@ docker build -t woowang-ai . && docker run --rm --env-file .env -p 8000:8000 woo
 
 - `GET /health` → `{"status":"ok"}` (LLM 을 부르지 않는다 — 이미지 HEALTHCHECK 도 이것)
 - `POST /extract` → `{"sourceName": "회고.md", "text": "..."}`
-- `POST /match` → `{"question": {"organization": null, "text": "..."}, "experiences": [...]}` — 모양은 ETC `docs/contracts/ai-api.md`. 되묻기(`clarifications`)는 AI#21 전까지 `[]`
+- `POST /match` → `{"question": {"organization": null, "text": "..."}, "experiences": [...]}` — 모양은 ETC `docs/contracts/ai-api.md`
 
 진짜 LLM 으로 시험 자료를 돌려 결과를 눈으로 보기(파일마다 LLM 1회, 규칙 위반이면 1회 더):
 
@@ -53,7 +53,7 @@ uv run python scripts/eval_extract.py --prompts tuned --models openai:gpt-6-luna
 uv run python scripts/eval_extract.py --rescore eval-runs/<폴더>   # LLM 없이 다시 채점
 ```
 
-매칭은 지어낸 경험 · 문항(`samples/match/`)으로 같은 식으로 — 기본 10문항 × 2 = LLM 20회:
+매칭 · 되묻기는 지어낸 경험 · 문항(`samples/match/`)으로 같은 식으로 — 기본 (10문항 + 보완을 뺀 자료 3문항) × 2 = LLM 26회:
 
 ```bash
 uv run python scripts/eval_match.py                        # MATCH_LLM_MODELS 첫 모델, 우리 · 범용 프롬프트
@@ -80,4 +80,4 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest -q
 | `app/schemas.py` | 요청 · 응답 · LLM 출력 모양과 규칙 |
 | `app/config.py` | 환경 변수 — 뜻은 `.env.example` |
 | `scripts/eval_extract.py` | 추출 시험 자료 채점 — 숫자의 뜻은 파일 머리말 |
-| `scripts/eval_match.py` | 매칭 시험 자료 채점 — 숫자의 뜻은 파일 머리말 |
+| `scripts/eval_match.py` | 매칭 · 되묻기 시험 자료 채점 — 숫자의 뜻은 파일 머리말 |

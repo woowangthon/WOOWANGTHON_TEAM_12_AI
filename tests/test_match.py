@@ -81,6 +81,10 @@ GOOD = {
             "gaps": [],
         },
     ],
+    # 102 는 TEAM — 내 몫을 묻는다(S-20). 101 의 「직접 고친 부분」은 보완 301 에 있어 다시 묻지 않는다(S-25)
+    "clarifications": [
+        {"experienceId": 102, "question": "매주 회고에서 직접 맡은 일이 있었다면 무엇이었나요?"}
+    ],
 }
 
 
@@ -91,7 +95,7 @@ def test_match_contract_shape(client_with):
     data = res.json()
     assert data["requirements"] == GOOD["requirements"]
     assert data["recommendations"] == GOOD["recommendations"]
-    assert data["clarifications"] == []  # 되묻기는 AI#21
+    assert data["clarifications"] == GOOD["clarifications"]
     assert data["model"] == "fake-model"
     assert llm.calls == 1
 
@@ -118,6 +122,7 @@ def test_no_experiences_all_not_found(client_with):
     out = {
         "requirements": [{"text": "해외 봉사 경험", "status": "NOT_FOUND", "experienceIds": []}],
         "recommendations": [],
+        "clarifications": [],
     }
     res = client_with(FakeLLM(out)).post("/match", json={**BODY, "experiences": []})
     assert res.status_code == 200
@@ -175,6 +180,7 @@ def test_user_entered_without_citations_ok(client_with):
         "recommendations": [
             {"experienceId": 141, "reason": "r", "emphasis": "e", "evidence": [], "gaps": []}
         ],
+        "clarifications": [{"experienceId": 141, "question": "친구들이 쓴 뒤 무엇을 고쳤나요?"}],
     }
     res = client_with(FakeLLM(out)).post("/match", json={**BODY, "experiences": [exp]})
     assert res.status_code == 200
@@ -218,6 +224,12 @@ BAD_OUTPUTS = [
     _bad(lambda d: d["recommendations"][1].update(evidence=[{"type": "SUPPLEMENT", "id": 302}])),
     _bad(lambda d: d["recommendations"][0]["evidence"].append({"type": "CITATION", "id": 202})),
     _bad(lambda d: d["recommendations"][0].update(evidence=[{"type": "QUOTE", "id": 202}])),
+    # 되묻기: 4개(잘라 내지 않는다) · 추천하지 않은 경험(103) · 요청에 없는 경험 · 빈 질문 · 칸 없음
+    _bad(lambda d: d.update(clarifications=d["clarifications"] * 4)),
+    _bad(lambda d: d["clarifications"][0].update(experienceId=103)),
+    _bad(lambda d: d["clarifications"][0].update(experienceId=999)),
+    _bad(lambda d: d["clarifications"][0].update(question=" ")),
+    _bad(lambda d: d.pop("clarifications")),
 ]
 
 
@@ -238,10 +250,23 @@ def test_invalid_then_valid_recovers(client_with):
     assert llm.calls == 2
 
 
+def test_three_clarifications_ok(client_with):
+    out = _bad(
+        lambda d: d.update(
+            clarifications=d["clarifications"] * 2
+            + [{"experienceId": 101, "question": "고친 뒤 정상 동작을 어떻게 확인했나요?"}]
+        )
+    )
+    res = client_with(FakeLLM(out)).post("/match", json=BODY)
+    assert res.status_code == 200
+    assert len(res.json()["clarifications"]) == 3
+
+
 def test_zero_recommendations_ok(client_with):
     out = {
         "requirements": [{"text": "해외 봉사", "status": "NOT_FOUND", "experienceIds": []}],
         "recommendations": [],
+        "clarifications": [],
     }
     res = client_with(FakeLLM(out)).post("/match", json=BODY)
     assert res.status_code == 200

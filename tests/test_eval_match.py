@@ -1,15 +1,24 @@
 """매칭 시험 자료(samples/match)와 채점 — LLM 없이."""
 
+import re
+
 import pytest
 
 from app.match import check_output, check_request
 from app.schemas import LLMMatchOutput, MatchExperience, MatchRequest, MatchResponse
-from scripts.eval_match import load_data, score
+from scripts.eval_match import (
+    load_data,
+    load_known,
+    nosupp_questions,
+    score,
+    strip_supplements,
+)
 
 EXPERIENCES, QUESTIONS = load_data(None)
 EXPS = [MatchExperience.model_validate(e) for e in EXPERIENCES]
 BY_ID = {e.id: e for e in EXPS}
 Q = {q["id"]: q for q in QUESTIONS}
+KNOWN = load_known()
 
 
 def test_pool_is_a_valid_request():
@@ -45,20 +54,21 @@ def test_demo_two_questions_pick_different_experiences_of_same_activity():
     assert BY_ID[tech["good"][0]].supplements
 
 
-def _response(requirements, recs):
+def _response(requirements, recs, clarifications=(), exps=EXPS):
     out = LLMMatchOutput.model_validate(
         {
             "requirements": [
                 {"text": t, "status": s, "experienceIds": ids} for t, s, ids in requirements
             ],
             "recommendations": recs,
+            "clarifications": [{"experienceId": i, "question": q} for i, q in clarifications],
         }
     )
-    check_output(out, EXPS)  # 채점하는 응답도 계약 규칙 안이다
+    check_output(out, exps)  # 채점하는 응답도 계약 규칙 안이다
     return MatchResponse(
         requirements=out.requirements,
         recommendations=out.recommendations,
-        clarifications=[],
+        clarifications=out.clarifications,
         model="fake",
     )
 
@@ -108,3 +118,59 @@ def test_score_partial_allows_zero():
     data = _response([("Python · SQL", "NOT_FOUND", []), ("데이터로 판단", "PARTIAL", [121])], [])
     s = score(Q["data-python-sql"], EXPS, data)
     assert (s.picked_right, s.picked_total, s.req_right) == (1, 1, 1)
+
+
+def test_known_facts_point_to_pool():
+    for fact in KNOWN:
+        exp = BY_ID[fact["experienceId"]]
+        items = exp.citations if fact["source"] == "CITATION" else exp.supplements
+        assert fact["id"] in {x.id for x in items}, fact
+        re.compile(fact["pattern"])
+        if fact["source"] == "SUPPLEMENT":
+            # 그 보완을 만든 질문 자체가 「다시 물음」으로 걸려야 한다
+            question = next(x.question for x in exp.supplements if x.id == fact["id"])
+            assert re.search(fact["pattern"], question), fact
+
+
+def test_nosupp_questions_are_those_with_supplement_answers():
+    ids = [q["id"] for q in nosupp_questions(EXPERIENCES, QUESTIONS)]
+    assert ids == ["tech-problem", "team-role", "data-python-sql"]
+    assert all(not e["supplements"] for e in strip_supplements(EXPERIENCES))
+
+
+def test_score_clarifications_with_supplement():
+    data = _response(
+        [("기술 문제 해결", "SUPPORTED", [101])],
+        [_rec(101, "r", [("SUPPLEMENT", 301)]), _rec(114, "r")],
+        [
+            (101, "직접 고친 부분은 어디였나요?"),  # 보완 301 에 있다 — 다시 물음
+            (101, "지연을 30% 줄이셨죠? 어떻게 쟀나요?"),  # 없는 수치 · 유도 · 두 개를 한 번에
+            (114, "더 자세히 알려 주세요."),  # 막연함 · 내 몫을 묻지 않음
+        ],
+    )
+    s = score(Q["tech-problem"], EXPS, data, KNOWN)
+    assert len(s.clarifications) == 3 and s.clar_empty == 0
+    assert len(s.repeats) == 1 and "직접 고친" in s.repeats[0]
+    assert s.repeat_chances == 3  # 101 의 보완 301 · 근거 201, 114 의 근거 214
+    assert len(s.leading) == 1 and "30%" in s.leading[0]
+    assert len(s.vague) == 1
+    assert len(s.compound) == 1
+    assert (s.share_asked, s.share_chances) == (0, 1)  # 114 UNKNOWN
+    assert s.gap_chances == 0  # 보완이 있는 자료
+
+
+def test_score_clarifications_without_supplement():
+    bare = [MatchExperience.model_validate(e) for e in strip_supplements(EXPERIENCES)]
+    data = _response(
+        [("기술 문제 해결", "SUPPORTED", [101])],
+        [_rec(101, "r"), _rec(114, "r")],
+        [
+            (101, "직접 고친 부분은 어디였나요?"),  # 보완이 없으니 빈칸을 물은 것
+            (114, "그 코드를 직접 고치셨다면 어떤 부분이었나요?"),
+        ],
+        exps=bare,
+    )
+    s = score(Q["tech-problem"], bare, data, KNOWN, stripped=True)
+    assert not s.repeats and (s.gap_asked, s.gap_chances) == (1, 1)
+    assert (s.share_asked, s.share_chances) == (1, 1)
+    assert not s.leading and not s.vague

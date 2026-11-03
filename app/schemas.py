@@ -206,10 +206,11 @@ class Clarification(BaseModel):
     question: NonBlank
 
 
-# LLM 이 내는 모양 — 되묻기(clarifications)는 AI#21 에서 더한다
+# LLM 이 내는 모양 — 개수가 넘치면 잘라 내지 않고 규칙 위반(다시 부른다)
 class LLMMatchOutput(BaseModel):
     requirements: list[Requirement] = Field(min_length=1, max_length=6)
     recommendations: list[Recommendation] = Field(max_length=3)
+    clarifications: list[Clarification] = Field(max_length=3)
 
 
 class MatchResponse(BaseModel):
