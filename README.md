@@ -12,12 +12,13 @@ BE 가 원본 텍스트를 보내면 활동 · 경험 · 근거 JSON 을 돌려�
 검증 방법 · 숫자 · 알려진 한계의 원본은 ETC [`docs/ai-scope.md`](https://github.com/woowangthon/WOOWANGTHON_TEAM_12_ETC/blob/main/docs/ai-scope.md) §2(「왜 AI 인가」 · 추출 채점) · §5(알려진 한계). 아래는 요약이고, 숫자가 다르면 ai-scope 가 맞다.
 
 - **추출(F-02)** — 지어낸 시험 자료 10건 · 손으로 적은 정답 · `scripts/eval_extract.py` 로 모델 3종을 채점했다(2026-11-03). 근거 발췌문은 LLM 이 아니라 코드(`app/citations.py`)가 원본과 대조하고, 우리 프롬프트로 뽑은 발췌문은 전부 원본에서 찾았다. 원문에 없는 수치 0건. 같은 모델에 범용 프롬프트(「이 자료에서 내 경험을 정리해 줘」)만 줄 때보다 경험을 6 ~ 9개 더 찾았다.
-- **매칭 · 되묻기(F-06 ~ F-08)** — 아직 검증 전(AI#20 · AI#21).
+- **매칭(F-06 · F-08)** — 지어낸 경험 20개 · 문항 10개 · 손으로 적은 정답 · `scripts/eval_match.py` 로 모델 3종을 채점했다(2026-11-03). 추천의 경험 · 근거 · 보완 ID 는 코드가 요청과 대조해 지어낸 ID 면 오류로 돌려준다. 맞는 경험이 없는 문항엔 모든 실행이 0개, 원문에 없는 수치 0건, 팀 · 모름 경험을 「내 일」로 말한 것 0건. 데모 두 문항(기술 문제 · 조율)에서 같은 활동의 다른 경험이 골라졌다. 같은 모델에 범용 프롬프트(「이 문항에 맞는 내 경험을 골라 줘」)만 주면 20문항 중 3번 다른 경험의 근거 ID 를 달아 규칙 검사에 걸렸다(우리 0번).
+- **되묻기(F-07)** — 아직 검증 전(AI#21).
 - **한계** — 정답은 AI 에이전트가 초안을 썼고 팀원 검토 전이다(AI#22). 표본이 작고 실제 노트는 1건이다. 근거 대조는 글이 원본에 있는지만 보고, 해석이 맞는지는 사람이 본다.
 
 ## 스택
 
-Python 3.12 · FastAPI · [uv](https://docs.astral.sh/uv/) · OpenAI(기본, 팀 크레딧) · Gemini(선택) — 모델은 `LLM_MODELS` 순서대로 쓰고 지금 못 쓰면 다음으로 넘어간다. 키가 없는 제공사는 건너뛴다
+Python 3.12 · FastAPI · [uv](https://docs.astral.sh/uv/) · OpenAI(기본, 팀 크레딧) · Gemini(선택) — 모델은 `LLM_MODELS`(추출) · `MATCH_LLM_MODELS`(매칭) 순서대로 쓰고 지금 못 쓰면 다음으로 넘어간다. 키가 없는 제공사는 건너뛴다
 
 ## 실행 방법
 
@@ -35,6 +36,7 @@ docker build -t woowang-ai . && docker run --rm --env-file .env -p 8000:8000 woo
 
 - `GET /health` → `{"status":"ok"}` (LLM 을 부르지 않는다 — 이미지 HEALTHCHECK 도 이것)
 - `POST /extract` → `{"sourceName": "회고.md", "text": "..."}`
+- `POST /match` → `{"question": {"organization": null, "text": "..."}, "experiences": [...]}` — 모양은 ETC `docs/contracts/ai-api.md`. 되묻기(`clarifications`)는 AI#21 전까지 `[]`
 
 진짜 LLM 으로 시험 자료를 돌려 결과를 눈으로 보기(파일마다 LLM 1회, 규칙 위반이면 1회 더):
 
@@ -51,6 +53,13 @@ uv run python scripts/eval_extract.py --prompts tuned --models openai:gpt-6-luna
 uv run python scripts/eval_extract.py --rescore eval-runs/<폴더>   # LLM 없이 다시 채점
 ```
 
+매칭은 지어낸 경험 · 문항(`samples/match/`)으로 같은 식으로 — 기본 10문항 × 2 = LLM 20회:
+
+```bash
+uv run python scripts/eval_match.py                        # MATCH_LLM_MODELS 첫 모델, 우리 · 범용 프롬프트
+uv run python scripts/eval_match.py --prompts tuned --models openai:gpt-6-luna,openai:gpt-5.4-mini
+```
+
 ## 검증
 
 ```bash
@@ -64,9 +73,11 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest -q
 | 파일 | 하는 일 |
 | --- | --- |
 | `app/main.py` | 엔드포인트 · 오류 응답 모양 |
-| `app/extract.py` | 프롬프트 · LLM 출력 검사 · 다시 시도 · 응답 만들기 |
+| `app/extract.py` | 추출 프롬프트 · LLM 출력 검사 · 응답 만들기 |
+| `app/match.py` | 매칭 프롬프트 · 경험 · 근거 · 보완 ID 가 요청에 있는지 검사 · 응답 만들기 |
 | `app/citations.py` | 근거 대조(S-04) — 발췌문이 원본에 있나, 몇 번째 줄인가. 「있다」의 기준은 파일 머리말 |
-| `app/llm.py` | OpenAI · Gemini 호출과 폴백 — 제공사를 더하면 여기 |
+| `app/llm.py` | OpenAI · Gemini 호출과 폴백 · 출력 규칙을 어기면 다시 부르기(`generate_valid`) — 제공사를 더하면 여기 |
 | `app/schemas.py` | 요청 · 응답 · LLM 출력 모양과 규칙 |
 | `app/config.py` | 환경 변수 — 뜻은 `.env.example` |
-| `scripts/eval_extract.py` | 시험 자료 채점 — 숫자의 뜻은 파일 머리말 |
+| `scripts/eval_extract.py` | 추출 시험 자료 채점 — 숫자의 뜻은 파일 머리말 |
+| `scripts/eval_match.py` | 매칭 시험 자료 채점 — 숫자의 뜻은 파일 머리말 |

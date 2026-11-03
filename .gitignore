@@ -18,5 +18,5 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
-# 추출 채점 결과 — scripts/eval_extract.py
+# 채점 결과 — scripts/eval_extract.py · scripts/eval_match.py
 eval-runs/

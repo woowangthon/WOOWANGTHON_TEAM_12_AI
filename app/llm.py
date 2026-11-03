@@ -8,6 +8,7 @@ import asyncio
 import copy
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -15,9 +16,10 @@ import openai
 from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types
+from pydantic import ValidationError
 
 from app.config import Settings
-from app.errors import LLMError, LLMTimeout
+from app.errors import LLMError, LLMInvalidOutput, LLMTimeout
 
 log = logging.getLogger(__name__)
 
@@ -189,9 +191,60 @@ class FallbackLLM:
         raise LLMError(f"쓸 수 있는 모델이 없습니다 — {summary}")
 
 
-def build_llm(settings: Settings) -> FallbackLLM:
+def build_llm(settings: Settings, models: tuple[tuple[str, str], ...] | None = None) -> FallbackLLM:
+    """models 를 안 주면 settings.llm_models(추출) 순서로."""
     providers: dict[str, Provider] = {
         "openai": OpenAIProvider(settings.openai_api_key),
         "gemini": GeminiProvider(settings.gemini_api_key),
     }
-    return FallbackLLM(settings.llm_models, providers, settings.llm_call_timeout_seconds)
+    return FallbackLLM(models or settings.llm_models, providers, settings.llm_call_timeout_seconds)
+
+
+@dataclass(frozen=True)
+class Valid[T]:
+    value: T
+    model: str
+    attempt: int
+    seconds: float
+
+
+async def generate_valid[T](
+    llm: JsonLLM,
+    system: str,
+    user: str,
+    schema: dict[str, Any],
+    parse: Callable[[str], T],
+    settings: Settings,
+) -> Valid[T]:
+    """LLM 출력을 parse 로 검사하고, 규칙을 벗어나면 다시 부른다(최대 settings.max_attempts 번).
+
+    parse 는 규칙 위반이면 ValueError(pydantic ValidationError 포함)를 던진다. 출력을 그럴듯하게
+    고치지 않는다 — 끝까지 벗어나면 LLMInvalidOutput(계약 ai-api 「응답 규칙」).
+    """
+    deadline = time.monotonic() + settings.llm_timeout_seconds
+    last_error = ""
+    for attempt in range(1, settings.max_attempts + 1):
+        if deadline - time.monotonic() <= 0:
+            raise LLMTimeout(f"다시 시도할 시간이 남지 않았습니다(이전 오류: {last_error})")
+        started = time.monotonic()
+        result = await llm.generate_json(system, user, schema, deadline)
+        elapsed = time.monotonic() - started
+        try:
+            value = parse(result.text)
+        except ValidationError as e:
+            first = e.errors()[0]
+            last_error = f"{e.error_count()}개 규칙 위반: {first['loc']} {first['msg']}"
+        except ValueError as e:
+            last_error = str(e)
+        else:
+            return Valid(value=value, model=result.model, attempt=attempt, seconds=elapsed)
+        log.warning(
+            "LLM 출력 규칙 위반 attempt=%d model=%s elapsed=%.1fs %s",
+            attempt,
+            result.model,
+            elapsed,
+            last_error,
+        )
+    raise LLMInvalidOutput(
+        f"LLM 출력이 {settings.max_attempts}번 모두 규칙을 벗어났습니다 — {last_error}"
+    )
