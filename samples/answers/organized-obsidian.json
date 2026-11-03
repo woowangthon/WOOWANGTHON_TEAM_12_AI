@@ -2,6 +2,7 @@
   "activities": [
     {
       "name": "오늘한끼 백엔드 인턴",
+      "keys": ["오늘한끼"],
       "experiences": [
         { "anchor": "내가 쿼리 로그를 뽑아 보니 인덱스가 없는 컬럼으로 조회하고 있었다", "actor": ["ME"] },
         { "anchor": "인덱스를 추가해 응답 시간을 1.2초에서 0.3초로 줄였다", "actor": ["ME", "UNKNOWN"] },
@@ -13,6 +14,7 @@
     },
     {
       "name": "학과 학생회 IT 부",
+      "keys": ["학생회"],
       "experiences": [
         { "anchor": "부장이 제안해서 학생회 홈페이지 신청 페이지로 옮겼다", "actor": ["TEAM", "UNKNOWN"] },
         { "anchor": "나는 신청 페이지의 중복 신청 막기 기능을 만들었다", "actor": ["ME"] },

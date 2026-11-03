@@ -1,0 +1,120 @@
+{
+  "activities": [
+    {
+      "name": "기술블로그 운영",
+      "keys": ["기술블로그"],
+      "experiences": [
+        { "anchor": "2학년 때 시작했다가 시험 기간마다 멈춤", "actor": ["ME", "UNKNOWN"], "optional": true },
+        { "anchor": "지금은 한 달에 한 편 정도", "actor": ["ME", "UNKNOWN"], "optional": true }
+      ]
+    },
+    {
+      "name": "할일앱 클론코딩",
+      "keys": ["할일앱"],
+      "experiences": [
+        { "anchor": "강의 예제를 내 식으로 바꿔 봤다", "actor": ["ME", "UNKNOWN"] },
+        { "anchor": "알림 기능은 내가 새로 붙였다", "actor": ["ME"] },
+        { "anchor": "강의만 보니까 남는 게 없어서", "actor": ["ME", "UNKNOWN"], "optional": true },
+        { "anchor": "로그인은 강의 코드를 그대로 썼고", "actor": ["ME", "UNKNOWN"], "optional": true }
+      ]
+    },
+    {
+      "name": "웹프로그래밍 수업 팀 프로젝트",
+      "keys": ["웹프"],
+      "experiences": []
+    },
+    {
+      "name": "개인 가계부 앱",
+      "keys": ["가계부"],
+      "experiences": [
+        { "anchor": "3주 하다가 기획이 자꾸 바뀌어서 멈춤", "actor": ["ME", "UNKNOWN"] }
+      ]
+    },
+    {
+      "name": "코드잇 부트캠프 단기",
+      "keys": ["부트캠프"],
+      "experiences": []
+    },
+    {
+      "name": "코딩동아리 브릿지 7기",
+      "keys": ["브릿지 7기"],
+      "experiences": []
+    },
+    {
+      "name": "브릿지 해커톤",
+      "keys": ["해커톤"],
+      "experiences": [
+        { "anchor": "나는 지도 API 연동 담당", "actor": ["ME"] },
+        { "anchor": "브릿지 해커톤_우수상.pdf", "actor": ["ME", "TEAM", "UNKNOWN"], "optional": true }
+      ]
+    },
+    {
+      "name": "정보처리기사 필기",
+      "keys": ["정보처리기사"],
+      "experiences": []
+    },
+    {
+      "name": "캡스톤 디자인",
+      "keys": ["캡스톤"],
+      "experiences": []
+    },
+    {
+      "name": "학과 멘토링 멘티",
+      "keys": ["멘토링"],
+      "experiences": []
+    },
+    {
+      "name": "대학 전공수업",
+      "keys": ["전공수업", "프로그래밍 기초", "이산수학"],
+      "optional": true,
+      "experiences": []
+    },
+    {
+      "name": "컴활 1급",
+      "keys": ["컴활"],
+      "optional": true,
+      "experiences": []
+    },
+    {
+      "name": "카카오 인턴 지원",
+      "keys": ["카카오"],
+      "optional": true,
+      "experiences": [
+        { "anchor": "서류 탈락", "actor": ["ME", "UNKNOWN"], "optional": true }
+      ]
+    },
+    {
+      "name": "대외활동 서포터즈 지원",
+      "keys": ["서포터즈"],
+      "optional": true,
+      "experiences": [
+        { "anchor": "면접에서 떨어짐", "actor": ["ME", "UNKNOWN"], "optional": true }
+      ]
+    },
+    {
+      "name": "현직자 특강",
+      "keys": ["특강"],
+      "optional": true,
+      "experiences": []
+    }
+  ],
+  "notExperiences": [
+    "24-1 웹프로그래밍 팀플 회고",
+    "240302_웹프 팀플",
+    "240715-코드잇 부트캠프 단기",
+    "부트캠프 수료증.pdf",
+    "브릿지 7기 지원서_구글폼",
+    "250520-브릿지 해커톤 회고",
+    "250301-정보처리기사 필기",
+    "251001-캡스톤 디자인",
+    "250915-학과 멘토링 멘티"
+  ],
+  "notActivities": [
+    "프롬프트 모음",
+    "스프링 입문",
+    "JPA 기본편",
+    "Git 사용법",
+    "캐시 전략",
+    "테스트 코드 작성"
+  ]
+}

@@ -2,6 +2,7 @@
   "activities": [
     {
       "name": "웹프로그래밍 수업 조별 과제",
+      "keys": ["웹프로그래밍"],
       "experiences": [
         { "anchor": "나는 프론트를 맡아 React 로 좌석 배치도 화면을 그렸다", "actor": ["ME"] },
         { "anchor": "발표는 조장이 했다", "actor": ["TEAM"] },
@@ -10,6 +11,7 @@
     },
     {
       "name": "코딩 동아리 바이트",
+      "keys": ["바이트"],
       "experiences": [
         { "anchor": "신입 부원 대상 Git 기초 세션을 내가 두 번 진행했다", "actor": ["ME"] },
         { "anchor": "동아리 홈페이지는 선배들이 만든 걸 그대로 씀", "actor": ["TEAM", "UNKNOWN"], "optional": true }
@@ -17,6 +19,7 @@
     },
     {
       "name": "교내 해커톤 밤샘코딩",
+      "keys": ["해커톤"],
       "experiences": [
         { "anchor": "내가 카카오톡 챗봇 연결 부분을 붙였고", "actor": ["ME"] },
         { "anchor": "데이터 정리는 팀원이 했다", "actor": ["TEAM"] },
@@ -27,6 +30,7 @@
     },
     {
       "name": "CS 스터디",
+      "keys": ["CS 스터디"],
       "experiences": [
         { "anchor": "매주 운영체제 책 한 챕터씩 읽고 발표", "actor": ["TEAM", "UNKNOWN", "ME"] },
         { "anchor": "내가 발표 순서 정하는 걸 맡고 있음", "actor": ["ME"] }

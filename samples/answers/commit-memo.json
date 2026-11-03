@@ -2,6 +2,7 @@
   "activities": [
     {
       "name": "개인 블로그 글밭",
+      "keys": ["글밭"],
       "experiences": [
         { "anchor": "한글 제목 slug 깨지는 문제 → encodeURIComponent 로", "actor": ["ME"] },
         { "anchor": "이미지 lazy loading — 첫 화면 너무 느려서", "actor": ["ME"] },
@@ -13,5 +14,7 @@
       ]
     }
   ],
-  "notExperiences": ["방문자 거의 없음"]
+  "notExperiences": [
+    "방문자 거의 없음"
+  ]
 }
