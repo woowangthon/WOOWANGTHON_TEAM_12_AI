@@ -7,8 +7,10 @@ PROVIDERS = ("openai", "gemini")
 # 기본은 팀 OpenAI 크레딧. Gemini 는 GEMINI_API_KEY 가 있을 때만 쓰는 선택 폴백.
 # 고르는 규칙: 지원 중인 모델을 최근 세대부터, 비싼 등급(astra · pro)과 지원 종료 예정은 뺀다.
 # 같은 세대가 함께 막힐 때를 대비해 끝에 다른 세대를 하나 둔다. 바꾸면 ETC ai-scope.md §2 도
+# 첫 모델은 시험 자료 채점(scripts/eval_extract.py, AI#5)으로 골랐다 — luna 는 활동을 빠뜨리지 않고 가장 싸다.
+# terra 는 짧은 메모에서 활동을 통째로 빠뜨렸다(2회 중 2회)
 DEFAULT_MODELS = (
-    "openai:gpt-6.1-terra,openai:gpt-6-luna,openai:gpt-5.4-mini,"
+    "openai:gpt-6-luna,openai:gpt-6.1-terra,openai:gpt-5.4-mini,"
     "gemini:gemini-3.5-flash,gemini:gemini-3.5-flash-lite"
 )
 

@@ -34,6 +34,15 @@ docker build -t woowang-ai . && docker run --rm --env-file .env -p 8000:8000 woo
 uv run python scripts/try_extract.py samples/*.md
 ```
 
+시험 자료를 손으로 적은 정답(`samples/answers/`)으로 채점하기 — 프롬프트 · 모델을 바꾼 뒤 숫자가 나빠지지 않았는지 본다.
+기본은 지금 첫 모델로 우리 프롬프트 · 범용 프롬프트(「이 자료에서 내 경험을 정리해 줘」) 둘 다 — 9건 × 2 = LLM 18회:
+
+```bash
+uv run python scripts/eval_extract.py                      # 결과는 eval-runs/<시각>/summary.md (커밋하지 않음)
+uv run python scripts/eval_extract.py --prompts tuned --models openai:gpt-6-luna,openai:gpt-5.4-mini
+uv run python scripts/eval_extract.py --rescore eval-runs/<폴더>   # LLM 없이 다시 채점
+```
+
 ## 검증
 
 ```bash
@@ -48,6 +57,8 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest -q
 | --- | --- |
 | `app/main.py` | 엔드포인트 · 오류 응답 모양 |
 | `app/extract.py` | 프롬프트 · LLM 출력 검사 · 다시 시도 · 응답 만들기 |
+| `app/citations.py` | 근거 대조(S-04) — 발췌문이 원본에 있나, 몇 번째 줄인가. 「있다」의 기준은 파일 머리말 |
 | `app/llm.py` | OpenAI · Gemini 호출과 폴백 — 제공사를 더하면 여기 |
 | `app/schemas.py` | 요청 · 응답 · LLM 출력 모양과 규칙 |
 | `app/config.py` | 환경 변수 — 뜻은 `.env.example` |
+| `scripts/eval_extract.py` | 시험 자료 채점 — 숫자의 뜻은 파일 머리말 |

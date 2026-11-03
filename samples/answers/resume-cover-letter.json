@@ -1,0 +1,23 @@
+{
+  "activities": [
+    {
+      "name": "창업 동아리 스타트온",
+      "experiences": [
+        { "anchor": "동아리 공동구매 사이트 개발", "actor": ["ME", "UNKNOWN"] },
+        { "anchor": "저는 주 1회 짧은 진행 공유 시간을 만들자고 제안했고", "actor": ["ME"] },
+        { "anchor": "저는 Firebase 트랜잭션으로 재고를 줄이도록 바꿔 초과 판매를 막았습니다", "actor": ["ME"] },
+        { "anchor": "회원 수 120명 규모 커뮤니티 운영 참여", "actor": ["ME", "UNKNOWN"], "optional": true },
+        { "anchor": "이후 팀의 개발 속도가 크게 빨라졌습니다", "actor": ["ME", "TEAM", "UNKNOWN"], "optional": true },
+        { "anchor": "소통이 협업의 핵심이라는 것을 배웠습니다", "actor": ["ME", "UNKNOWN"], "optional": true },
+        { "anchor": "동시성 문제를 처음 제대로 이해하게 되었습니다", "actor": ["ME", "UNKNOWN"], "optional": true }
+      ]
+    },
+    {
+      "name": "구청 행정 인턴",
+      "experiences": [
+        { "anchor": "민원 접수 엑셀 서식 정리", "actor": ["ME", "UNKNOWN"] }
+      ]
+    }
+  ],
+  "notExperiences": ["저는 팀의 성공을 위해 누구보다 헌신하는 사람입니다"]
+}

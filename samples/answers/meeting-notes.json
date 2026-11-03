@@ -1,0 +1,22 @@
+{
+  "activities": [
+    {
+      "name": "다온 봉사 동아리 앱 TF",
+      "experiences": [
+        { "anchor": "한결: QR 체크인 제안", "actor": ["TEAM"] },
+        { "anchor": "서윤: 기관 담당자 확인 서명이 필요하다는 의견", "actor": ["TEAM"] },
+        { "anchor": "결정: QR 체크인 + 월말에 기관 확인 한 번", "actor": ["TEAM", "UNKNOWN"] },
+        { "anchor": "나는 기관 담당자 연락과 테스트 일정 잡기", "actor": ["ME"] },
+        { "anchor": "나 — 지난 회의록 노션 정리", "actor": ["ME"] },
+        { "anchor": "나 — 협력 기관 세 곳에 확인 방식 문의 메일 보내기", "actor": ["ME"], "optional": true },
+        { "anchor": "서버는 한결", "actor": ["TEAM"], "optional": true },
+        { "anchor": "앱 화면은 서윤", "actor": ["TEAM"], "optional": true },
+        { "anchor": "회장이 엑셀에 옮김", "actor": ["TEAM"], "optional": true },
+        { "anchor": "한결 — QR 생성 API", "actor": ["TEAM"], "optional": true },
+        { "anchor": "서윤 — 체크인 화면 시안", "actor": ["TEAM"], "optional": true },
+        { "anchor": "6월 말까지 체크인 기능만 먼저", "actor": ["TEAM", "UNKNOWN"], "optional": true }
+      ]
+    }
+  ],
+  "notExperiences": []
+}

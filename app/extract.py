@@ -1,7 +1,7 @@
-"""원본 텍스트 → 활동 · 경험 · 근거 (SPEC F-02 / S-03 · S-05 · S-06).
+"""원본 텍스트 → 활동 · 경험 · 근거 (SPEC F-02 / S-03 · S-04 · S-05 · S-06).
 
-근거가 원본에 실제로 있는지 대조하는 일(S-04)은 아직 없다(AI#5). 그래서 모든 근거는
-matched: null, 모든 경험은 NEEDS_REVIEW 다 — 확인하지 않은 것을 확인했다고 돌려주지 않는다.
+LLM 이 단 근거는 코드가 원본과 대조한다(app.citations, S-04). 출처 상태도 LLM 이 아니라 그 결과로 정한다 —
+근거가 1개 이상이고 전부 찾았으면 SOURCE_CONFIRMED, 아니면 NEEDS_REVIEW(계약 ai-api 「응답 규칙」).
 """
 
 import logging
@@ -10,6 +10,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from app.citations import SourceIndex
 from app.config import Settings
 from app.errors import InvalidRequest, LLMInvalidOutput, LLMTimeout, TextTooLong
 from app.llm import JsonLLM
@@ -20,7 +21,9 @@ from app.schemas import (
     Experience,
     ExtractRequest,
     ExtractResponse,
+    LLMExperience,
     LLMOutput,
+    Location,
 )
 
 log = logging.getLogger(__name__)
@@ -143,24 +146,33 @@ def build_user_message(source_name: str | None, text: str) -> str:
     return f"원본 이름: {source_name or '(없음)'}\n\n<원본>\n{text}\n</원본>"
 
 
-def to_response(output: LLMOutput, model: str | None) -> ExtractResponse:
+def check_citations(exp: LLMExperience, source: SourceIndex) -> Experience:
+    citations = []
+    for quote in exp.quotes:
+        found = source.find(quote)
+        location = Location(startLine=found.start_line, endLine=found.end_line) if found else None
+        citations.append(Citation(quote=quote, matched=found is not None, location=location))
+    confirmed = bool(citations) and all(c.matched for c in citations)
+    if not confirmed:
+        log.info("근거를 원본에서 못 찾음 — 확인 필요로 둡니다: %s", [c.quote for c in citations])
+    return Experience(
+        content=exp.content,
+        competencies=exp.competencies,
+        actor=exp.actor,
+        sourceStatus="SOURCE_CONFIRMED" if confirmed else "NEEDS_REVIEW",
+        citations=citations,
+    )
+
+
+def to_response(output: LLMOutput, model: str | None, text: str) -> ExtractResponse:
+    source = SourceIndex(text)
     activities: list[Activity] = []
     for act in output.activities:
         if not act.experiences:
             # 계약: 경험이 없는 활동은 돌려주지 않는다. 지어낸 게 아니라 빈 묶음을 빼는 것
             log.info("경험 없는 활동을 뺐습니다")
             continue
-        experiences = [
-            Experience(
-                content=exp.content,
-                competencies=exp.competencies,
-                actor=exp.actor,
-                # 근거 대조(AI#5) 전이라 확인하지 않았다 — matched: null → NEEDS_REVIEW
-                sourceStatus="NEEDS_REVIEW",
-                citations=[Citation(quote=q, matched=None, location=None) for q in exp.quotes],
-            )
-            for exp in act.experiences
-        ]
+        experiences = [check_citations(exp, source) for exp in act.experiences]
         activities.append(Activity(name=act.name, period=act.period, experiences=experiences))
     return ExtractResponse(activities=activities, model=model)
 
@@ -173,7 +185,10 @@ def check_request(req: ExtractRequest, settings: Settings) -> str:
     return req.text
 
 
-async def extract(req: ExtractRequest, llm: JsonLLM, settings: Settings) -> ExtractResponse:
+async def extract(
+    req: ExtractRequest, llm: JsonLLM, settings: Settings, system: str = SYSTEM_PROMPT
+) -> ExtractResponse:
+    """system 은 시험용(scripts/eval_extract.py 가 범용 프롬프트와 견줄 때)만 바꾼다."""
     text = check_request(req, settings)
     user = build_user_message(req.sourceName, text)
     deadline = time.monotonic() + settings.llm_timeout_seconds
@@ -183,7 +198,7 @@ async def extract(req: ExtractRequest, llm: JsonLLM, settings: Settings) -> Extr
         if deadline - time.monotonic() <= 0:
             raise LLMTimeout(f"다시 시도할 시간이 남지 않았습니다(이전 오류: {last_error})")
         started = time.monotonic()
-        result = await llm.generate_json(SYSTEM_PROMPT, user, LLM_JSON_SCHEMA, deadline)
+        result = await llm.generate_json(system, user, LLM_JSON_SCHEMA, deadline)
         elapsed = time.monotonic() - started
         try:
             output = LLMOutput.model_validate_json(result.text)
@@ -207,7 +222,7 @@ async def extract(req: ExtractRequest, llm: JsonLLM, settings: Settings) -> Extr
             len(text),
             len(output.activities),
         )
-        return to_response(output, result.model)
+        return to_response(output, result.model, text)
 
     raise LLMInvalidOutput(
         f"LLM 출력이 {settings.max_attempts}번 모두 규칙을 벗어났습니다 — {last_error}"

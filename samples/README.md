@@ -2,10 +2,20 @@
 
 SAMPLE(extract-samples): 전부 **지어낸** 자료다. 실제 사람 · 노트 · 자소서가 아니다(공개 레포). 실제 노트로는 로컬에서만 돌려 본다.
 
-`/extract` 결과를 손으로 확인할 때 쓴다 — `uv run python scripts/try_extract.py samples/*.md`.
+- 눈으로 보기: `uv run python scripts/try_extract.py samples/<파일>.md`
+- 채점: `uv run python scripts/eval_extract.py` — 정답은 `answers/<같은 이름>.json`, 숫자의 뜻은 스크립트 머리말
 
-| 파일 | 보는 것 | 손으로 확인할 곳 |
+| 파일 | 사용자 | 보는 것 |
 | --- | --- | --- |
-| `mixed-notes.md` | S-03 활동이 여럿 섞인 목록형 노트 | 활동 4개로 나뉘나 · 기간이 원문만큼만(「2023년 2학기」→ `2023`) · 진행 중 스터디가 `ongoing` |
-| `team-retro.md` | S-06 팀 프로젝트 회고 | 팀원 · 「우리는」이 한 일이 `ME` 가 아니나 · 주어 없는 문장이 `UNKNOWN` 이나 |
-| `readme-no-numbers.md` | S-05 수치 없는 README | 경험에 수치 · 성과(「N% 개선」「사용자 N명」)가 생기지 않나 |
+| `mixed-notes.md` | 대충 정리하는 사람 — 목록형 노트 | S-03 활동 4개로 나뉘나 · 기간이 원문만큼만(「2023년 2학기」→ `2023`) · 진행 중 스터디가 `ongoing` |
+| `team-retro.md` | 팀 회고를 쓴 사람 | S-06 팀원 · 「우리는」이 한 일이 `ME` 가 아니나 · 주어 없는 문장이 `UNKNOWN` 이나 |
+| `readme-no-numbers.md` | 개인 프로젝트 README | S-05 경험에 수치 · 성과(「N% 개선」「사용자 N명」)가 생기지 않나 |
+| `organized-obsidian.md` | 잘 정리하는 사람 — 옵시디언처럼 활동별 노트 | 수치가 있는 문장은 원문 수치 그대로 · 「부장이 제안해서」 옮긴 일을 `ME` 로 올리지 않나 · 「배포는 사수가」 |
+| `team-readme.md` | 정리 안 하는 사람 — 팀 프로젝트 README 만 | 기능 목록 · 팀원 표를 내 일(`ME`)로 만들지 않나 · 실행 명령을 경험으로 뽑지 않나 |
+| `commit-memo.md` | 정리 안 하는 사람 — 커밋 메모만 | 혼자 한 프로젝트라 `ME` · 「방문자 거의 없음」에 수치를 붙이지 않나 |
+| `meeting-notes.md` | 정리 안 하는 사람 — 노션 회의록만 | 이름이 나온 사람의 제안 · 담당은 `TEAM` · 안 한 할 일(`[ ]`)을 한 일처럼 쓰지 않나 |
+| `sparse-memo.md` | 드문드문 기록하는 사람 — 몇 줄 · 날짜 없음 | 활동 3개 · 기간 `null` · 「마감이 빨라짐」「성적 올랐다」에 수치를 붙이지 않나 |
+| `resume-cover-letter.md` | 지원서를 써 본 사람 — 이력서 · 자소서 | 과장 문장(「누구보다 헌신하는」)을 경험으로 뽑지 않나 · 「크게 빨라졌습니다」에 없는 수치를 더하지 않나 · `2024.03` → `2024-03` |
+
+정답(`answers/*.json`)은 원문을 읽고 손으로 적는다(처음 9건은 AI 에이전트 초안 — 팀원이 보고 고친다). 경험은 원문 구절(`anchor`) · 맞는 수행 주체(`actor`, 판단이 갈리면 여럿)로,
+있어도 없어도 되는 것은 `optional`, 경험으로 뽑으면 안 되는 것은 `notExperiences` 로 적는다. 구절이 원본에 있는지는 `tests/test_eval_answers.py` 가 본다.
