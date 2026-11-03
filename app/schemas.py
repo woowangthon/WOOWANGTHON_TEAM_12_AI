@@ -133,3 +133,87 @@ class Activity(BaseModel):
 class ExtractResponse(BaseModel):
     activities: list[Activity]
     model: str | None
+
+
+# ==== POST /match — ETC docs/contracts/ai-api.md 「POST /match」 ====
+# 요청은 BE 가 저장한 값 그대로라 너그럽게 받는다(역량 · 기간 모양까지 다시 따지지 않는다 — 매칭에 쓰지 않거나
+# 문맥 단서로만 쓴다). LLM 출력은 엄격하게 본다.
+
+RequirementStatus = Literal["SUPPORTED", "PARTIAL", "NOT_FOUND"]
+EvidenceType = Literal["CITATION", "SUPPLEMENT"]
+
+
+class MatchQuestion(BaseModel):
+    organization: str | None = None
+    text: str | None = None
+
+
+class MatchPeriod(BaseModel):
+    start: str | None = None
+    end: str | None = None
+    ongoing: bool = False
+
+
+class MatchCitation(BaseModel):
+    id: int
+    quote: str
+
+
+class MatchSupplement(BaseModel):
+    id: int
+    question: str
+    answer: str
+
+
+class MatchExperience(BaseModel):
+    id: int
+    activityName: str | None = None
+    period: MatchPeriod | None = None
+    content: str
+    competencies: list[str] = []
+    actor: Actor
+    sourceStatus: str | None = None
+    citations: list[MatchCitation] = []
+    supplements: list[MatchSupplement] = []
+
+
+class MatchRequest(BaseModel):
+    question: MatchQuestion | None = None
+    experiences: list[MatchExperience] | None = None
+
+
+class Requirement(BaseModel):
+    text: NonBlank
+    status: RequirementStatus
+    experienceIds: list[int]
+
+
+class Evidence(BaseModel):
+    type: EvidenceType
+    id: int
+
+
+class Recommendation(BaseModel):
+    experienceId: int
+    reason: NonBlank
+    emphasis: NonBlank
+    evidence: list[Evidence]
+    gaps: list[NonBlank]
+
+
+class Clarification(BaseModel):
+    experienceId: int
+    question: NonBlank
+
+
+# LLM 이 내는 모양 — 되묻기(clarifications)는 AI#21 에서 더한다
+class LLMMatchOutput(BaseModel):
+    requirements: list[Requirement] = Field(min_length=1, max_length=6)
+    recommendations: list[Recommendation] = Field(max_length=3)
+
+
+class MatchResponse(BaseModel):
+    requirements: list[Requirement]
+    recommendations: list[Recommendation]
+    clarifications: list[Clarification]
+    model: str | None

@@ -12,7 +12,8 @@ from app.config import Settings, load_settings
 from app.errors import ApiError
 from app.extract import extract
 from app.llm import JsonLLM, build_llm
-from app.schemas import ExtractRequest, ExtractResponse
+from app.match import match
+from app.schemas import ExtractRequest, ExtractResponse, MatchRequest, MatchResponse
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("app")
@@ -28,6 +29,12 @@ def get_settings() -> Settings:
 @lru_cache
 def get_llm() -> JsonLLM:
     return build_llm(get_settings())
+
+
+@lru_cache
+def get_match_llm() -> JsonLLM:
+    settings = get_settings()
+    return build_llm(settings, settings.match_models)
 
 
 def _error(status: int, code: str, message: str) -> JSONResponse:
@@ -63,3 +70,12 @@ async def post_extract(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> ExtractResponse:
     return await extract(req, llm, settings)
+
+
+@app.post("/match", response_model=MatchResponse)
+async def post_match(
+    req: MatchRequest,
+    llm: Annotated[JsonLLM, Depends(get_match_llm)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> MatchResponse:
+    return await match(req, llm, settings)

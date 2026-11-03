@@ -1,0 +1,232 @@
+[
+  {
+    "id": 101,
+    "activityName": "바꿔요 — 캠퍼스 중고거래 앱",
+    "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
+    "content": "채팅 메시지가 늦게 도착하는 문제를 폴링에서 WebSocket 으로 바꿔 해결했다",
+    "competencies": ["PROBLEM_SOLVING", "IMPLEMENTATION"],
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [{ "id": 201, "quote": "채팅 메시지가 늦게 도착하는 문제가 있었다. 내가 폴링을 WebSocket 으로 바꿔 해결했다." }],
+    "supplements": [
+      { "id": 301, "question": "폴링을 WebSocket 으로 바꿀 때 직접 고친 부분은 어디였나요?", "answer": "서버에 STOMP 엔드포인트를 만들고, 앱의 3초 폴링 코드를 구독 방식으로 바꿨다" }
+    ]
+  },
+  {
+    "id": 102,
+    "activityName": "바꿔요 — 캠퍼스 중고거래 앱",
+    "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
+    "content": "매주 금요일 스프린트 회고를 했다",
+    "competencies": ["COLLABORATION"],
+    "actor": "TEAM",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [{ "id": 202, "quote": "팀은 매주 금요일 스프린트 회고를 했다." }],
+    "supplements": []
+  },
+  {
+    "id": 103,
+    "activityName": "바꿔요 — 캠퍼스 중고거래 앱",
+    "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
+    "content": "서비스를 AWS 에 배포했다",
+    "competencies": ["IMPLEMENTATION"],
+    "actor": "TEAM",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [{ "id": 203, "quote": "배포는 팀원이 맡아 AWS 에 올렸다." }],
+    "supplements": []
+  },
+  {
+    "id": 104,
+    "activityName": "바꿔요 — 캠퍼스 중고거래 앱",
+    "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
+    "content": "백엔드 API 설계를 맡았다",
+    "competencies": ["IMPLEMENTATION"],
+    "actor": "ME",
+    "sourceStatus": "NEEDS_REVIEW",
+    "citations": [{ "id": 204, "quote": "나는 백엔드 API 설계를 전부 맡았다." }],
+    "supplements": []
+  },
+  {
+    "id": 106,
+    "activityName": "바꿔요 — 캠퍼스 중고거래 앱",
+    "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
+    "content": "중간 발표 전 일정이 밀리자 남은 기능을 꼭 할 것과 미룰 것으로 나눠 일정표를 다시 짰다",
+    "competencies": ["PLANNING", "OPERATION"],
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [{ "id": 206, "quote": "중간 발표 2주 전에 일정이 밀려서, 내가 남은 기능을 꼭 할 것과 미룰 것으로 나눠 일정표를 다시 짰다." }],
+    "supplements": []
+  },
+  {
+    "id": 107,
+    "activityName": "바꿔요 — 캠퍼스 중고거래 앱",
+    "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
+    "content": "거래 후기 화면을 두고 디자이너와 개발 쪽 의견이 갈리자 두 안의 장단점을 표로 정리해 회의에서 하나로 정했다",
+    "competencies": ["COMMUNICATION", "COLLABORATION"],
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      { "id": 207, "quote": "거래 후기 화면을 두고 디자이너와 개발 쪽 의견이 갈렸다." },
+      { "id": 208, "quote": "나는 두 안의 장단점을 표로 정리해 회의에 올렸고, 그 자리에서 별점 없이 한 줄 후기만 받기로 정했다." }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 105,
+    "activityName": "알고리즘 스터디",
+    "period": { "start": "2024-09", "end": null, "ongoing": true },
+    "content": "매주 풀 문제를 고른다",
+    "competencies": ["OPERATION"],
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [{ "id": 205, "quote": "내가 문제 선정을 맡는다." }],
+    "supplements": []
+  },
+  {
+    "id": 108,
+    "activityName": "알고리즘 스터디",
+    "period": { "start": "2024-09", "end": null, "ongoing": true },
+    "content": "참여가 줄자 출석 체크 대신 풀이 공유 시트를 만들어 각자 푼 문제를 적게 했다",
+    "competencies": ["OPERATION", "INITIATIVE"],
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [{ "id": 209, "quote": "한동안 참여가 줄어서, 내가 출석 체크 대신 풀이 공유 시트를 만들어 각자 푼 문제를 적게 했다." }],
+    "supplements": []
+  },
+  {
+    "id": 111,
+    "activityName": "모여봄 — 동네 소모임 앱",
+    "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
+    "content": "매주 월요일 30분씩 스탠드업을 해서 일정이 밀리는 걸 일찍 알았다",
+    "competencies": ["COLLABORATION"],
+    "actor": "TEAM",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [{ "id": 211, "quote": "우리는 매주 월요일 30분씩 스탠드업을 했다. 일정이 밀리는 걸 일찍 알 수 있었다." }],
+    "supplements": []
+  },
+  {
+    "id": 112,
+    "activityName": "모여봄 — 동네 소모임 앱",
+    "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
+    "content": "거리와 관심사를 섞어 점수를 매기는 모임 추천 로직을 만들었다",
+    "competencies": ["IMPLEMENTATION"],
+    "actor": "TEAM",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [{ "id": 212, "quote": "모임 추천 로직은 민호가 거리와 관심사를 섞어 점수를 매기도록 만들었다." }],
+    "supplements": []
+  },
+  {
+    "id": 113,
+    "activityName": "모여봄 — 동네 소모임 앱",
+    "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
+    "content": "로그인과 알림 서버를 맡아 FCM 으로 모임 시작 알림을 보내게 했다",
+    "competencies": ["IMPLEMENTATION"],
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [{ "id": 213, "quote": "나는 로그인과 알림 서버를 맡았다. FCM 으로 모임 시작 알림을 보내게 했다." }],
+    "supplements": []
+  },
+  {
+    "id": 114,
+    "activityName": "모여봄 — 동네 소모임 앱",
+    "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
+    "content": "중간 발표 직전 서버가 자주 죽은 원인이 DB 커넥션을 닫지 않은 코드여서 고쳤다",
+    "competencies": ["PROBLEM_SOLVING"],
+    "actor": "UNKNOWN",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [{ "id": 214, "quote": "중간 발표 직전에 서버가 자주 죽었다. 원인은 DB 커넥션을 닫지 않은 코드였고, 고쳤다." }],
+    "supplements": []
+  },
+  {
+    "id": 115,
+    "activityName": "모여봄 — 동네 소모임 앱",
+    "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
+    "content": "테스트를 거의 쓰지 않아 막판에 버그가 몰린 것을 돌아보고, 다음엔 처음부터 테스트를 같이 쓰기로 정했다",
+    "competencies": ["LEARNING"],
+    "actor": "TEAM",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      { "id": 215, "quote": "테스트를 거의 쓰지 않아서 막판에 버그가 몰렸다." },
+      { "id": 216, "quote": "처음부터 테스트를 같이 쓰자고 팀에서 정했다." }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 116,
+    "activityName": "모여봄 — 동네 소모임 앱",
+    "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
+    "content": "다음 프로젝트에선 장애가 나면 로그부터 남기고 보겠다고 다짐했다",
+    "competencies": ["LEARNING"],
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [{ "id": 217, "quote": "나는 다음 프로젝트에선 장애가 나면 로그부터 남기고 보겠다고 다짐했다." }],
+    "supplements": []
+  },
+  {
+    "id": 121,
+    "activityName": "카페 아르바이트",
+    "period": { "start": "2024-01", "end": "2024-12", "ongoing": false },
+    "content": "매주 마감 뒤 재고를 엑셀 표로 정리해 사장님께 다음 주 발주량을 제안했다",
+    "competencies": ["ANALYSIS", "INITIATIVE"],
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [{ "id": 221, "quote": "매주 일요일 마감 뒤 재고를 엑셀 표로 정리해서 사장님께 다음 주 발주량을 제안했다." }],
+    "supplements": [
+      { "id": 321, "question": "엑셀 표에는 무엇을 정리했나요?", "answer": "품목별로 남은 양과 지난 4주 판매량을 나란히 적었다" }
+    ]
+  },
+  {
+    "id": 122,
+    "activityName": "카페 아르바이트",
+    "period": { "start": "2024-01", "end": "2024-12", "ongoing": false },
+    "content": "새로 온 아르바이트생이 보도록 음료 레시피 안내 문서를 만들었다",
+    "competencies": ["COMMUNICATION"],
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [{ "id": 222, "quote": "새로 온 아르바이트생이 헷갈려해서 음료 레시피 안내 문서를 내가 만들었다." }],
+    "supplements": []
+  },
+  {
+    "id": 131,
+    "activityName": "컴퓨터공학과 학생회",
+    "period": { "start": "2023", "end": "2023", "ongoing": false },
+    "content": "새내기 배움터 일정표를 만들고 당일 진행을 맡았다",
+    "competencies": ["PLANNING", "OPERATION"],
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [{ "id": 231, "quote": "새내기 배움터 때 나는 일정표를 만들고 당일 진행을 맡았다." }],
+    "supplements": []
+  },
+  {
+    "id": 132,
+    "activityName": "컴퓨터공학과 학생회",
+    "period": { "start": "2023", "end": "2023", "ongoing": false },
+    "content": "축제 부스 예산을 짰다",
+    "competencies": ["PLANNING"],
+    "actor": "TEAM",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [{ "id": 232, "quote": "축제 부스 예산은 회장이 짰다" }],
+    "supplements": []
+  },
+  {
+    "id": 133,
+    "activityName": "컴퓨터공학과 학생회",
+    "period": { "start": "2023", "end": "2023", "ongoing": false },
+    "content": "축제 부스 영수증을 모았다",
+    "competencies": ["RESPONSIBILITY"],
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [{ "id": 233, "quote": "나는 영수증만 모았다." }],
+    "supplements": []
+  },
+  {
+    "id": 141,
+    "activityName": "개인 프로젝트 — 가계부 웹앱",
+    "period": null,
+    "content": "혼자 만든 가계부 웹앱을 친구 5명이 한 달 동안 썼다",
+    "competencies": ["IMPLEMENTATION"],
+    "actor": "ME",
+    "sourceStatus": "USER_ENTERED",
+    "citations": [],
+    "supplements": []
+  }
+]

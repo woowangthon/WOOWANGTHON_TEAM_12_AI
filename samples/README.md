@@ -4,6 +4,7 @@ SAMPLE(extract-samples): 전부 **지어낸** 자료다. 실제 사람 · 노트
 
 - 눈으로 보기: `uv run python scripts/try_extract.py samples/<파일>.md`
 - 채점: `uv run python scripts/eval_extract.py` — 정답은 `answers/<같은 이름>.json`, 숫자의 뜻은 스크립트 머리말
+- 매칭(`/match`) 시험 자료는 [`match/`](match/README.md)
 
 | 파일 | 사용자 | 보는 것 |
 | --- | --- | --- |

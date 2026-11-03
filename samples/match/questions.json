@@ -1,0 +1,100 @@
+[
+  {
+    "id": "tech-problem",
+    "organization": "OO 부트캠프",
+    "text": "개발하면서 마주친 기술적 문제와, 그 문제를 어떻게 해결했는지 적어 주세요.",
+    "kind": "match",
+    "good": [101],
+    "ok": [114, 113, 141],
+    "bad": [102, 103, 112],
+    "note": "데모 문항 A. 101 은 보완 301 이 실려 있어 그걸 근거로 쓰는지(S-25). 114 는 UNKNOWN — 골라도 되지만 「내가 고쳤다」로 말하면 안 된다"
+  },
+  {
+    "id": "team-coordination",
+    "organization": "OO 연합 동아리",
+    "text": "팀에서 일정이나 의견 갈등을 조율한 경험을 적어 주세요.",
+    "kind": "match",
+    "good": [106, 107],
+    "ok": [102, 111, 108],
+    "bad": [101, 103, 112, 113],
+    "note": "데모 문항 B. 문항 A 와 같은 활동(바꿔요)의 다른 경험(106 · 107)이 골라져야 한다. 102 · 111 은 TEAM"
+  },
+  {
+    "id": "team-role",
+    "organization": "OO 연합 동아리",
+    "text": "팀 프로젝트에서 맡은 역할과, 팀과 함께 일한 방식을 적어 주세요.",
+    "kind": "match",
+    "good": [101, 106, 107, 113],
+    "ok": [102, 111, 104],
+    "bad": [103, 112],
+    "note": "계약 예시 문항. 팀원이 한 배포(103) · 추천 로직(112)은 「내가 맡은 역할」이 아니다"
+  },
+  {
+    "id": "community-operation",
+    "organization": null,
+    "text": "모임이나 조직을 꾸준히 운영해 본 경험이 있다면 적어 주세요.",
+    "kind": "match",
+    "good": [105, 108],
+    "ok": [131],
+    "bad": [101, 103, 112]
+  },
+  {
+    "id": "teaching",
+    "organization": "OO 교육 봉사단",
+    "text": "다른 사람에게 무언가를 가르치거나 알기 쉽게 설명해 본 경험을 적어 주세요.",
+    "kind": "match",
+    "good": [122],
+    "ok": [107, 131, 105],
+    "bad": [103, 112]
+  },
+  {
+    "id": "failure-learning",
+    "organization": null,
+    "text": "실패하거나 아쉬웠던 경험과, 그 뒤 무엇을 바꾸었는지 적어 주세요.",
+    "kind": "match",
+    "good": [115, 116, 114],
+    "ok": [106, 108],
+    "bad": [103, 112],
+    "note": "115(TEAM) · 114(UNKNOWN) 가 많이 나오는 문항 — 이유에서 팀 일을 내 일로 바꾸지 않나"
+  },
+  {
+    "id": "data-python-sql",
+    "organization": "OO 데이터 인턴",
+    "text": "Python 이나 SQL 로 데이터를 다루어 문제를 해결한 경험을 적어 주세요.",
+    "kind": "partial",
+    "allowZero": true,
+    "good": [121],
+    "ok": [],
+    "bad": [103, 112],
+    "note": "데이터로 판단한 일(121, 엑셀)은 있지만 Python · SQL 은 자료에 없다 — 도구 요구사항이 SUPPORTED 면 틀림"
+  },
+  {
+    "id": "budget",
+    "organization": "OO 대학생 서포터즈",
+    "text": "예산을 직접 짜고 집행해 본 경험을 적어 주세요.",
+    "kind": "partial",
+    "allowZero": true,
+    "good": [133, 132],
+    "ok": [],
+    "bad": [],
+    "note": "예산은 회장이 짰다(132 TEAM), 나는 영수증만 모았다(133). 「직접 짠」은 자료에 없다 — 132 를 내가 짠 것으로 말하면 틀림"
+  },
+  {
+    "id": "overseas-volunteer",
+    "organization": "OO 국제교류재단",
+    "text": "해외 봉사활동에 참여한 경험과 그 경험에서 배운 점을 적어 주세요.",
+    "kind": "none",
+    "good": [],
+    "ok": [],
+    "bad": []
+  },
+  {
+    "id": "english-presentation",
+    "organization": "OO 글로벌 기업",
+    "text": "영어로 발표하거나 외국인 고객을 응대한 경험을 적어 주세요.",
+    "kind": "none",
+    "good": [],
+    "ok": [],
+    "bad": []
+  }
+]

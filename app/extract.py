@@ -5,15 +5,12 @@ LLM 이 단 근거는 코드가 원본과 대조한다(app.citations, S-04). 출
 """
 
 import logging
-import time
 from typing import Any
-
-from pydantic import ValidationError
 
 from app.citations import SourceIndex
 from app.config import Settings
-from app.errors import InvalidRequest, LLMInvalidOutput, LLMTimeout, TextTooLong
-from app.llm import JsonLLM
+from app.errors import InvalidRequest, TextTooLong
+from app.llm import JsonLLM, generate_valid
 from app.schemas import (
     COMPETENCIES,
     Activity,
@@ -193,39 +190,15 @@ async def extract(
     """system 은 시험용(scripts/eval_extract.py 가 범용 프롬프트와 견줄 때)만 바꾼다."""
     text = check_request(req, settings)
     user = build_user_message(req.sourceName, text)
-    deadline = time.monotonic() + settings.llm_timeout_seconds
-    last_error = ""
-
-    for attempt in range(1, settings.max_attempts + 1):
-        if deadline - time.monotonic() <= 0:
-            raise LLMTimeout(f"다시 시도할 시간이 남지 않았습니다(이전 오류: {last_error})")
-        started = time.monotonic()
-        result = await llm.generate_json(system, user, LLM_JSON_SCHEMA, deadline)
-        elapsed = time.monotonic() - started
-        try:
-            output = LLMOutput.model_validate_json(result.text)
-        except ValidationError as e:
-            # 그럴듯하게 고치지 않는다 — 다시 부르거나 오류로 돌려준다
-            first = e.errors()[0]
-            last_error = f"{e.error_count()}개 규칙 위반: {first['loc']} {first['msg']}"
-            log.warning(
-                "LLM 출력 규칙 위반 attempt=%d model=%s elapsed=%.1fs %s",
-                attempt,
-                result.model,
-                elapsed,
-                last_error,
-            )
-            continue
-        log.info(
-            "추출 완료 attempt=%d model=%s elapsed=%.1fs chars=%d activities=%d",
-            attempt,
-            result.model,
-            elapsed,
-            len(text),
-            len(output.activities),
-        )
-        return to_response(output, result.model, text)
-
-    raise LLMInvalidOutput(
-        f"LLM 출력이 {settings.max_attempts}번 모두 규칙을 벗어났습니다 — {last_error}"
+    got = await generate_valid(
+        llm, system, user, LLM_JSON_SCHEMA, LLMOutput.model_validate_json, settings
     )
+    log.info(
+        "추출 완료 attempt=%d model=%s elapsed=%.1fs chars=%d activities=%d",
+        got.attempt,
+        got.model,
+        got.seconds,
+        len(text),
+        len(got.value.activities),
+    )
+    return to_response(got.value, got.model, text)
