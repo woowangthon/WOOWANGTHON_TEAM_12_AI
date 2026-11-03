@@ -2,6 +2,7 @@
   "activities": [
     {
       "name": "창업 동아리 스타트온",
+      "keys": ["스타트온"],
       "experiences": [
         { "anchor": "동아리 공동구매 사이트 개발", "actor": ["ME", "UNKNOWN"] },
         { "anchor": "저는 주 1회 짧은 진행 공유 시간을 만들자고 제안했고", "actor": ["ME"] },
@@ -14,10 +15,13 @@
     },
     {
       "name": "구청 행정 인턴",
+      "keys": ["구청"],
       "experiences": [
         { "anchor": "민원 접수 엑셀 서식 정리", "actor": ["ME", "UNKNOWN"] }
       ]
     }
   ],
-  "notExperiences": ["저는 팀의 성공을 위해 누구보다 헌신하는 사람입니다"]
+  "notExperiences": [
+    "저는 팀의 성공을 위해 누구보다 헌신하는 사람입니다"
+  ]
 }

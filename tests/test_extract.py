@@ -80,8 +80,9 @@ def test_extract_contract_shape(client_with):
     assert res.status_code == 200
     data = res.json()
     assert data["model"] == "fake-model"
-    # 경험 없는 활동은 빠진다
-    assert [a["name"] for a in data["activities"]] == ["바꿔요"]
+    # 이름 · 기간만 있는 활동도 경험 0개로 남는다(S-03, 2026-11-03)
+    assert [a["name"] for a in data["activities"]] == ["바꿔요", "경험 없는 활동"]
+    assert data["activities"][1]["experiences"] == []
     exps = data["activities"][0]["experiences"]
     # 근거를 원본에서 찾았다 → SOURCE_CONFIRMED · 줄 번호
     assert exps[0]["sourceStatus"] == "SOURCE_CONFIRMED"

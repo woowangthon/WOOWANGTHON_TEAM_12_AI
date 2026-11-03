@@ -19,7 +19,10 @@ def test_anchors_are_in_source(stem):
     source, answer = ALL[stem]
     index = SourceIndex(source)
     anchors = [e["anchor"] for a in answer["activities"] for e in a["experiences"]]
-    for anchor in anchors + answer.get("notExperiences", []):
+    keys = [k for a in answer["activities"] for k in a["keys"]]
+    for anchor in (
+        anchors + keys + answer.get("notExperiences", []) + answer.get("notActivities", [])
+    ):
         assert index.find(anchor), f"{stem}: 원본에 없는 정답 구절 「{anchor}」"
     for act in answer["activities"]:
         for exp in act["experiences"]:
@@ -72,3 +75,30 @@ def test_score_counts():
     assert (s.required, s.found) == (10, 3)
     assert (s.activities_expected, s.activities_got) == (1, 2)
     assert (s.mixed, s.split) == (0, 1)
+
+
+def test_score_activities_without_experiences():
+    # MOC 모양 — 링크만 있는 활동은 이름(keys)으로 찾고, 공부 노트를 활동으로 만들면 센다
+    source, answer = ALL["obsidian-moc"]
+    none = {"start": None, "end": None, "ongoing": False}
+    data = ExtractResponse.model_validate(
+        {
+            "model": "fake",
+            "activities": [
+                {"name": "코딩동아리 브릿지 7기", "period": none, "experiences": []},
+                {"name": "캡스톤 디자인", "period": none, "experiences": []},
+                {
+                    "name": "브릿지 해커톤",
+                    "period": none,
+                    # 노트 제목을 경험으로 — 경험 아닌 것
+                    "experiences": [_exp("해커톤 회고를 썼다", "ME", "250520-브릿지 해커톤 회고")],
+                },
+                {"name": "스프링 입문 강의", "period": none, "experiences": []},
+            ],
+        }
+    )
+    s = score("obsidian-moc", source, answer, data)
+    assert s.activities_required == 10
+    assert s.activities_found == 3
+    assert len(s.not_activities) == 1 and "스프링" in s.not_activities[0]
+    assert len(s.not_experiences) == 1

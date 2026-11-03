@@ -2,6 +2,7 @@
   "activities": [
     {
       "name": "냉장고털이",
+      "keys": ["냉장고털이"],
       "experiences": [
         { "anchor": "촬영 화면에 밝기 안내 문구를 넣었다", "actor": ["UNKNOWN", "TEAM"] },
         { "anchor": "2024 SW 중심대학 공동 해커톤 출품작", "actor": ["TEAM", "UNKNOWN"], "optional": true },
@@ -15,5 +16,7 @@
       ]
     }
   ],
-  "notExperiences": ["./gradlew bootRun"]
+  "notExperiences": [
+    "./gradlew bootRun"
+  ]
 }

@@ -5,13 +5,15 @@
     uv run python scripts/eval_extract.py --prompts tuned    # 우리 프롬프트만
     uv run python scripts/eval_extract.py --rescore eval-runs/<폴더>   # LLM 을 다시 부르지 않고 저장한 응답만 다시 채점
 
-LLM 호출 수 = 자료 수 × 모델 수 × 프롬프트 수(규칙 위반이면 자료마다 최대 LLM_MAX_ATTEMPTS 번) — 기본 9 × 1 × 2 = 18회.
+LLM 호출 수 = 자료 수 × 모델 수 × 프롬프트 수(규칙 위반이면 자료마다 최대 LLM_MAX_ATTEMPTS 번) — 기본 10 × 1 × 2 = 20회.
 응답은 --out 폴더(기본 eval-runs/<시각>, 커밋하지 않음)에 저장한다. 모델 폴백 없이 고른 모델만 부른다.
 
 정답은 samples/answers/<자료 이름>.json — 손으로 적은 활동 · 경험 · 수행 주체. 경험은 원문 구절(anchor)로 적는다.
 LLM 경험 하나를 정답 구절 하나에 짝짓는다: 발췌문이 품은(또는 6글자 이상이고 구절 안에 든) 구절 중 content 와
 두 글자 묶음이 가장 많이 겹치는 것(다이스 계수). 한 줄을 통째로 발췌해 여러 구절을 품어도 내용이 가리키는 구절 하나로 본다.
 optional 경험은 「찾음」 분모에 넣지 않고, 짝지어졌을 때 수행 주체만 본다.
+정답 활동은 keys(원문에 있는 이름 조각)가 LLM 활동 이름에 들어 있거나, 그 활동의 경험이 짝지어지면 찾은 것이다.
+이름 · 기간만 있는 활동(이력서 항목 · MOC 링크)은 경험 없이(`experiences: []`) 적는다(SPEC S-03).
 
 숫자의 뜻:
 - 근거 일치: 원본에서 찾은 발췌문 / 전체 발췌문(app.citations 기준)
@@ -20,6 +22,8 @@ optional 경험은 「찾음」 분모에 넣지 않고, 짝지어졌을 때 수
 - 경험 찾음: 정답(optional 빼고) 중 찾은 수
 - 경험 아닌 것: notExperiences(자기 칭찬 · 기술 목록 등)를 경험으로 뽑은 수
 - 섞임 / 쪼개짐: 다른 활동의 경험이 한 활동에 들어간 LLM 활동 수 / 한 활동이 여러 LLM 활동으로 갈린 수
+- 활동 찾음: 정답 활동(optional 빼고) 중 찾은 수
+- 활동 아닌 것: notActivities(공부 노트 · 스크랩 링크 등)를 활동으로 만든 수
 """
 
 import argparse
@@ -73,6 +77,10 @@ class Score:
     activities_got: int = 0
     mixed: int = 0
     split: int = 0
+    activities_required: int = 0
+    activities_found: int = 0
+    missed_activities: list[str] = field(default_factory=list)
+    not_activities: list[str] = field(default_factory=list)
 
     def add(self, other: "Score") -> None:
         for name, value in vars(other).items():
@@ -153,6 +161,21 @@ def score(stem: str, source: str, answer: dict, data: ExtractResponse) -> Score:
                 s.actor_wrong_me += exp.actor == "ME"
     s.mixed = sum(len(e) > 1 for e in llm_to_expected.values())
     s.split = sum(len(a) > 1 for a in expected_to_llm.values())
+
+    names = [normalize(a.name) for a in data.activities]
+    for ei, act in enumerate(answer["activities"]):
+        if act.get("optional"):
+            continue
+        s.activities_required += 1
+        keys = [normalize(k) for k in act.get("keys", [])]
+        if ei in expected_to_llm or any(k in n for k in keys for n in names):
+            s.activities_found += 1
+        else:
+            s.missed_activities.append(f"{stem}: {act['name']}")
+    for key in answer.get("notActivities", []):
+        k = normalize(key)
+        hits = [a.name for a, n in zip(data.activities, names, strict=True) if k in n]
+        s.not_activities += [f"{stem}: {name}" for name in hits]
     return s
 
 
@@ -240,6 +263,7 @@ def report(out: Path, samples: dict[str, tuple[str, dict]]) -> str:
                 f"| {name} | {t.matched}/{t.quotes} | {t.confirmed}/{t.experiences} "
                 f"| {len(t.made_up_numbers)} | {len(t.actor_wrong)} ({t.actor_wrong_me}) "
                 f"| {t.found}/{t.required} | {len(t.not_experiences)} "
+                f"| {t.activities_found}/{t.activities_required} | {len(t.not_activities)} "
                 f"| {t.activities_got} ({t.activities_expected}) | {t.mixed} / {t.split} "
                 f"| {len(t.errors)}/{t.files} | {t.seconds:.0f}초 |"
             )
@@ -248,6 +272,8 @@ def report(out: Path, samples: dict[str, tuple[str, dict]]) -> str:
                 *(f"- 주체 틀림 {x}" for x in t.actor_wrong),
                 *(f"- 경험 아닌 것 {x}" for x in t.not_experiences),
                 *(f"- 놓친 경험 {x}" for x in t.missed),
+                *(f"- 놓친 활동 {x}" for x in t.missed_activities),
+                *(f"- 활동 아닌 것 {x}" for x in t.not_activities),
                 *(f"- 활동 수 {x}" for x in t.activity_counts),
                 *(f"- 오류 {x}" for x in t.errors),
             ]
@@ -255,8 +281,9 @@ def report(out: Path, samples: dict[str, tuple[str, dict]]) -> str:
                 details.append(f"\n### {name}\n\n" + "\n".join(lines))
     head = (
         "| 모델 · 프롬프트 | 근거 일치 | 원문에서 확인된 경험 | 지어낸 수치 | 주체 틀림 (ME 로) "
-        "| 경험 찾음 | 경험 아닌 것 | 활동 수 (정답) | 섞임 / 쪼개짐 | 오류 | 시간 합 |\n"
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+        "| 경험 찾음 | 경험 아닌 것 | 활동 찾음 | 활동 아닌 것 | 활동 수 (정답) | 섞임 / 쪼개짐 "
+        "| 오류 | 시간 합 |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
     )
     return "\n".join([head, *rows]) + "\n" + "".join(details) + "\n"
 
