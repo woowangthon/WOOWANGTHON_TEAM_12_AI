@@ -1,0 +1,24 @@
+{
+  "activities": [
+    {
+      "name": "오늘한끼 백엔드 인턴",
+      "experiences": [
+        { "anchor": "내가 쿼리 로그를 뽑아 보니 인덱스가 없는 컬럼으로 조회하고 있었다", "actor": ["ME"] },
+        { "anchor": "인덱스를 추가해 응답 시간을 1.2초에서 0.3초로 줄였다", "actor": ["ME", "UNKNOWN"] },
+        { "anchor": "사수가 짜 둔 결제 모듈 구조를 읽고 사내 위키에 정리했다", "actor": ["ME", "UNKNOWN"] },
+        { "anchor": "배포는 사수가 했고", "actor": ["TEAM"] },
+        { "anchor": "나는 배포 전 체크리스트를 따라 확인만 했다", "actor": ["ME"] },
+        { "anchor": "성능 문제는 짐작하지 말고 측정부터 해야 한다는 걸 배웠다", "actor": ["ME", "UNKNOWN"] }
+      ]
+    },
+    {
+      "name": "학과 학생회 IT 부",
+      "experiences": [
+        { "anchor": "부장이 제안해서 학생회 홈페이지 신청 페이지로 옮겼다", "actor": ["TEAM", "UNKNOWN"] },
+        { "anchor": "나는 신청 페이지의 중복 신청 막기 기능을 만들었다", "actor": ["ME"] },
+        { "anchor": "매달 학생회 회의록을 홈페이지에 올리는 일을 1년 동안 맡았다", "actor": ["ME", "UNKNOWN"] }
+      ]
+    }
+  ],
+  "notExperiences": []
+}

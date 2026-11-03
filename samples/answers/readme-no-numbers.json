@@ -1,0 +1,16 @@
+{
+  "activities": [
+    {
+      "name": "하루가계",
+      "experiences": [
+        { "anchor": "금액을 자주 잘못 읽어서 저장 전에 확인 화면을 넣었다", "actor": ["ME"] },
+        { "anchor": "Room 으로 기기 안에만 저장한다", "actor": ["ME"] },
+        { "anchor": "Jetpack Compose 를 이 프로젝트에서 처음 써 봤다", "actor": ["ME"] },
+        { "anchor": "영수증 사진에서 가게 이름 · 날짜 · 금액 읽기", "actor": ["ME"], "optional": true },
+        { "anchor": "읽은 값을 사용자가 고친 뒤 저장", "actor": ["ME"], "optional": true },
+        { "anchor": "달마다 분류별 지출 그래프", "actor": ["ME"], "optional": true }
+      ]
+    }
+  ],
+  "notExperiences": ["Kotlin · Jetpack Compose · Room · ML Kit"]
+}

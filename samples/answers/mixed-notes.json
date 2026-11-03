@@ -1,0 +1,37 @@
+{
+  "activities": [
+    {
+      "name": "웹프로그래밍 수업 조별 과제",
+      "experiences": [
+        { "anchor": "나는 프론트를 맡아 React 로 좌석 배치도 화면을 그렸다", "actor": ["ME"] },
+        { "anchor": "발표는 조장이 했다", "actor": ["TEAM"] },
+        { "anchor": "조별 과제로 도서관 좌석 예약 페이지 만듦", "actor": ["TEAM", "UNKNOWN"], "optional": true }
+      ]
+    },
+    {
+      "name": "코딩 동아리 바이트",
+      "experiences": [
+        { "anchor": "신입 부원 대상 Git 기초 세션을 내가 두 번 진행했다", "actor": ["ME"] },
+        { "anchor": "동아리 홈페이지는 선배들이 만든 걸 그대로 씀", "actor": ["TEAM", "UNKNOWN"], "optional": true }
+      ]
+    },
+    {
+      "name": "교내 해커톤 밤샘코딩",
+      "experiences": [
+        { "anchor": "내가 카카오톡 챗봇 연결 부분을 붙였고", "actor": ["ME"] },
+        { "anchor": "데이터 정리는 팀원이 했다", "actor": ["TEAM"] },
+        { "anchor": "시간 배분을 처음에 정했어야 했다는 걸 배움", "actor": ["ME", "UNKNOWN"] },
+        { "anchor": "주제는 분실물 찾기 챗봇", "actor": ["TEAM", "UNKNOWN"], "optional": true },
+        { "anchor": "수상은 못 함", "actor": ["TEAM", "UNKNOWN", "ME"], "optional": true }
+      ]
+    },
+    {
+      "name": "CS 스터디",
+      "experiences": [
+        { "anchor": "매주 운영체제 책 한 챕터씩 읽고 발표", "actor": ["TEAM", "UNKNOWN", "ME"] },
+        { "anchor": "내가 발표 순서 정하는 걸 맡고 있음", "actor": ["ME"] }
+      ]
+    }
+  ],
+  "notExperiences": []
+}

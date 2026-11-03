@@ -1,0 +1,19 @@
+{
+  "activities": [
+    {
+      "name": "냉장고털이",
+      "experiences": [
+        { "anchor": "촬영 화면에 밝기 안내 문구를 넣었다", "actor": ["UNKNOWN", "TEAM"] },
+        { "anchor": "2024 SW 중심대학 공동 해커톤 출품작", "actor": ["TEAM", "UNKNOWN"], "optional": true },
+        { "anchor": "냉장고 사진으로 재료 인식", "actor": ["TEAM", "UNKNOWN"], "optional": true },
+        { "anchor": "재료 조합별 레시피 추천", "actor": ["TEAM", "UNKNOWN"], "optional": true },
+        { "anchor": "유통기한 임박 알림", "actor": ["TEAM", "UNKNOWN"], "optional": true },
+        { "anchor": "김하늘 | 기획 · 발표", "actor": ["TEAM", "UNKNOWN"], "optional": true },
+        { "anchor": "이도윤 | 프론트엔드", "actor": ["TEAM", "UNKNOWN"], "optional": true },
+        { "anchor": "박서준 | 백엔드 · 배포", "actor": ["TEAM", "UNKNOWN"], "optional": true },
+        { "anchor": "최유나 | 재료 인식 모델", "actor": ["TEAM", "UNKNOWN"], "optional": true }
+      ]
+    }
+  ],
+  "notExperiences": ["./gradlew bootRun"]
+}

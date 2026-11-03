@@ -1,0 +1,17 @@
+{
+  "activities": [
+    {
+      "name": "개인 블로그 글밭",
+      "experiences": [
+        { "anchor": "한글 제목 slug 깨지는 문제 → encodeURIComponent 로", "actor": ["ME"] },
+        { "anchor": "이미지 lazy loading — 첫 화면 너무 느려서", "actor": ["ME"] },
+        { "anchor": "RSS 피드 추가", "actor": ["ME"] },
+        { "anchor": "vercel 배포함", "actor": ["ME"] },
+        { "anchor": "다크 모드", "actor": ["ME"], "optional": true },
+        { "anchor": "마크다운 글 목록 페이지", "actor": ["ME"], "optional": true },
+        { "anchor": "초기 세팅: Next.js + Tailwind", "actor": ["ME"], "optional": true }
+      ]
+    }
+  ],
+  "notExperiences": ["방문자 거의 없음"]
+}
