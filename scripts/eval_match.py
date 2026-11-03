@@ -1,11 +1,14 @@
-"""시험 문항으로 매칭을 채점한다 — 프롬프트 · 모델을 바꿀 때 같은 자료 · 같은 숫자로 견준다(AI#20).
+"""시험 문항으로 매칭 · 되묻기를 채점한다 — 프롬프트 · 모델을 바꿀 때 같은 자료 · 같은 숫자로 견준다(AI#20 · AI#21).
 
     uv run python scripts/eval_match.py                    # MATCH_LLM_MODELS 첫 모델로, 우리 프롬프트 · 범용 프롬프트
     uv run python scripts/eval_match.py --models openai:gpt-6-luna,openai:gpt-5.4-mini
     uv run python scripts/eval_match.py --prompts tuned    # 우리 프롬프트만
+    uv run python scripts/eval_match.py --variants with    # 보완을 뺀 자료는 돌리지 않음
     uv run python scripts/eval_match.py --rescore eval-runs/match-<시각>   # 저장한 응답만 다시 채점(LLM 안 부름)
 
-LLM 호출 수 = 문항 수 × 모델 수 × 프롬프트 수(규칙 위반이면 문항마다 최대 LLM_MAX_ATTEMPTS 번) — 기본 10 × 1 × 2 = 20회.
+LLM 호출 수 = (문항 수 + 보완 없음 문항 수) × 모델 수 × 프롬프트 수(규칙 위반이면 문항마다 최대 LLM_MAX_ATTEMPTS 번)
+— 기본 (10 + 3) × 1 × 2 = 26회. 「보완 없음」은 보완이 실린 경험이 정답(good · ok)인 문항만, 경험에서 보완을 모두 빼고
+한 번 더 돌린다 — 문항 A 에서 답하기 전(데모 4)과 답한 뒤(데모 6 · S-25)를 견준다. 폴더 이름 끝 -nosupp.
 응답은 --out 폴더(기본 eval-runs/match-<시각>, 커밋하지 않음)에 저장한다. 모델 폴백 없이 고른 모델만 부른다.
 
 자료: samples/match/experiences.json(지어낸 사용자 한 명의 경험 · 근거 · 보완 — /match 요청 모양 그대로)과
@@ -24,6 +27,17 @@ samples/match/questions.json(문항마다 손으로 적은 정답). 정답 칸:
   — 낱말로 거른 후보다(「누가 고쳤는지 자료에 없다」도 걸릴 수 있다). 목록을 사람이 읽고 판단한다
 - 보완 씀: 보완이 실린 경험을 추천했을 때 evidence 에 보완을 넣은 수 / 그런 추천 수(S-25)
 - 오류: 다시 시도 뒤에도 규칙(ID 가 요청에 있나 등)을 어겨 LLM_INVALID_OUTPUT 등으로 끝난 문항 수
+
+되묻기(S-22 · S-25) — samples/match/clarify.json 의 「경험에 이미 있는 사실」과 그걸 묻는 정규식으로 센다.
+정규식 · 낱말로 거른 것은 전부 후보다 — 목록을 사람이 읽고 판단한다(질문 전체도 찍는다):
+- 되묻기 수: 질문 수 합(0개 문항 수 / 답한 문항 수)
+- 이미 있는 사실 다시 물음: 질문이 그 경험의 근거 · 보완에 이미 있는 사실을 묻는 수 / 그런 사실이 있는 경험을 추천한 기회
+- 보완 없을 때 그 빈칸 물음: -nosupp 에서, 뺀 보완이 답하던 사실을 물은 수 / 그 사실이 필요한 문항(askIfMissing)에서
+  그 경험을 추천한 기회(데모 4)
+- 수치 · 답 유도: 질문에 그 경험 · 문항에 없는 숫자가 있거나 「…죠?」「맞나요?」처럼 확인만 받는 어미인 수
+- 막연한 질문: 「더 자세히 알려 주세요」「구체적으로 설명해 주세요」 꼴인 수
+- 한 질문에 여러 개: 물음표가 둘 이상인 질문 수 — 「최대 3개」를 한 질문에 몰아 넘는다
+- 내 몫 물음: asksMyRole 문항에서 TEAM · UNKNOWN 경험을 추천했을 때 그 경험에 내 몫(맡은 · 직접 · 역할 …)을 물은 수(S-20)
 """
 
 import argparse
@@ -47,12 +61,20 @@ DATA = ROOT / "samples" / "match"
 
 # 범용 프롬프트 — 사용자가 ChatGPT 에 그냥 붙일 만한 한 줄. 숫자를 같이 재려고 출력 모양(JSON 스키마)과
 # 경험 목록 모양만 같게 준다. ID 검사도 같은 코드가 한다
-GENERIC_PROMPT = "이 문항에 맞는 내 경험을 골라 줘."
+GENERIC_PROMPT = "이 문항에 맞는 내 경험을 골라 주고, 부족한 걸 물어봐 줘."
 PROMPTS = {"tuned": SYSTEM_PROMPT, "generic": GENERIC_PROMPT}
 
 # 팀 · 모르는 일을 내 일로 말했는지 거르는 낱말(후보 — 사람이 본다)
 # 「문제가」의 「제가」처럼 낱말 가운데는 거르지 않는다. 「맡아」는 「팀원이 맡아」도 있어 넣지 않는다
 MINE_WORDS = re.compile(r"(?<![가-힣])(?:내가|제가|나는|저는|본인)|직접|주도|이끌")
+
+# 되묻기 — 확인만 받는 어미 · 막연한 질문 · 내 몫을 묻는 낱말(후보 — 사람이 본다)
+LEADING = re.compile(r"(죠|지요|맞나요|맞으신가요|맞습니까|아니었나요|않았나요|않으셨나요)\s*\?")
+VAGUE = re.compile(
+    r"(자세히|자세하게|구체적으로|좀 더|더|추가로)\s*(알려|설명|말씀|이야기|적어|들려|공유)"
+)
+SHARE = re.compile(r"맡|직접|본인|몫|역할|기여|담당|하신 일|한 일|참여")
+NOSUPP = "-nosupp"
 
 
 @dataclass
@@ -72,6 +94,17 @@ class Score:
     supplement_recs: int = 0
     supplement_used: int = 0
     picks: list[str] = field(default_factory=list)
+    clarifications: list[str] = field(default_factory=list)
+    clar_empty: int = 0
+    repeats: list[str] = field(default_factory=list)
+    repeat_chances: int = 0
+    gap_asked: int = 0
+    gap_chances: int = 0
+    leading: list[str] = field(default_factory=list)
+    vague: list[str] = field(default_factory=list)
+    compound: list[str] = field(default_factory=list)
+    share_asked: int = 0
+    share_chances: int = 0
 
     def add(self, other: "Score") -> None:
         for name, value in vars(other).items():
@@ -91,7 +124,19 @@ def _experience_text(exp: MatchExperience) -> str:
     return " ".join(parts)
 
 
-def score(question: dict, experiences: list[MatchExperience], data: MatchResponse) -> Score:
+def _has(exp: MatchExperience, fact: dict) -> bool:
+    items = exp.citations if fact["source"] == "CITATION" else exp.supplements
+    return any(x.id == fact["id"] for x in items)
+
+
+def score(
+    question: dict,
+    experiences: list[MatchExperience],
+    data: MatchResponse,
+    known: list[dict] = (),
+    stripped: bool = False,
+) -> Score:
+    """known: clarify.json 의 사실들. stripped: 보완을 뺀 자료(-nosupp)로 돌린 응답인가."""
     qid = question["id"]
     kind = question["kind"]
     by_id = {e.id: e for e in experiences}
@@ -134,7 +179,58 @@ def score(question: dict, experiences: list[MatchExperience], data: MatchRespons
         if exp.supplements:
             s.supplement_recs += 1
             s.supplement_used += any(e.type == "SUPPLEMENT" for e in rec.evidence)
+
+    # ---- 되묻기 ----
+    clars = data.clarifications
+    s.clar_empty += not clars
+    for c in clars:
+        exp = by_id[c.experienceId]
+        line = f"{qid}: 경험 {exp.id}({exp.actor}) 「{c.question}」"
+        s.clarifications.append(line)
+        extra = _ints(c.question) - _ints(_experience_text(exp)) - known_ints
+        if extra or LEADING.search(c.question):
+            s.leading.append(line)
+        if VAGUE.search(c.question):
+            s.vague.append(line)
+        if c.question.count("?") > 1:
+            s.compound.append(line)
+    for fact in known:
+        if fact["experienceId"] not in ids:
+            continue
+        exp = by_id[fact["experienceId"]]
+        asked = [
+            c.question
+            for c in clars
+            if c.experienceId == exp.id and re.search(fact["pattern"], c.question)
+        ]
+        if _has(exp, fact):
+            s.repeat_chances += 1
+            s.repeats += [
+                f"{qid}: 경험 {exp.id} 「{q}」 — 이미 있음: {fact['fact']}" for q in asked
+            ]
+        elif stripped and qid in fact.get("askIfMissing", ()):
+            s.gap_chances += 1
+            s.gap_asked += bool(asked)
+    if question.get("asksMyRole"):
+        for rec in recs:
+            exp = by_id[rec.experienceId]
+            if exp.actor == "ME":
+                continue
+            s.share_chances += 1
+            s.share_asked += any(
+                c.experienceId == exp.id and SHARE.search(c.question) for c in clars
+            )
     return s
+
+
+def strip_supplements(experiences: list[dict]) -> list[dict]:
+    return [{**e, "supplements": []} for e in experiences]
+
+
+def nosupp_questions(experiences: list[dict], questions: list[dict]) -> list[dict]:
+    """보완이 실린 경험이 정답(good · ok)인 문항 — 보완을 빼고 한 번 더 돌린다."""
+    with_supp = {e["id"] for e in experiences if e["supplements"]}
+    return [q for q in questions if with_supp & set(q["good"] + q["ok"])]
 
 
 def load_data(only: list[str] | None) -> tuple[list[dict], list[dict]]:
@@ -145,6 +241,10 @@ def load_data(only: list[str] | None) -> tuple[list[dict], list[dict]]:
     return experiences, questions
 
 
+def load_known() -> list[dict]:
+    return json.loads((DATA / "clarify.json").read_text(encoding="utf-8"))["known"]
+
+
 # ---- 실행 ----
 
 
@@ -153,7 +253,12 @@ def _slug(model: str) -> str:
 
 
 async def run(
-    models: list[str], prompts: list[str], experiences: list[dict], questions: list[dict], out: Path
+    models: list[str],
+    prompts: list[str],
+    variants: list[str],
+    experiences: list[dict],
+    questions: list[dict],
+    out: Path,
 ) -> None:
     from dotenv import load_dotenv
 
@@ -167,13 +272,14 @@ async def run(
     base = load_settings()
     gate = asyncio.Semaphore(4)
 
-    async def one(model: str, prompt: str, q: dict) -> None:
+    async def one(model: str, prompt: str, variant: str, q: dict) -> None:
         settings = replace(base, llm_models=parse_models(model))
         llm = build_llm(settings)
+        exps = strip_supplements(experiences) if variant == "without" else experiences
         req = MatchRequest.model_validate(
             {
                 "question": {"organization": q["organization"], "text": q["text"]},
-                "experiences": experiences,
+                "experiences": exps,
             }
         )
         async with gate:
@@ -184,21 +290,30 @@ async def run(
             except ApiError as e:
                 record = {"error": f"{e.code}: {e.message}"}
             record["seconds"] = round(time.monotonic() - started, 1)
-        path = out / _slug(model) / prompt / f"{q['id']}.json"
+        name = prompt + (NOSUPP if variant == "without" else "")
+        path = out / _slug(model) / name / f"{q['id']}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
         print(
-            f"  {model} · {prompt} · {q['id']} — {record.get('error') or 'ok'} ({record['seconds']}초)"
+            f"  {model} · {name} · {q['id']} — {record.get('error') or 'ok'} ({record['seconds']}초)"
         )
 
-    await asyncio.gather(*(one(m, p, q) for m in models for p in prompts for q in questions))
+    jobs = [("with", q) for q in questions] if "with" in variants else []
+    if "without" in variants:
+        jobs += [("without", q) for q in nosupp_questions(experiences, questions)]
+    await asyncio.gather(*(one(m, p, v, q) for m in models for p in prompts for v, q in jobs))
 
 
 def report(out: Path, experiences: list[dict], questions: list[dict]) -> str:
-    exps = [MatchExperience.model_validate(e) for e in experiences]
-    rows, details = [], []
+    known = load_known()
+    rows, clar_rows, details = [], [], []
     for model_dir in sorted(p for p in out.iterdir() if p.is_dir()):
         for prompt_dir in sorted(p for p in model_dir.iterdir() if p.is_dir()):
+            stripped = prompt_dir.name.endswith(NOSUPP)
+            exps = [
+                MatchExperience.model_validate(e)
+                for e in (strip_supplements(experiences) if stripped else experiences)
+            ]
             t = Score()
             for q in questions:
                 path = prompt_dir / f"{q['id']}.json"
@@ -210,8 +325,20 @@ def report(out: Path, experiences: list[dict], questions: list[dict]) -> str:
                     t.questions += 1
                     t.errors.append(f"{q['id']}: {record['error']}")
                     continue
-                t.add(score(q, exps, MatchResponse.model_validate(record["response"])))
+                data = MatchResponse.model_validate(record["response"])
+                t.add(score(q, exps, data, known, stripped))
+            if not t.questions:
+                continue
             name = f"{model_dir.name} · {prompt_dir.name}"
+            answered = t.questions - len(t.errors)
+            gap = f"{t.gap_asked}/{t.gap_chances}" if stripped else "-"
+            clar_rows.append(
+                f"| {name} | {len(t.clarifications)}({t.clar_empty}/{answered}) "
+                f"| {len(t.repeats)}/{t.repeat_chances} | {gap} "
+                f"| {len(t.leading)} | {len(t.vague)} | {len(t.compound)} "
+                f"| {t.share_asked}/{t.share_chances} "
+                f"| {len(t.errors)}/{t.questions} |"
+            )
             rows.append(
                 f"| {name} | {t.picked_right}/{t.picked_total} | {len(t.wrong_picks)} "
                 f"| {len(t.forced)} | {t.req_right}/{t.req_total} | {len(t.made_up_numbers)} "
@@ -225,7 +352,11 @@ def report(out: Path, experiences: list[dict], questions: list[dict]) -> str:
                 *(f"- 지어낸 수치 {x}" for x in t.made_up_numbers),
                 *(f"- 팀 일을 내 일로(후보) {x}" for x in t.team_as_mine),
                 *(f"- 오류 {x}" for x in t.errors),
+                *(f"- 이미 있는 사실 다시 물음(후보) {x}" for x in t.repeats),
+                *(f"- 수치 · 답 유도(후보) {x}" for x in t.leading),
+                *(f"- 막연한 질문(후보) {x}" for x in t.vague),
                 *(f"- 고른 것 {x}" for x in t.picks),
+                *(f"- 되묻기 {x}" for x in t.clarifications),
             ]
             details.append(f"\n### {name}\n\n" + "\n".join(lines))
     head = (
@@ -233,13 +364,23 @@ def report(out: Path, experiences: list[dict], questions: list[dict]) -> str:
         "| 팀 일을 내 일로(후보) | 보완 씀 | 오류 | 시간 합 |\n"
         "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
     )
-    return "\n".join([head, *rows]) + "\n" + "".join(details) + "\n"
+    clar_head = (
+        "| 모델 · 프롬프트 | 되묻기 수(0개 문항/답한 문항) | 이미 있는 사실 다시 물음(후보) "
+        "| 보완 없을 때 그 빈칸 물음 | 수치 · 답 유도(후보) | 막연한 질문(후보) "
+        "| 한 질문에 여러 개 | 팀 · 모름 경험에 내 몫 물음 | 오류 |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+    )
+    tables = "\n".join([head, *rows]) + "\n\n" + "\n".join([clar_head, *clar_rows])
+    return tables + "\n" + "".join(details) + "\n"
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--models", help="쉼표로 「제공사:모델」 — 기본은 MATCH_LLM_MODELS 첫 모델")
     parser.add_argument("--prompts", default="tuned,generic", help="tuned · generic")
+    parser.add_argument(
+        "--variants", default="with,without", help="with(자료 그대로) · without(보완을 뺀 자료)"
+    )
     parser.add_argument("--questions", help="쉼표로 문항 id — 기본은 전부")
     parser.add_argument("--out", type=Path, help="응답 저장 폴더")
     parser.add_argument("--rescore", type=Path, help="저장한 응답만 다시 채점(LLM 안 부름)")
@@ -263,11 +404,17 @@ def main() -> None:
         for p in prompts:
             if p not in PROMPTS:
                 parser.error(f"프롬프트는 {list(PROMPTS)} 중 — {p!r}")
+        variants = [v.strip() for v in args.variants.split(",") if v.strip()]
+        for v in variants:
+            if v not in ("with", "without"):
+                parser.error(f"--variants 는 with · without 중 — {v!r}")
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         out = args.out or ROOT / "eval-runs" / f"match-{stamp}"
-        calls = len(questions) * len(models) * len(prompts)
+        n = len(questions) * ("with" in variants)
+        n += len(nosupp_questions(experiences, questions)) * ("without" in variants)
+        calls = n * len(models) * len(prompts)
         print(f"LLM 호출 {calls}회(규칙 위반 시 더) → {out}")
-        asyncio.run(run(models, prompts, experiences, questions, out))
+        asyncio.run(run(models, prompts, variants, experiences, questions, out))
 
     text = report(out, experiences, questions)
     (out / "summary.md").write_text(text, encoding="utf-8")
