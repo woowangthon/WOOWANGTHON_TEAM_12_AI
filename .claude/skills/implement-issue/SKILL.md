@@ -31,7 +31,7 @@ description: GitHub Issue 하나를 SPEC 기준으로 구현 · 검증하고 PR 
 
 ## 3. 구현
 
-5. main 최신에서 `<종류>/<번호>-<짧은-이름>` 브랜치.
+5. main 최신에서 `<종류>/<번호>-<짧은-이름>` 브랜치를 **worktree 로** 연다 — 기본 클론은 main 그대로(AGENTS.md 「작업 흐름」): `git fetch && git worktree add ../<레포 폴더>-<번호> -b <브랜치> origin/main`.
 6. 일단 간단하게 동작하게. 데모 흐름이 먼저다.
 
 ## 4. 검증
