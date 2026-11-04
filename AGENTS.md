@@ -72,6 +72,8 @@
 SPEC 항목 → plan-feature 로 이슈 → implement-issue: 읽기 → (모르면 질문) → 브랜치 → 구현 → 검증 → PR(Closes #N) → 머지 규칙
 ```
 
+- **기본 클론은 main 에 두고, 브랜치 작업은 세션마다 worktree 에서.** 한 클론을 여러 세션 · 에이전트가 같이 쓰면 한쪽이 브랜치를 바꿀 때 다른 쪽 파일이 통째로 바뀐다. 네 레포의 기본 클론(`WOOWANGTHON_TEAM_12_*`)은 늘 main 에 둔다 — 다른 레포 문서를 `../` 로 읽는 자리다. 브랜치는 옆에 worktree 로 연다: `git worktree add ../WOOWANGTHON_TEAM_12_ETC-25 -b docs/25-<짧은-이름> origin/main` → PR 이 머지되면 `git worktree remove`.
+  - 기본 클론이 main 이 아니면: 바꾸지 않은 변경 · push 안 한 커밋이 없고 그 브랜치 PR 이 머지됐을 때만 `git switch main && git pull` 하고 브랜치를 `git branch -d`. 하나라도 아니면 다른 세션이 쓰는 중이니 건드리지 않는다.
 - 할 일의 원본은 **GitHub Issue 하나**다. `TODO.md` 같은 파일을 따로 만들지 않는다.
 - **스프린트**(ADR-002): 사용자 흐름 하나를 모든 레포의 같은 이름 Milestone(`스프린트 N — <흐름>`)으로 묶는다. 기간은 없고, 흐름이 돌면 닫는다. 떠오른 기능은 이슈로(`P1` · `P2`) — 무엇부터 할지는 우선순위 라벨이 정한다(대회 규칙 4).
 - UI 가 바뀌는 PR 에는 스크린샷이나 미리보기 링크를 붙인다. 덜 된 화면이어도 된다.
