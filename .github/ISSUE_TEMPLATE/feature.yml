@@ -38,4 +38,4 @@ body:
     id: blocked
     attributes:
       label: 선행 이슈
-      description: 없으면 「없음」. 적은 것은 전부 GitHub 선행(blocked by)으로도 건다 — 이슈 화면 Relationships 또는 `bash .claude/skills/plan-feature/link.sh blocked <이 이슈> <선행>`. 안 걸면 next-up 추천 순서가 틀린다
+      description: 없으면 「없음」. 기술적으로 막힐 때만(계약 · API · 스키마 · 공용 코드) — 우선순위 · 스프린트 순서 · 일정은 적지 않는다(ADR-009). 적은 것은 전부 GitHub 선행(blocked by)으로도 건다 — 이슈 화면 Relationships 또는 `bash .claude/skills/plan-feature/link.sh blocked <이 이슈> <선행>`. 안 걸면 next-up 추천 순서가 틀린다
