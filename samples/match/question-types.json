@@ -1,0 +1,86 @@
+[
+  {
+    "id": "why-program",
+    "organization": "OO 부트캠프",
+    "text": "이 과정에 지원한 이유와, 과정을 마친 뒤 이루고 싶은 목표를 함께 적어 주세요. (400자 내외)",
+    "questionType": "MOTIVATION",
+    "questionTypeOk": []
+  },
+  {
+    "id": "keyword-intro",
+    "organization": "OO 대학생 서포터즈",
+    "text": "나를 나타내는 키워드 세 가지로 자기소개를 해 주세요. (500자 이내)",
+    "questionType": "SELF_INTRO",
+    "questionTypeOk": []
+  },
+  {
+    "id": "strength-weakness",
+    "organization": "OO 연합 동아리",
+    "text": "본인의 장점과 단점을 하나씩 들고, 활동하면서 장점은 어떻게 살리고 단점은 어떻게 보완할지 적어 주세요. (700자)",
+    "questionType": "STRENGTH_WEAKNESS",
+    "questionTypeOk": []
+  },
+  {
+    "id": "deep-focus",
+    "organization": "OO 교내 IT 동아리",
+    "text": "열정을 가지고 깊게 몰입해 목표했던 것을 이뤄 낸 경험을 적어 주세요. 개발과 상관없는 경험도 괜찮습니다. (500자 이내)",
+    "questionType": "ACHIEVEMENT",
+    "questionTypeOk": []
+  },
+  {
+    "id": "feedback",
+    "organization": "OO 연합 동아리",
+    "text": "동료에게 받은 피드백 하나를 소개하고, 그 피드백을 성장에 어떻게 활용하고 있는지 적어 주세요. (600자)",
+    "questionType": "GROWTH",
+    "questionTypeOk": []
+  },
+  {
+    "id": "activity-idea",
+    "organization": "OO 대학생 서포터즈",
+    "text": "활동 기간에 직접 기획하고 실행해 보고 싶은 아이디어를 하나 적어 주세요. (250자 이내)",
+    "questionType": "IDEA",
+    "questionTypeOk": []
+  },
+  {
+    "id": "open-collab",
+    "organization": "OO 부트캠프",
+    "text": "나와 다른 의견을 존중하거나 내 노하우를 나누며 동료와 협력한 경험과, 그 경험이 지금의 나에게 준 영향을 적어 주세요.",
+    "questionType": "COLLABORATION",
+    "questionTypeOk": ["CONFLICT"]
+  },
+  {
+    "id": "success-failure",
+    "organization": "OO 연합 동아리",
+    "text": "성공과 실패 중 어느 쪽에서 더 많이 배운다고 생각하는지, 직접 겪은 경험을 바탕으로 적어 주세요. (600자)",
+    "questionType": "FAILURE",
+    "questionTypeOk": ["GROWTH"]
+  },
+  {
+    "id": "job-strength",
+    "organization": "OO IT 기업",
+    "text": "지원 직무와 관련해 강점으로 가진 역량과, 그 역량을 갖추려고 한 노력과 경험을 적어 주세요. (최대 1500자)",
+    "questionType": "STRENGTH_WEAKNESS",
+    "questionTypeOk": ["ACHIEVEMENT", "GROWTH"]
+  },
+  {
+    "id": "project-contribution",
+    "organization": "OO IT 기업",
+    "text": "진행했던 프로젝트 하나를 소개하고, 그중 본인이 기여한 부분을 구체적으로 적어 주세요.",
+    "questionType": "COLLABORATION",
+    "questionTypeOk": ["ACHIEVEMENT", "OTHER"]
+  },
+  {
+    "id": "after-join",
+    "organization": "OO IT 기업",
+    "text": "입사한 뒤 지원 직무에서 해 보고 싶은 업무를 적어 주세요.",
+    "questionType": "MOTIVATION",
+    "questionTypeOk": []
+  },
+  {
+    "id": "service-pitch",
+    "organization": "OO 교내 IT 동아리",
+    "text": "만들고 싶은 서비스나 지금 만들고 있는 서비스를 소개해 주세요.",
+    "questionType": "IDEA",
+    "questionTypeOk": []
+  }
+]

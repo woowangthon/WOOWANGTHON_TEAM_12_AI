@@ -3,18 +3,22 @@
     uv run python scripts/eval_match.py                    # MATCH_LLM_MODELS 첫 모델로, 우리 프롬프트 · 범용 프롬프트
     uv run python scripts/eval_match.py --models openai:gpt-6-luna,openai:gpt-5.4-mini
     uv run python scripts/eval_match.py --prompts tuned    # 우리 프롬프트만
-    uv run python scripts/eval_match.py --variants with    # 보완을 뺀 자료는 돌리지 않음
+    uv run python scripts/eval_match.py --variants with    # 보완을 뺀 자료 · 유형만 보는 문항은 돌리지 않음
+    uv run python scripts/eval_match.py --variants types   # 문항 유형(S-41)만 — 자주 나오는 꼴 문항
     uv run python scripts/eval_match.py --rescore eval-runs/match-<시각>   # 저장한 응답만 다시 채점(LLM 안 부름)
 
-LLM 호출 수 = (문항 수 + 보완 없음 문항 수) × 모델 수 × 프롬프트 수(규칙 위반이면 문항마다 최대 LLM_MAX_ATTEMPTS 번)
-— 기본 (10 + 3) × 1 × 2 = 26회. 「보완 없음」은 보완이 실린 경험이 정답(good · ok)인 문항만, 경험에서 보완을 모두 빼고
+LLM 호출 수 = (문항 수 + 보완 없음 문항 수 + 유형 문항 수) × 모델 수 × 프롬프트 수
+(규칙 위반이면 문항마다 최대 LLM_MAX_ATTEMPTS 번) — 기본 (10 + 3 + 12) × 1 × 2 = 50회. 「보완 없음」은 보완이 실린 경험이 정답(good · ok)인 문항만, 경험에서 보완을 모두 빼고
 한 번 더 돌린다 — 문항 A 에서 답하기 전(데모 4)과 답한 뒤(데모 6 · S-25)를 견준다. 폴더 이름 끝 -nosupp.
+「유형 문항」은 samples/match/question-types.json — 「자주 나오는 문항」(FE src/lib/common-questions.ts) 꼴을 본떠
+지어낸 문항이다. 같은 경험으로 /match 를 그대로 부르되 문항 유형만 채점한다. 폴더 이름 끝 -types.
 응답은 --out 폴더(기본 eval-runs/match-<시각>, 커밋하지 않음)에 저장한다. 모델 폴백 없이 고른 모델만 부른다.
 
 자료: samples/match/experiences.json(지어낸 사용자 한 명의 경험 · 근거 · 보완 — /match 요청 모양 그대로)과
 samples/match/questions.json(문항마다 손으로 적은 정답). 정답 칸:
 - kind: match(맞는 경험이 있다) · partial(일부만 받친다) · none(맞는 경험이 없다 — 0개여야 한다)
 - good: 첫 추천으로 맞는 경험 · ok: 추천해도 되는 경험 · bad: 추천하면 틀린 경험 · allowZero: 0개도 맞음
+- questionType: 문항이 주로 묻는 유형(S-41) · questionTypeOk: 겹치는 문항이라 그것도 틀렸다고 하기 어려운 유형
 
 숫자의 뜻:
 - 첫 추천 맞음: match · partial 문항에서 첫 추천이 good 인 수(allowZero 면 0개도 맞음)
@@ -27,6 +31,7 @@ samples/match/questions.json(문항마다 손으로 적은 정답). 정답 칸:
   — 낱말로 거른 후보다(「누가 고쳤는지 자료에 없다」도 걸릴 수 있다). 목록을 사람이 읽고 판단한다
 - 보완 씀: 보완이 실린 경험을 추천했을 때 evidence 에 보완을 넣은 수 / 그런 추천 수(S-25)
 - 오류: 다시 시도 뒤에도 규칙(ID 가 요청에 있나 등)을 어겨 LLM_INVALID_OUTPUT 등으로 끝난 문항 수
+- 문항 유형 정답: questionType 과 같은 수 · 허용 포함: questionTypeOk 까지 맞다고 친 수(S-41)
 
 되묻기(S-22 · S-25) — samples/match/clarify.json 의 「경험에 이미 있는 사실」과 그걸 묻는 정규식으로 센다.
 정규식 · 낱말로 거른 것은 전부 후보다 — 목록을 사람이 읽고 판단한다(질문 전체도 찍는다):
@@ -75,6 +80,7 @@ VAGUE = re.compile(
 )
 SHARE = re.compile(r"맡|직접|본인|몫|역할|기여|담당|하신 일|한 일|참여")
 NOSUPP = "-nosupp"
+TYPES = "-types"
 
 
 @dataclass
@@ -105,6 +111,10 @@ class Score:
     compound: list[str] = field(default_factory=list)
     share_asked: int = 0
     share_chances: int = 0
+    type_total: int = 0
+    type_right: int = 0
+    type_ok: int = 0
+    type_wrong: list[str] = field(default_factory=list)
 
     def add(self, other: "Score") -> None:
         for name, value in vars(other).items():
@@ -129,6 +139,21 @@ def _has(exp: MatchExperience, fact: dict) -> bool:
     return any(x.id == fact["id"] for x in items)
 
 
+def score_type(question: dict, data: MatchResponse) -> Score:
+    """문항 유형(S-41)만 — 유형 문항(-types)은 이것만, 매칭 문항은 score 안에서도 부른다."""
+    s = Score(questions=1)
+    if "questionType" not in question:
+        return s
+    s.type_total = 1
+    got, want = data.questionType, question["questionType"]
+    s.type_right = got == want
+    s.type_ok = got == want or got in question.get("questionTypeOk", ())
+    if got != want:
+        mark = "허용" if s.type_ok else "틀림"
+        s.type_wrong.append(f"{question['id']}: {got}({mark}, 정답 {want}) 「{question['text']}」")
+    return s
+
+
 def score(
     question: dict,
     experiences: list[MatchExperience],
@@ -140,7 +165,7 @@ def score(
     qid = question["id"]
     kind = question["kind"]
     by_id = {e.id: e for e in experiences}
-    s = Score(questions=1)
+    s = score_type(question, data)
     recs = data.recommendations
     ids = [r.experienceId for r in recs]
     statuses = [r.status for r in data.requirements]
@@ -241,6 +266,11 @@ def load_data(only: list[str] | None) -> tuple[list[dict], list[dict]]:
     return experiences, questions
 
 
+def load_types(only: list[str] | None) -> list[dict]:
+    questions = json.loads((DATA / "question-types.json").read_text(encoding="utf-8"))
+    return [q for q in questions if q["id"] in only] if only else questions
+
+
 def load_known() -> list[dict]:
     return json.loads((DATA / "clarify.json").read_text(encoding="utf-8"))["known"]
 
@@ -258,6 +288,7 @@ async def run(
     variants: list[str],
     experiences: list[dict],
     questions: list[dict],
+    type_questions: list[dict],
     out: Path,
 ) -> None:
     from dotenv import load_dotenv
@@ -296,7 +327,7 @@ async def run(
             except ApiError as e:
                 record = {"error": f"{e.code}: {e.message}"}
             record["seconds"] = round(time.monotonic() - started, 1)
-        name = prompt + (NOSUPP if variant == "without" else "")
+        name = prompt + {"with": "", "without": NOSUPP, "types": TYPES}[variant]
         path = out / _slug(model) / name / f"{q['id']}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -307,12 +338,16 @@ async def run(
     jobs = [("with", q) for q in questions] if "with" in variants else []
     if "without" in variants:
         jobs += [("without", q) for q in nosupp_questions(experiences, questions)]
+    if "types" in variants:
+        jobs += [("types", q) for q in type_questions]
     await asyncio.gather(*(one(m, p, v, q) for m in models for p in prompts for v, q in jobs))
 
 
-def report(out: Path, experiences: list[dict], questions: list[dict]) -> str:
+def report(
+    out: Path, experiences: list[dict], questions: list[dict], type_questions: list[dict]
+) -> str:
     known = load_known()
-    rows, clar_rows, details = [], [], []
+    rows, clar_rows, type_rows, details = [], [], [], []
     for model_dir in sorted(p for p in out.iterdir() if p.is_dir()):
         for prompt_dir in sorted(p for p in model_dir.iterdir() if p.is_dir()):
             stripped = prompt_dir.name.endswith(NOSUPP)
@@ -320,8 +355,9 @@ def report(out: Path, experiences: list[dict], questions: list[dict]) -> str:
                 MatchExperience.model_validate(e)
                 for e in (strip_supplements(experiences) if stripped else experiences)
             ]
+            only_type = prompt_dir.name.endswith(TYPES)
             t = Score()
-            for q in questions:
+            for q in type_questions if only_type else questions:
                 path = prompt_dir / f"{q['id']}.json"
                 if not path.exists():
                     continue
@@ -332,10 +368,25 @@ def report(out: Path, experiences: list[dict], questions: list[dict]) -> str:
                     t.errors.append(f"{q['id']}: {record['error']}")
                     continue
                 data = MatchResponse.model_validate(record["response"])
-                t.add(score(q, exps, data, known, stripped))
+                if only_type:
+                    t.add(score_type(q, data))
+                else:
+                    t.add(score(q, exps, data, known, stripped))
             if not t.questions:
                 continue
             name = f"{model_dir.name} · {prompt_dir.name}"
+            if t.type_total or only_type:
+                type_rows.append(
+                    f"| {name} | {t.type_right}/{t.type_total} | {t.type_ok}/{t.type_total} "
+                    f"| {len(t.errors)}/{t.questions} |"
+                )
+            if only_type:
+                lines = [
+                    *(f"- 유형 다름 {x}" for x in t.type_wrong),
+                    *(f"- 오류 {x}" for x in t.errors),
+                ]
+                details.append(f"\n### {name}\n\n" + "\n".join(lines))
+                continue
             answered = t.questions - len(t.errors)
             gap = f"{t.gap_asked}/{t.gap_chances}" if stripped else "-"
             clar_rows.append(
@@ -358,6 +409,7 @@ def report(out: Path, experiences: list[dict], questions: list[dict]) -> str:
                 *(f"- 지어낸 수치 {x}" for x in t.made_up_numbers),
                 *(f"- 팀 일을 내 일로(후보) {x}" for x in t.team_as_mine),
                 *(f"- 오류 {x}" for x in t.errors),
+                *(f"- 유형 다름 {x}" for x in t.type_wrong),
                 *(f"- 이미 있는 사실 다시 물음(후보) {x}" for x in t.repeats),
                 *(f"- 수치 · 답 유도(후보) {x}" for x in t.leading),
                 *(f"- 막연한 질문(후보) {x}" for x in t.vague),
@@ -376,7 +428,12 @@ def report(out: Path, experiences: list[dict], questions: list[dict]) -> str:
         "| 한 질문에 여러 개 | 팀 · 모름 경험에 내 몫 물음 | 오류 |\n"
         "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"
     )
-    tables = "\n".join([head, *rows]) + "\n\n" + "\n".join([clar_head, *clar_rows])
+    type_head = "| 모델 · 프롬프트 | 문항 유형 정답 | 허용 포함 | 오류 |\n| --- | --- | --- | --- |"
+    tables = "\n\n".join(
+        "\n".join(t)
+        for t in ([head, *rows], [clar_head, *clar_rows], [type_head, *type_rows])
+        if len(t) > 1
+    )
     return tables + "\n" + "".join(details) + "\n"
 
 
@@ -385,14 +442,18 @@ def main() -> None:
     parser.add_argument("--models", help="쉼표로 「제공사:모델」 — 기본은 MATCH_LLM_MODELS 첫 모델")
     parser.add_argument("--prompts", default="tuned,generic", help="tuned · generic")
     parser.add_argument(
-        "--variants", default="with,without", help="with(자료 그대로) · without(보완을 뺀 자료)"
+        "--variants",
+        default="with,without,types",
+        help="with(자료 그대로) · without(보완을 뺀 자료) · types(유형만 보는 문항)",
     )
-    parser.add_argument("--questions", help="쉼표로 문항 id — 기본은 전부")
+    parser.add_argument("--questions", help="쉼표로 문항 id(유형 문항 포함) — 기본은 전부")
     parser.add_argument("--out", type=Path, help="응답 저장 폴더")
     parser.add_argument("--rescore", type=Path, help="저장한 응답만 다시 채점(LLM 안 부름)")
     args = parser.parse_args()
 
-    experiences, questions = load_data(args.questions.split(",") if args.questions else None)
+    only = args.questions.split(",") if args.questions else None
+    experiences, questions = load_data(only)
+    type_questions = load_types(only)
     if args.rescore:
         out = args.rescore
     else:
@@ -412,17 +473,18 @@ def main() -> None:
                 parser.error(f"프롬프트는 {list(PROMPTS)} 중 — {p!r}")
         variants = [v.strip() for v in args.variants.split(",") if v.strip()]
         for v in variants:
-            if v not in ("with", "without"):
-                parser.error(f"--variants 는 with · without 중 — {v!r}")
+            if v not in ("with", "without", "types"):
+                parser.error(f"--variants 는 with · without · types 중 — {v!r}")
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         out = args.out or ROOT / "eval-runs" / f"match-{stamp}"
         n = len(questions) * ("with" in variants)
         n += len(nosupp_questions(experiences, questions)) * ("without" in variants)
+        n += len(type_questions) * ("types" in variants)
         calls = n * len(models) * len(prompts)
         print(f"LLM 호출 {calls}회(규칙 위반 시 더) → {out}")
-        asyncio.run(run(models, prompts, variants, experiences, questions, out))
+        asyncio.run(run(models, prompts, variants, experiences, questions, type_questions, out))
 
-    text = report(out, experiences, questions)
+    text = report(out, experiences, questions, type_questions)
     (out / "summary.md").write_text(text, encoding="utf-8")
     print("\n" + text)
 
