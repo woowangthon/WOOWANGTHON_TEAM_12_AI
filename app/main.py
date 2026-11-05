@@ -14,6 +14,7 @@ from app.config import Settings, load_settings
 from app.draft import draft
 from app.errors import ApiError
 from app.extract import extract
+from app.ground_check import ground_check
 from app.link_suggest import suggest_links
 from app.llm import JsonLLM, ToolLLM, build_llm
 from app.match import match
@@ -28,6 +29,8 @@ from app.schemas import (
     DraftResponse,
     ExtractRequest,
     ExtractResponse,
+    GroundCheckRequest,
+    GroundCheckResponse,
     LinkSuggestionsRequest,
     LinkSuggestionsResponse,
     MatchRequest,
@@ -127,6 +130,15 @@ async def post_match(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> MatchResponse:
     return await match(req, llm, settings)
+
+
+@app.post("/ground-check", response_model=GroundCheckResponse)
+async def post_ground_check(
+    req: GroundCheckRequest,
+    llm: Annotated[JsonLLM, Depends(get_match_llm)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> GroundCheckResponse:
+    return await ground_check(req, llm, settings)
 
 
 @app.post("/draft", response_model=DraftResponse)

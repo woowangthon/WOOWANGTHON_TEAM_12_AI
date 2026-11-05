@@ -308,6 +308,39 @@ class DraftResponse(LLMDraftOutput):
     model: str | None
 
 
+# ==== POST /ground-check — ETC docs/contracts/ai-api.md 「POST /ground-check」 ====
+
+GroundingStatus = Literal["SOURCE", "USER_INPUT", "UNSUPPORTED", "OPINION"]
+
+
+class GroundCheckRequest(BaseModel):
+    text: str | None = None
+    experiences: list[MatchExperience] | None = None
+
+
+class GroundVerdict(BaseModel):
+    index: int
+    status: GroundingStatus
+    evidence: list[DraftEvidence]
+    note: Annotated[NonBlank, AfterValidator(_one_line)] | None
+
+
+class LLMGroundOutput(BaseModel):
+    verdicts: list[GroundVerdict]
+
+
+class GroundSentence(BaseModel):
+    text: str
+    status: GroundingStatus
+    evidence: list[DraftEvidence]
+    note: str | None
+
+
+class GroundCheckResponse(BaseModel):
+    sentences: list[GroundSentence]
+    model: str | None
+
+
 # ==== POST /route — ETC docs/contracts/ai-api.md 「POST /route」 ====
 
 # 홈 입력 가르기 — 닫힌 목록. 원본은 ETC docs/contracts/README.md 「값 목록」 entranceKind
