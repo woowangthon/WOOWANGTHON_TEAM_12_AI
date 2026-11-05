@@ -35,7 +35,7 @@ class Settings:
     # (제공사, 모델). 앞에서부터 쓰고, 「지금 못 씀」(404 · 429 · 5xx · 시간 초과)이면 다음으로.
     # 키가 없는 제공사는 건너뛴다
     llm_models: tuple[tuple[str, str], ...]
-    # /match 에 쓰는 순서 — 규칙은 llm_models 와 같다
+    # /match · /draft 에 쓰는 순서 — 규칙은 llm_models 와 같다
     match_models: tuple[tuple[str, str], ...]
     # /route 에 쓰는 순서 — 규칙은 llm_models 와 같다
     route_models: tuple[tuple[str, str], ...]

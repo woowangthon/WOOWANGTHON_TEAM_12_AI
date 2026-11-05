@@ -9,12 +9,15 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.config import Settings, load_settings
+from app.draft import draft
 from app.errors import ApiError
 from app.extract import extract
 from app.llm import JsonLLM, build_llm
 from app.match import match
 from app.route import route
 from app.schemas import (
+    DraftRequest,
+    DraftResponse,
     ExtractRequest,
     ExtractResponse,
     MatchRequest,
@@ -93,6 +96,15 @@ async def post_match(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> MatchResponse:
     return await match(req, llm, settings)
+
+
+@app.post("/draft", response_model=DraftResponse)
+async def post_draft(
+    req: DraftRequest,
+    llm: Annotated[JsonLLM, Depends(get_match_llm)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> DraftResponse:
+    return await draft(req, llm, settings)
 
 
 @app.post("/route", response_model=RouteResponse)

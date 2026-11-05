@@ -1,0 +1,100 @@
+[
+  {
+    "id": "tech-a",
+    "organization": "OO 백엔드 부트캠프",
+    "text": "기술적인 문제를 해결한 경험을 구체적으로 적어 주세요.",
+    "experienceIds": [101],
+    "missing": [
+      {"fact": "고친 뒤 확인한 방법", "pattern": "확인했|테스트|검증|모니터링", "omitPattern": "확인|검증|테스트", "mustOmit": true},
+      {"fact": "나아진 정도 · 결과", "pattern": "빨라|개선|단축|줄였|줄어|감소|향상|안정적|실시간으로", "omitPattern": "결과|성과|개선|얼마나|효과|속도|지연"},
+      {"fact": "배운 점 · 느낀 점", "pattern": "배웠|배움|느꼈|뿌듯|깨달", "omitPattern": "배운|느낀|배움"}
+    ],
+    "expect": [{"pattern": "STOMP|구독", "evidence": [["SUPPLEMENT", 301]]}]
+  },
+  {
+    "id": "team-way",
+    "organization": "OO 연합 동아리",
+    "text": "팀 프로젝트에서 맡은 역할과, 팀과 함께 일한 방식을 적어 주세요.",
+    "experienceIds": [101, 102],
+    "missing": [
+      {"fact": "회고에서 내 몫", "pattern": "회고.{0,30}(제가|직접|주도|진행했|맡)|(제가|직접).{0,30}회고", "omitPattern": "회고.{0,20}(본인|내 |제가|몫|맡|역할|참여)", "mustOmit": true},
+      {"fact": "회고의 효과", "pattern": "회고.{0,40}(개선|높였|맞췄|빨라|줄였)", "omitPattern": "회고.{0,20}(효과|결과|바뀐|달라)"}
+    ],
+    "expect": [{"pattern": "회고", "evidence": [["CITATION", 202]]}]
+  },
+  {
+    "id": "coordination",
+    "organization": "OO 대외활동",
+    "text": "팀에서 일정이나 의견 갈등을 조율한 경험을 적어 주세요.",
+    "experienceIds": [106, 107],
+    "missing": [
+      {"fact": "조율 뒤 일정 · 팀의 결과", "pattern": "제때|무사히|성공적|마쳤|맞췄|지켰|만족|호응|원활", "omitPattern": "결과|이후|뒤|반응", "mustOmit": true}
+    ],
+    "expect": [
+      {"pattern": "장단점", "evidence": [["CITATION", 208]]},
+      {"pattern": "일정표", "evidence": [["CITATION", 206]]}
+    ]
+  },
+  {
+    "id": "failure",
+    "organization": "OO 인턴십",
+    "text": "실패하거나 아쉬웠던 경험과, 그 뒤 무엇을 바꾸었는지 적어 주세요.",
+    "experienceIds": [115, 116, 114],
+    "missing": [
+      {"fact": "서버 장애를 고친 사람 · 내 몫", "pattern": "(제가|직접).{0,30}(고쳤|수정|해결|찾아)", "omitPattern": "맡은|몫|역할|직접|누가|한 일", "mustOmit": true},
+      {"fact": "바꾼 뒤 실제로 나아졌는지", "pattern": "줄었|줄일|개선|나아졌|안정|사라졌", "omitPattern": "뒤|이후|결과|적용|실제"}
+    ],
+    "expect": [{"pattern": "다짐|로그", "evidence": [["CITATION", 217]]}]
+  },
+  {
+    "id": "data-python",
+    "organization": "OO 데이터 직무",
+    "text": "Python 이나 SQL 로 데이터를 다루어 문제를 해결한 경험을 적어 주세요.",
+    "experienceIds": [121],
+    "missing": [
+      {"fact": "Python · SQL 을 쓴 일", "pattern": "(Python|파이썬|SQL).{0,20}(로|으로|을|를|활용|사용)", "omitPattern": "Python|파이썬|SQL", "mustOmit": true},
+      {"fact": "발주 제안의 결과", "pattern": "절감|줄였|줄어|폐기|효율|채택|반영", "omitPattern": "결과|반영|효과"}
+    ],
+    "expect": [{"pattern": "4주", "evidence": [["SUPPLEMENT", 321]]}]
+  },
+  {
+    "id": "budget",
+    "organization": "OO 학생 단체",
+    "text": "예산을 직접 짜고 집행해 본 경험을 적어 주세요.",
+    "experienceIds": [132, 133],
+    "missing": [
+      {"fact": "예산을 내가 짜고 집행한 일", "pattern": "(제가|직접).{0,20}(예산|집행)|예산.{0,20}(제가|직접|집행했)", "omitPattern": "예산|집행", "mustOmit": true}
+    ],
+    "expect": [{"pattern": "회장", "evidence": [["CITATION", 232]]}]
+  },
+  {
+    "id": "community",
+    "organization": "OO 연합 동아리",
+    "text": "모임이나 조직을 꾸준히 운영해 본 경험이 있다면 적어 주세요.",
+    "experienceIds": [105, 108],
+    "missing": [
+      {"fact": "시트를 만든 뒤 참여가 어떻게 됐는지", "pattern": "늘었|늘어|회복|다시|활발|증가|높였", "omitPattern": "참여|결과|뒤|이후|변화", "mustOmit": true}
+    ],
+    "expect": [{"pattern": "시트", "evidence": [["CITATION", 209]]}]
+  },
+  {
+    "id": "user-entered",
+    "organization": null,
+    "text": "개발하면서 마주친 기술적 문제와, 그 문제를 어떻게 해결했는지 적어 주세요.",
+    "experienceIds": [141],
+    "missing": [
+      {"fact": "기술적 문제와 해결", "pattern": "오류|버그|장애|원인|해결했|고쳤", "omitPattern": "문제|해결", "mustOmit": true}
+    ],
+    "expect": [{"pattern": "5명|5 명", "evidence": [["EXPERIENCE", 141]]}]
+  },
+  {
+    "id": "teaching",
+    "organization": null,
+    "text": "다른 사람에게 무언가를 가르치거나 알기 쉽게 설명해 본 경험을 적어 주세요.",
+    "experienceIds": [122],
+    "missing": [
+      {"fact": "문서를 쓴 뒤 무엇이 나아졌는지", "pattern": "줄었|줄어|빨라|빠르게|쉽게|도움|익혔|익힐|헷갈리지", "omitPattern": "결과|반응|뒤|이후|효과|나아", "mustOmit": true}
+    ],
+    "expect": [{"pattern": "레시피", "evidence": [["CITATION", 222]]}]
+  }
+]
