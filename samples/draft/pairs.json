@@ -217,5 +217,41 @@
     ],
     "missing": [],
     "expect": []
+  },
+  {
+    "id": "aspiration-team",
+    "organization": "OO 소프트웨어",
+    "text": "입사 5년 뒤 어떤 개발자가 되고 싶은지, 지금까지의 경험과 이어서 적어 주세요.",
+    "experienceIds": [102, 114],
+    "missing": [
+      {"fact": "회고 · 장애 대응에서 내 몫", "pattern": "(제가|직접|주도).{0,30}(고쳤|수정|해결|찾아|회고)", "omitPattern": "맡은|몫|역할|직접|누가|한 일", "mustOmit": true},
+      {"fact": "되고 싶은 모습 · 목표", "pattern": "[0-9]+ ?년", "omitPattern": "포부|되고 싶|목표|계획|모습", "mustOmit": true, "noQuestion": true}
+    ],
+    "expect": [
+      {"pattern": "커넥션", "evidence": [["CITATION", 214]]}
+    ]
+  },
+  {
+    "id": "motivation-thin",
+    "organization": "OO 개발 스터디",
+    "text": "이 스터디에 지원한 동기와 앞으로 하고 싶은 일을 적어 주세요.",
+    "experienceIds": [141],
+    "missing": [
+      {"fact": "이 스터디에 지원하는 이유", "pattern": "지원했|지원하게|관심을 가|알게 되", "omitPattern": "지원|동기|이유", "mustOmit": true, "noQuestion": true},
+      {"fact": "가계부 앱의 성과 · 반응", "pattern": "호평|만족|좋은 반응|편리|유용|도움", "omitPattern": "반응|성과|결과"}
+    ],
+    "expect": [
+      {"pattern": "가계부", "evidence": [["EXPERIENCE", 141]]}
+    ]
+  },
+  {
+    "id": "motivation-bare",
+    "organization": "OO 개발 스터디",
+    "text": "이 스터디에 지원한 동기를 적어 주세요.",
+    "experienceIds": [153],
+    "missing": [
+      {"fact": "이 스터디에 지원하는 이유", "pattern": "지원했|지원하게|관심을 가|알게 되", "omitPattern": "지원|동기|이유", "mustOmit": true, "noQuestion": true}
+    ],
+    "expect": []
   }
 ]

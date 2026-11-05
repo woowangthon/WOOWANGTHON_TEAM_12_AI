@@ -19,7 +19,11 @@ def _out(*sentences, omitted=()):
     return LLMDraftOutput.model_validate(
         {
             "sentences": [
-                {"text": t, "evidence": [{"type": k, "id": i} for k, i in ev]}
+                {
+                    "kind": "FACT" if ev else "OPINION",
+                    "text": t,
+                    "evidence": [{"type": k, "id": i} for k, i in ev],
+                }
                 for t, ev in sentences
             ],
             "omitted": list(omitted),
@@ -250,3 +254,48 @@ def test_known_facts_point_to_real_items():
     for fact in load_facts():
         key = "citations" if fact["source"] == "CITATION" else "supplements"
         assert fact["id"] in [x["id"] for x in by_id[fact["experienceId"]][key]]
+
+
+def test_score_opinions_are_kept_out_of_fact_rules():
+    """OPINION 은 근거 규칙에 세지 않는다 — 문장 수 · 주어 · 지어냄이 아니라 생각 칸에 간다."""
+    s = score(
+        PAIR["tech-a"],
+        _exps(PAIR["tech-a"]),
+        _out(
+            ("제가 폴링을 WebSocket 으로 바꿔 해결했습니다.", [("CITATION", 201)]),
+            ("앞으로도 문제의 원인을 살피고 싶습니다.", []),
+        ),
+    )
+    assert len(s.sentences) == 1
+    assert len(s.opinions) == 1
+    assert (s.kind_broken, s.opinion_happened, s.opinion_invented) == ([], [], [])
+
+
+def test_score_catches_fact_hidden_as_opinion():
+    """가장 큰 위험 — 자료에 없는 결과를 생각 문장으로 빼면 후보로 잡힌다."""
+    s = score(
+        PAIR["tech-a"],
+        _exps(PAIR["tech-a"]),
+        _out(
+            ("제가 폴링을 WebSocket 으로 바꿔 해결했습니다.", [("CITATION", 201)]),
+            ("메시지 지연을 크게 줄였습니다.", []),
+            ("뿌듯함을 느꼈습니다.", []),
+        ),
+    )
+    assert len(s.invented) == 0  # 사실 문장 쪽 칸에는 없다
+    assert len(s.opinion_invented) == 2
+    assert len(s.opinion_happened) == 2
+    assert len(s.opinion_flattery) == 1
+
+
+def test_score_kind_broken():
+    pair = PAIR["tech-a"]
+    only = _out(("앞으로 살피겠습니다.", []))
+    assert score(pair, _exps(pair), only).kind_broken == ["tech-a: 생각 문장만"]
+    many = _out(
+        ("제가 해결했습니다.", [("CITATION", 201)]),
+        *[(f"살피겠습니다 {i}.", []) for i in "가나다라"],
+    )
+    assert score(pair, _exps(pair), many).kind_broken == ["tech-a: OPINION 4개"]
+    number = _out(("제가 해결했습니다.", [("CITATION", 201)]), ("3년 안에 살피겠습니다.", []))
+    assert "숫자" in score(pair, _exps(pair), number).kind_broken[0]

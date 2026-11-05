@@ -88,5 +88,23 @@
         "answer": "숫자만 보지 말고 사람들에게 직접 물어봐야 원인이 보인다는 걸 배웠다"
       }
     ]
+  },
+  {
+    "id": 153,
+    "activityName": "오픈소스 기여 스터디",
+    "period": {
+      "start": "2025-09",
+      "end": null,
+      "ongoing": true
+    },
+    "content": "오픈소스 기여 스터디에 참여했다",
+    "competencies": [
+      "PROBLEM_SOLVING",
+      "IMPLEMENTATION"
+    ],
+    "actor": "ME",
+    "sourceStatus": "NEEDS_REVIEW",
+    "citations": [],
+    "supplements": []
   }
 ]

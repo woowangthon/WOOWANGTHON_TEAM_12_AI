@@ -1,17 +1,18 @@
-"""문항 + 고른 경험 → 문장마다 근거가 붙은 답변 초안 · 받칠 게 없어 쓰지 않은 것
+"""문항 + 고른 경험 → 사실 문장(근거가 붙는다) · 생각 문장(AI 제안) · 받칠 게 없어 쓰지 않은 것
 (SPEC R-03 F-09 / S-27 · S-05 · S-20). 계약 ai-api 「POST /draft」.
 
 모델 순서는 /match 와 같다 — 같은 경험 · 근거를 읽는 일이고, 따로 고를 채점이 아직 없다.
-ID · 개수 · 문장 속 숫자 · omitted 의 경험 ID 와 질문 짝은 코드가 확인한다(check_output) — 어기면 다시 부르고, 끝까지 어기면
+ID · 개수 · 문장 속 숫자 · 문장 종류(FACT 는 근거 1개 이상, OPINION 은 근거 · 숫자 없이 최대 3개, 생각만으로 채우지 않는다) ·
+omitted 의 경험 ID 와 질문 짝은 코드가 확인한다(check_output) — 어기면 다시 부르고, 끝까지 어기면
 LLM_INVALID_OUTPUT. 문장을 빼거나 근거를 바꿔서 돌려주지 않는다.
-「근거가 그 문장을 정말 받치나」 · 「팀 일을 내 일로 썼나」 · 질문 품질(S-22)은 코드로 다 못 막아 scripts/eval_draft.py 로 잰다.
+「근거가 그 문장을 정말 받치나」 · 「팀 일을 내 일로 썼나」 · 「사실을 생각 문장으로 뺐나」 · 질문 품질(S-22)은 코드로 다 못 막아 scripts/eval_draft.py 로 잰다.
 """
 
 import logging
 from dataclasses import dataclass
 from typing import Any
 
-from app.citations import unsupported_numbers
+from app.citations import numbers, unsupported_numbers
 from app.config import Settings
 from app.errors import InvalidRequest
 from app.llm import JsonLLM, generate_valid
@@ -28,9 +29,11 @@ from app.schemas import (
 log = logging.getLogger(__name__)
 
 MAX_EXPERIENCES = 3
+MAX_OPINIONS = 3
 
 SYSTEM_PROMPT = """\
-너는 지원 문항 하나와 사용자가 고른 경험을 받아, 그 경험에 적힌 사실만으로 답변 초안을 문장 단위로 쓴다.
+너는 지원 문항 하나와 사용자가 고른 경험을 받아, 그 경험에 적힌 사실로 답변 초안을 문장 단위로 쓴다.
+사실 문장과, 사실을 문항에 잇는 생각 문장을 구분한다.
 없는 사실로 글을 좋게 만드는 것이 아니다. 초안은 사용자가 고쳐 쓸 재료이고, 최종 문장은 사람이 정한다.
 
 입력
@@ -47,21 +50,30 @@ SYSTEM_PROMPT = """\
 1. 문장 sentences: 문항이 묻는 것에 맞는 사실을 골라 글의 순서대로 1 ~ 15개. 문항과 상관없는 사실은 넣지 않는다.
    경험은 사용자가 이 문항에 쓰려고 고른 것이다 — 고른 경험마다 쓸 사실이 있으면 빠뜨리지 않는다.
    한 항목에 한 문장, 줄바꿈 없이, 지원서에 쓰는 「~했습니다」 말투로. 받칠 것이 조금이라도 있으면 빈 배열로 두지 않는다 —
-   문항에 가장 가까운 사실로 쓰고 모자란 것을 omitted 에 적는다.
+   문항에 가장 가까운 사실로 쓰고 모자란 것을 omitted 에 적는다. 받칠 것이 하나도 없으면 sentences 는 [] 이다 — 생각 문장만으로 채우지 않는다.
+   문장마다 kind: 사실이면 "FACT", 생각 문장(규칙 4)이면 "OPINION".
    구성: 고른 사실을 입력에 적힌 순서가 아니라 일의 순서로 세운다 — 상황(무엇이 왜 문제였나) → 판단(왜 그렇게 정했나 · 어떤 안과
    견줬나) → 행동(어떻게 했나) → 결과(어떻게 확인했나 · 어떻게 됐나) → 배운 점. 자료에 없는 칸은 건너뛴다 — 칸을 채우려고 문장을
    만들지 않는다. 자료에 있는 판단 이유 · 확인 방법 · 결과는 문항과 맞으면 빠뜨리지 않는다. 경험이 여럿이면 한 경험을 끝내고 다음으로 넘어간다.
    되풀이: 같은 사실을 두 문장에 쓰지 않는다. 앞에서 「…해 해결했습니다」로 요약하고 뒤에서 같은 일을 풀어 쓰지 말고, 일어난 차례대로
    한 번만 쓴다. 같은 활동의 이름은 처음 한 번만 쓴다 — 고른 경험 둘이 같은 활동이어도 그렇다.
-2. 문장마다 evidence: 그 문장을 받치는 것을 1개 이상. 같은 것을 두 번 넣지 않는다. 목록에 없는 ID 를 쓰지 않는다.
+2. FACT 문장마다 evidence: 그 문장을 받치는 것을 1개 이상. 같은 것을 두 번 넣지 않는다. 목록에 없는 ID 를 쓰지 않는다.
    받친다는 것은 문장의 사실(한 일 · 결과 · 역할 · 수치)이 붙인 근거 · 보완 · 본문에 **다 있다**는 뜻이다.
    문장에 든 사실이 여럿이면 그 사실들을 받치는 것을 모두 붙인다.
 3. 지어내지 않는다. 근거를 매끄럽게 옮겨 쓰되, 없는 수치 · 역할 · 결과 · 기술 이름 · 평가를 더하지 않는다.
    「해결했습니다」에 「크게 개선했습니다」 「성공적으로」 「빨라졌습니다」 「안정적으로」를 더하지 않는다.
    원인과 결과도 적힌 대로만 잇는다 — 자료에 없는 까닭 · 효과를 추측해 넣지 않는다.
-4. 근거 없이 잇기만 하는 문장(「이 경험으로 저는 …」)을 두지 않고, 자료에 없는 느낀 점 · 다짐 · 포부를 만들지 않는다.
-   잇는 말은 근거 있는 문장 안에 넣는다. 자료에 **있는** 배운 점 · 다짐은 사실이니 그 근거를 붙여 문장으로 쓴다.
-   문항이 지원 동기 · 직무 적합성을 물어도 자료에 없는 동기 · 포부 · 자기 평가를 쓰지 않는다 — 자료에 있는 사실을 쓰고 모자란 것을 omitted 에 적는다.
+4. 생각 문장 — kind "OPINION", evidence []. 사실이 아니라 사용자가 확인하고 고칠 제안이다. 초안 전체에 0 ~ 3개, FACT 문장이 있을 때만 쓴다.
+   쓸 수 있는 것은 셋뿐이다: 앞의 사실을 문항에 잇는 말 · 그 사실이 지원하는 일과 어떻게 닿는지 · 앞으로 해 보고 싶은 것.
+   문항이 지원 동기 · 직무 적합성 · 포부를 묻거나 사실만으로는 문항에 이어지지 않을 때 쓴다. 사실로 답이 되면 쓰지 않아도 된다.
+   앞으로의 말로 쓴다(「~하고 싶습니다」 「~해 보겠습니다」). 「~했습니다」로 끝나는 일어난 일은 생각 문장이 아니다 — 받칠 수 있으면 FACT, 없으면 omitted.
+   생각 문장에 쓰지 않는 것:
+   - 숫자 — 문항에 숫자가 있어도 쓰지 않고, 「세 번」 같은 말로 바꿔 쓰지도 않는다.
+   - 자료에 없는 일 · 결과 · 역할 · 기술 이름, 지원처 · 직무에 대해 자료에 없는 것.
+   - 지어낸 감정(「뿌듯했습니다」 「즐거웠습니다」) · 칭찬(「뛰어난」 「적임자입니다」) · 의미 단정(「큰 성장의 밑거름이 되었습니다」 「…를 증명합니다」).
+   - TEAM · UNKNOWN 경험의 일을 내 일로 말하는 것. 앞의 FACT 를 되풀이하는 것.
+   자료에 **있는** 배운 점 · 감정 · 다짐은 생각이 아니라 사실이니 그 근거를 붙여 FACT 로 쓴다.
+   지원 동기 · 포부는 사용자만 안다 — 생각 문장으로 제안했어도 omitted 에 적는다.
 5. 수행 주체 — 가장 조심할 것:
    - ME 인 경험만 「제가」로 쓴다.
    - TEAM(팀 · 다른 사람이 한 일)인 경험은 「팀은 …」 「팀이 함께 …」로 쓴다. 근거에 다른 사람이 적혀 있으면
@@ -106,10 +118,10 @@ LLM_JSON_SCHEMA: dict[str, Any] = {
             "items": {
                 "type": "object",
                 "properties": {
+                    "kind": {"type": "string", "enum": ["FACT", "OPINION"]},
                     "text": {"type": "string"},
                     "evidence": {
                         "type": "array",
-                        "minItems": 1,
                         "items": {
                             "type": "object",
                             "properties": {
@@ -123,7 +135,7 @@ LLM_JSON_SCHEMA: dict[str, Any] = {
                         },
                     },
                 },
-                "required": ["text", "evidence"],
+                "required": ["kind", "text", "evidence"],
             },
         },
         "omitted": {
@@ -183,11 +195,26 @@ def check_request(
 
 
 def check_output(output: LLMDraftOutput, experiences: list[MatchExperience]) -> LLMDraftOutput:
-    """받칠 것 · ID · 숫자 — 어기면 ValueError(다시 부른다). 고쳐 넣지 않는다."""
+    """받칠 것 · ID · 숫자 · 문장 종류 — 어기면 ValueError(다시 부른다). 고쳐 넣지 않는다."""
     known = backings(experiences)
     if known and not output.sentences:
         raise ValueError("받칠 것이 있는데 문장이 0개")
+    kinds = [s.kind for s in output.sentences]
+    if kinds and "FACT" not in kinds:
+        raise ValueError("사실 문장 없이 생각 문장만")
+    if kinds.count("OPINION") > MAX_OPINIONS:
+        raise ValueError(f"생각 문장 {kinds.count('OPINION')}개 — 최대 {MAX_OPINIONS}개")
     for i, sentence in enumerate(output.sentences):
+        if sentence.kind == "OPINION":
+            if sentence.evidence:
+                raise ValueError(f"sentences[{i}] 생각 문장에 근거")
+            if numbers(sentence.text):
+                raise ValueError(
+                    f"sentences[{i}] 생각 문장에 숫자 {sorted(numbers(sentence.text))}"
+                )
+            continue
+        if not sentence.evidence:
+            raise ValueError(f"sentences[{i}] 사실 문장에 근거가 없다")
         pairs = [(e.type, e.id) for e in sentence.evidence]
         foreign = [p for p in pairs if p not in known]
         if foreign:
@@ -222,12 +249,14 @@ async def draft(req: DraftRequest, llm: JsonLLM, settings: Settings) -> DraftRes
     )
     out = got.value
     log.info(
-        "초안 완료 attempt=%d model=%s elapsed=%.1fs experiences=%s sentences=%d omitted=%d",
+        "초안 완료 attempt=%d model=%s elapsed=%.1fs experiences=%s sentences=%d opinions=%d "
+        "omitted=%d",
         got.attempt,
         got.model,
         got.seconds,
         [e.id for e in experiences],
         len(out.sentences),
+        sum(s.kind == "OPINION" for s in out.sentences),
         len(out.omitted),
     )
     return DraftResponse(sentences=out.sentences, omitted=out.omitted, model=got.model)
