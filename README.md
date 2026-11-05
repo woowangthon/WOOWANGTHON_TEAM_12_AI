@@ -63,7 +63,7 @@ uv run python scripts/eval_match.py                        # MATCH_LLM_MODELS �
 uv run python scripts/eval_match.py --prompts tuned --models openai:gpt-6-luna,openai:gpt-5.4-mini
 ```
 
-답변 초안은 지어낸 문항 · 고른 경험 9쌍(`samples/draft/`)으로 — 기본 9 × 2 = LLM 18회. 범용 프롬프트는 코드 검사를 끄고 돌린다:
+답변 초안은 지어낸 문항 · 고른 경험 10쌍(`samples/draft/`)으로 — 기본 10 × 2 = LLM 20회. 범용 프롬프트는 코드 검사를 끄고 돌린다:
 
 ```bash
 uv run python scripts/eval_draft.py                        # MATCH_LLM_MODELS 첫 모델, 우리 · 범용 프롬프트

@@ -4,7 +4,7 @@
     uv run python scripts/eval_draft.py --models openai:gpt-6-luna --prompts tuned
     uv run python scripts/eval_draft.py --rescore eval-runs/draft-<시각>   # 저장한 응답만 다시 채점(LLM 안 부름)
 
-LLM 호출 수 = 쌍 수 × 모델 수 × 프롬프트 수 — 기본 9 × 1 × 2 = 18회(규칙 위반이면 쌍마다 최대 LLM_MAX_ATTEMPTS 번).
+LLM 호출 수 = 쌍 수 × 모델 수 × 프롬프트 수 — 기본 10 × 1 × 2 = 20회(규칙 위반이면 쌍마다 최대 LLM_MAX_ATTEMPTS 번).
 응답은 --out 폴더(기본 eval-runs/draft-<시각>, 커밋하지 않음)에 저장한다. 모델 폴백 없이 고른 모델만 부른다.
 
 자료: samples/match/experiences.json(지어낸 경험)과 samples/draft/pairs.json(문항 + 고른 경험 + 손으로 적은 정답).
@@ -18,8 +18,10 @@ LLM 호출 수 = 쌍 수 × 모델 수 × 프롬프트 수 — 기본 9 × 1 × 
 - 없는 ID: 요청의 근거 · 보완 · 입력한 본문이 아닌 것을 붙인 문장 수
 - 없는 숫자: 문장 속 숫자가 붙인 글에 없는 문장 수(코드 검사와 같은 기준 — 우리 쪽은 0 이어야 한다)
 - 지어냄(후보): 그 문항에 필요한데 자료에 없는 사실(missing)을 문장이 쓴 것 같은 수
-- 팀 일을 내 일로(후보): 붙인 근거가 전부 TEAM · UNKNOWN 경험인 문장에 「제가 · 직접 · 주도 …」가 있거나, 「팀 · 회장 ·
-  팀원」 같은 주어가 없는 수 — 주어 없는 문장은 내가 한 일로 읽힌다
+- 팀 일을 내 일로(후보): 붙인 근거가 전부 TEAM · UNKNOWN 경험인 문장에 「제가 · 직접 · 주도 …」가 있거나, TEAM 근거인데
+  「팀 · 회장 · 팀원」 같은 주어가 없는 수 — 주어 없는 문장은 내가 한 일로 읽힌다
+- 모름에 주체(후보): 근거가 전부 UNKNOWN 경험인 문장이 「팀은」처럼 누가 했는지 말하거나 「고쳤습니다」처럼 사람의
+  행동을 주어 없이 쓴 수(AI#44)
 - omitted 씀: 문항이 대놓고 묻는데 자료에 없는 사실(mustOmit)을 omitted 에 적은 수 / 기회
 - 맞는 근거: 문장이 그 사실을 쓸 때 맞는 근거 · 보완을 붙인 수 / 쓴 수(expect)
 - 고른 경험 안 씀: 사용자가 골랐는데 어느 문장도 그 경험을 붙이지 않은 수 / 고른 경험 수
@@ -50,6 +52,9 @@ PROMPTS = {"tuned": SYSTEM_PROMPT, "generic": GENERIC_PROMPT}
 
 # TEAM · UNKNOWN 문장에 있어야 할 주어(후보 — 사람이 본다)
 TEAM_SUBJECT = re.compile(r"팀|회장|우리|다 ?같이|함께")
+# UNKNOWN 문장이 누가 했는지 말하는지(후보 — 사람이 본다)
+WHO = re.compile(r"팀|회장|우리")
+ACTED = re.compile(r"고쳤|수정했|해결했|바꿨|찾았|만들었")
 
 
 @dataclass
@@ -63,6 +68,7 @@ class Score:
     bad_numbers: list[str] = field(default_factory=list)
     invented: list[str] = field(default_factory=list)
     team_as_mine: list[str] = field(default_factory=list)
+    unknown_actor: list[str] = field(default_factory=list)
     omit_hit: int = 0
     omit_chances: int = 0
     omit_miss: list[str] = field(default_factory=list)
@@ -107,10 +113,13 @@ def score(pair: dict, experiences: list[MatchExperience], data: LLMDraftOutput) 
         s.invented += [
             f"{pid}: {m['fact']} — {line}" for m in pair["missing"] if re.search(m["pattern"], text)
         ]
-        if cited and all(b.experience.actor != "ME" for b in cited):
+        actors = {b.experience.actor for b in cited}
+        if actors and "ME" not in actors:
             words = MINE_WORDS.findall(text)
-            if words or not TEAM_SUBJECT.search(text):
+            if words or ("TEAM" in actors and not TEAM_SUBJECT.search(text)):
                 s.team_as_mine.append(f"{pid}: {words or '주어 없음'} {line}")
+        if actors == {"UNKNOWN"} and (WHO.search(text) or ACTED.search(text)):
+            s.unknown_actor.append(line)
         for want in pair["expect"]:
             if re.search(want["pattern"], text):
                 s.expect_chances += 1
@@ -229,7 +238,7 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
             rows.append(
                 f"| {name} | {len(t.sentences)} | {t.retried} | {len(t.errors)}/{t.pairs} "
                 f"| {len(t.fake_ids)} | {len(t.bad_numbers)} | {len(t.invented)} "
-                f"| {len(t.team_as_mine)} | {t.omit_hit}/{t.omit_chances} "
+                f"| {len(t.team_as_mine)} | {len(t.unknown_actor)} | {t.omit_hit}/{t.omit_chances} "
                 f"| {t.expect_hit}/{t.expect_chances} "
                 f"| {len(t.unused)}/{t.picked_total} | {t.seconds:.0f}초 |"
             )
@@ -239,6 +248,7 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
                 *(f"- 없는 숫자 {x}" for x in t.bad_numbers),
                 *(f"- 지어냄(후보) {x}" for x in t.invented),
                 *(f"- 팀 일을 내 일로(후보) {x}" for x in t.team_as_mine),
+                *(f"- 모름에 주체(후보) {x}" for x in t.unknown_actor),
                 *(f"- omitted 안 씀 {x}" for x in t.omit_miss),
                 *(f"- 근거 다름 {x}" for x in t.expect_miss),
                 *(f"- 고른 경험 안 씀 {x}" for x in t.unused),
@@ -248,8 +258,8 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
             details.append(f"\n### {name}\n\n" + "\n".join(lines))
     head = (
         "| 모델 · 프롬프트 | 문장 | 다시 부름 | 오류 | 없는 ID | 없는 숫자 | 지어냄(후보) "
-        "| 팀 일을 내 일로(후보) | omitted 씀 | 맞는 근거 | 고른 경험 안 씀 | 시간 합 |\n"
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+        "| 팀 일을 내 일로(후보) | 모름에 주체(후보) | omitted 씀 | 맞는 근거 | 고른 경험 안 씀 | 시간 합 |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
     )
     return "\n".join([head, *rows]) + "\n" + "".join(details) + "\n"
 

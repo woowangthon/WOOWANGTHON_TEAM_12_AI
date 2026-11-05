@@ -84,6 +84,23 @@ def test_score_counts_unused_experience():
     assert s.picked_total == 2
 
 
+def test_score_unknown_actor():
+    pair = PAIR["unknown-only"]
+    s = score(
+        pair,
+        _exps(pair),
+        _out(
+            ("서버가 자주 죽었고, 원인은 DB 커넥션을 닫지 않은 코드였습니다.", [("CITATION", 214)]),
+            ("해당 코드가 수정됐습니다.", [("CITATION", 214)]),
+            ("팀은 코드를 고쳤습니다.", [("CITATION", 214)]),
+            ("코드를 고쳤습니다.", [("CITATION", 214)]),
+            ("제가 코드를 고쳤습니다.", [("CITATION", 214)]),
+        ),
+    )
+    assert len(s.unknown_actor) == 3
+    assert len(s.team_as_mine) == 1
+
+
 def test_score_team_as_mine():
     pair = PAIR["team-way"]
     s = score(

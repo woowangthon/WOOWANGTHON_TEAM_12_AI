@@ -88,6 +88,16 @@
     "expect": [{"pattern": "5명|5 명", "evidence": [["EXPERIENCE", 141]]}]
   },
   {
+    "id": "unknown-only",
+    "organization": null,
+    "text": "개발하면서 마주친 기술적 문제와, 그 문제를 어떻게 해결했는지 적어 주세요.",
+    "experienceIds": [114],
+    "missing": [
+      {"fact": "장애를 고친 사람 · 내 몫", "pattern": "(제가|직접|팀은|팀이).{0,40}(고쳤|수정|해결|찾아)", "omitPattern": "맡은|몫|역할|직접|누가|한 일", "mustOmit": true}
+    ],
+    "expect": [{"pattern": "커넥션", "evidence": [["CITATION", 214]]}]
+  },
+  {
     "id": "teaching",
     "organization": null,
     "text": "다른 사람에게 무언가를 가르치거나 알기 쉽게 설명해 본 경험을 적어 주세요.",
