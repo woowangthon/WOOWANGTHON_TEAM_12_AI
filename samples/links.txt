@@ -1,0 +1,19 @@
+# 링크 받기(S-46) 시험 링크 — scripts/try_links.py. 한 줄에 「사이트 | 링크」. 링크만 둔다(본문은 커밋하지 않는다)
+# 2026-11-05 에 모은 실제 공개 공고 — 마감 · 삭제되면 결과가 바뀐다
+사람인 | https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=55361971
+사람인 | https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=55362192
+잡코리아 | https://www.jobkorea.co.kr/Recruit/GI_Read/50161289
+잡코리아 | https://www.jobkorea.co.kr/Recruit/GI_Read/50143968
+원티드 | https://www.wanted.co.kr/wd/395156
+원티드 | https://www.wanted.co.kr/wd/394433
+링커리어 | https://linkareer.com/activity/360379
+링커리어 | https://linkareer.com/activity/359239
+SW마에스트로 | https://www.swmaestro.org/sw/bbs/B0000002/view.do?nttId=35254&menuNo=200019
+SW마에스트로 | https://www.swmaestro.org/sw/bbs/B0000002/view.do?nttId=35095&menuNo=200019
+학교 공지 | https://www.syu.ac.kr/r7z3
+학교 공지 | https://www.smu.ac.kr/kor/life/notice.do?mode=view&articleNo=769343
+학교 공지 | https://www.cku.ac.kr/bbs/cku_kr/1202/367600/artclView.do
+학교 공지 | https://cse.snu.ac.kr/community/notice/24804
+그리팅 | https://www.doodlin.co.kr/ko/o/233676
+그리팅 | https://www.doodlin.co.kr/ko/o/236817
+그리팅 | https://doodlin.career.greetinghr.com/
