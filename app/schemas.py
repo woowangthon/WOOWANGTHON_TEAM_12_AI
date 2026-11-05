@@ -299,9 +299,17 @@ class DraftSentence(BaseModel):
     evidence: list[DraftEvidence] = Field(min_length=1)
 
 
+class DraftOmitted(BaseModel):
+    # 셋 다 필수 — 예전 문자열 응답을 추측해 고치지 않는다.
+    # 질문 · 경험의 null 짝과 요청 안의 경험인지는 app/draft.py check_output 이 본다
+    text: NonBlank
+    question: NonBlank | None
+    experienceId: int | None
+
+
 class LLMDraftOutput(BaseModel):
     sentences: list[DraftSentence] = Field(max_length=15)
-    omitted: list[NonBlank] = Field(max_length=5)
+    omitted: list[DraftOmitted] = Field(max_length=5)
 
 
 class DraftResponse(LLMDraftOutput):

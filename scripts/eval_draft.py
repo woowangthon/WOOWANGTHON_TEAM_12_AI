@@ -4,11 +4,12 @@
     uv run python scripts/eval_draft.py --models openai:gpt-6-luna --prompts tuned
     uv run python scripts/eval_draft.py --rescore eval-runs/draft-<시각>   # 저장한 응답만 다시 채점(LLM 안 부름)
 
-LLM 호출 수 = 쌍 수 × 모델 수 × 프롬프트 수 — 기본 14 × 1 × 2 = 28회(규칙 위반이면 쌍마다 최대 LLM_MAX_ATTEMPTS 번).
+LLM 호출 수 = 쌍 수 × 모델 수 × 프롬프트 수 — 기본 19 × 1 × 2 = 38회(규칙 위반이면 쌍마다 최대 LLM_MAX_ATTEMPTS 번).
 응답은 --out 폴더(기본 eval-runs/draft-<시각>, 커밋하지 않음)에 저장한다. 모델 폴백 없이 고른 모델만 부른다.
 
 자료: samples/match/experiences.json · samples/draft/experiences.json(지어낸 경험)과
-samples/draft/pairs.json(문항 + 고른 경험 + 손으로 적은 정답).
+samples/draft/pairs.json(문항 + 고른 경험 + 손으로 적은 정답). 「이미 있는 사실」은 samples/match/clarify.json 과
+samples/draft/clarify.json. addSupplements 가 있는 쌍은 빠진 사실에 답한 뒤 다시 만든 요청이다 — 그 보완을 경험에 더해 부른다.
 
 범용 프롬프트는 같은 모델 · 같은 경험 목록 · 같은 출력 모양에 지시만 한 줄이다. **코드 검사를 끄고** 돌린다 — 검사가
 다시 부르면 지어낸 것이 숫자에서 사라지기 때문이다. 우리 쪽은 제품과 같이 검사를 켠다.
@@ -27,6 +28,16 @@ samples/draft/pairs.json(문항 + 고른 경험 + 손으로 적은 정답).
 - 맞는 근거: 문장이 그 사실을 쓸 때 맞는 근거 · 보완을 붙인 수 / 쓴 수(expect)
 - 고른 경험 안 씀: 사용자가 골랐는데 어느 문장도 그 경험을 붙이지 않은 수 / 고른 경험 수
 - 글자(쌍 평균): 문장을 이어 붙인 글자 수 평균. 길수록 좋다는 뜻이 아니다 — 재료를 얼마나 썼는지 본다
+- 질문 붙음: 문항이 대놓고 묻는 빈칸 중 경험 · 질문이 붙은 수 / 기회(noQuestion — 경험에 붙지 않는 빈칸은 뺀다)
+- 억지 질문: 경험에 붙지 않는 빈칸(noQuestion)에 경험 · 질문을 붙인 수
+- 질문: omitted 에 붙은 질문 수(omitted 전체 수)
+- 짝 위반: 질문 · 경험의 null 짝이 틀렸거나 고르지 않은 경험을 붙인 수(코드 검사와 같은 기준 — 우리 쪽은 0 이어야 한다)
+- 수치 유도(후보): 질문 · 빈칸 구절에 그 경험 · 문항에 없는 숫자가 있거나 「…죠?」처럼 확인만 받는 어미인 수
+- 막연함(후보): 「더 자세히 알려 주세요」처럼 아무 경험에나 붙는 질문 수
+- 두 가지(후보): 한 질문에 물음표가 둘 이상인 수
+- 있는 사실 물음(후보): 그 경험의 근거 · 보완에 이미 있는 사실을 묻는 질문 수 / 그런 사실이 있는 경험을 고른 기회
+- 보완 씀: 다시 만들 때 더한 보완을 붙이고 그 사실을 쓴 문장이 있는 수 / 더한 보완 수
+- 보완 또 물음(후보): 더한 보완이 답한 사실을 omitted 에 다시 적은 수
 - 구성 순서: beats 의 사실이 전부 나오고 적은 순서대로인 쌍 수 / beats 가 있는 쌍 수
 - 되풀이(후보): 문장 둘이 공백을 뺀 8글자 이상을 같이 쓰는 수 + once 의 사실이 두 문장 이상에 나온 수 — 사람이 읽는다
 """
@@ -47,7 +58,16 @@ sys.path.insert(0, str(ROOT))
 
 from app.draft import SYSTEM_PROMPT, backings, missing_numbers  # noqa: E402
 from app.schemas import LLMDraftOutput, MatchExperience  # noqa: E402
-from scripts.eval_match import MINE_WORDS, _slug  # noqa: E402
+from scripts.eval_match import (  # noqa: E402
+    LEADING,
+    MINE_WORDS,
+    VAGUE,
+    _experience_text,
+    _has,
+    _ints,
+    _slug,
+    load_known,
+)
 
 DATA = ROOT / "samples" / "draft"
 EXPERIENCES = ROOT / "samples" / "match" / "experiences.json"
@@ -60,6 +80,8 @@ TEAM_SUBJECT = re.compile(r"팀|회장|우리|다 ?같이|함께")
 # UNKNOWN 문장이 누가 했는지 말하는지(후보 — 사람이 본다)
 WHO = re.compile(r"팀|회장|우리")
 ACTED = re.compile(r"고쳤|수정했|해결했|바꿨|찾았|만들었")
+# 사용자가 보완의 답에 자기가 했다고 말한 것 — 이 보완을 붙인 문장은 「제가」로 써도 된다
+SAID_MINE = re.compile(r"(?<![가-힣])(?:내가|제가|나는|저는)")
 
 
 @dataclass
@@ -88,6 +110,22 @@ class Score:
     order_total: int = 0
     order_miss: list[str] = field(default_factory=list)
     repeated: list[str] = field(default_factory=list)
+    omitted_total: int = 0
+    asked: list[str] = field(default_factory=list)
+    bad_pairs: list[str] = field(default_factory=list)
+    leading: list[str] = field(default_factory=list)
+    vague: list[str] = field(default_factory=list)
+    compound: list[str] = field(default_factory=list)
+    known_asked: list[str] = field(default_factory=list)
+    known_chances: int = 0
+    gap_asked: int = 0
+    gap_chances: int = 0
+    gap_miss: list[str] = field(default_factory=list)
+    forced: list[str] = field(default_factory=list)
+    fill_hit: int = 0
+    fill_chances: int = 0
+    fill_miss: list[str] = field(default_factory=list)
+    fill_reasked: list[str] = field(default_factory=list)
 
     def add(self, other: "Score") -> None:
         for name, value in vars(other).items():
@@ -100,11 +138,88 @@ def shared_run(a: str, b: str, size: int = 8) -> str | None:
     return next((a[i : i + size] for i in range(len(a) - size + 1) if a[i : i + size] in b), None)
 
 
-def score(pair: dict, experiences: list[MatchExperience], data: LLMDraftOutput) -> Score:
+def score_omitted(
+    pair: dict,
+    experiences: list[MatchExperience],
+    data: LLMDraftOutput,
+    facts: list[dict],
+) -> Score:
+    """omitted 의 경험 · 질문 — S-22 규칙과 다시 만들기(S-27)."""
     pid = pair["id"]
     s = Score()
+    by_id = {e.id: e for e in experiences}
+    s.omitted = [
+        f"{pid}: 「{x.text}」 ← 경험 {x.experienceId} 「{x.question}」" for x in data.omitted
+    ]
+    s.omitted_total = len(data.omitted)
+    asked = [x for x in data.omitted if x.question is not None and x.experienceId in by_id]
+    for x in data.omitted:
+        if (x.question is None) != (x.experienceId is None) or (
+            x.experienceId is not None and x.experienceId not in by_id
+        ):
+            s.bad_pairs.append(f"{pid}: 「{x.text}」 ← 경험 {x.experienceId} 「{x.question}」")
+    for x in asked:
+        exp = by_id[x.experienceId]
+        line = f"{pid}: 경험 {exp.id}({exp.actor}) 「{x.question}」"
+        s.asked.append(line)
+        allowed = _ints(_experience_text(exp)) | _ints(pair["text"])
+        if (_ints(x.question) | _ints(x.text)) - allowed or LEADING.search(x.question):
+            s.leading.append(line)
+        if VAGUE.search(x.question):
+            s.vague.append(line)
+        if x.question.count("?") > 1:
+            s.compound.append(line)
+    for fact in facts:
+        exp = by_id.get(fact["experienceId"])
+        if exp is None or not _has(exp, fact):
+            continue
+        s.known_chances += 1
+        s.known_asked += [
+            f"{pid}: 경험 {exp.id} 「{x.question}」 — 이미 있음: {fact['fact']}"
+            for x in asked
+            if x.experienceId == exp.id and re.search(fact["pattern"], x.question)
+        ]
+    for m in pair["missing"]:
+        hits = [x for x in data.omitted if re.search(m["omitPattern"], x.text)]
+        if m.get("noQuestion"):
+            s.forced += [
+                f"{pid}: {m['fact']} ← 경험 {x.experienceId} 「{x.question}」"
+                for x in hits
+                if x.experienceId is not None
+            ]
+        elif m.get("mustOmit"):
+            s.gap_chances += 1
+            if any(x.question for x in hits):
+                s.gap_asked += 1
+            else:
+                s.gap_miss.append(f"{pid}: {m['fact']}")
+    for add in pair.get("addSupplements", []):
+        s.fill_chances += 1
+        if any(
+            re.search(add["pattern"], x.text)
+            and any((e.type, e.id) == ("SUPPLEMENT", add["id"]) for e in x.evidence)
+            for x in data.sentences
+        ):
+            s.fill_hit += 1
+        else:
+            s.fill_miss.append(f"{pid}: 보완 {add['id']} 「{add['answer']}」")
+        s.fill_reasked += [
+            f"{pid}: 보완 {add['id']} — 「{x.text}」 「{x.question}」"
+            for x in data.omitted
+            if re.search(add["omitPattern"], f"{x.text} {x.question or ''}")
+        ]
+    return s
+
+
+def score(
+    pair: dict,
+    experiences: list[MatchExperience],
+    data: LLMDraftOutput,
+    facts: list[dict] = (),
+) -> Score:
+    pid = pair["id"]
+    s = score_omitted(pair, experiences, data, list(facts))
     known = backings(experiences)
-    s.omitted = [f"{pid}: 「{x}」" for x in data.omitted]
     used = {
         known[e.type, e.id].experience.id
         for sent in data.sentences
@@ -129,7 +244,14 @@ def score(pair: dict, experiences: list[MatchExperience], data: LLMDraftOutput) 
         s.invented += [
             f"{pid}: {m['fact']} — {line}" for m in pair["missing"] if re.search(m["pattern"], text)
         ]
-        actors = {b.experience.actor for b in cited}
+        # 사용자가 보완에 자기가 했다고 말한 문장은 내 일이 맞다(프롬프트 규칙 5 의 예외)
+        actors = {
+            "ME"
+            if p[0] == "SUPPLEMENT" and SAID_MINE.search(known[p].text)
+            else known[p].experience.actor
+            for p in pairs
+            if p in known
+        }
         if actors and "ME" not in actors:
             words = MINE_WORDS.findall(text)
             if words or ("TEAM" in actors and not TEAM_SUBJECT.search(text)):
@@ -170,7 +292,7 @@ def score(pair: dict, experiences: list[MatchExperience], data: LLMDraftOutput) 
     for m in pair["missing"]:
         if m.get("mustOmit"):
             s.omit_chances += 1
-            if any(re.search(m["omitPattern"], x) for x in data.omitted):
+            if any(re.search(m["omitPattern"], x.text) for x in data.omitted):
                 s.omit_hit += 1
             else:
                 s.omit_miss.append(f"{pid}: {m['fact']}")
@@ -182,15 +304,31 @@ def load_experiences() -> list[dict]:
     return json.loads(EXPERIENCES.read_text(encoding="utf-8")) + json.loads(extra)
 
 
+def load_facts() -> list[dict]:
+    """경험에 이미 있는 사실 — 되묻기 채점의 것 + 초안에만 쓰는 경험의 것."""
+    extra = json.loads((DATA / "clarify.json").read_text(encoding="utf-8"))["known"]
+    return load_known() + extra
+
+
 def load_pairs(only: list[str] | None = None) -> list[dict]:
     pairs = json.loads((DATA / "pairs.json").read_text(encoding="utf-8"))
     return [p for p in pairs if p["id"] in only] if only else pairs
 
 
 def picked(pair: dict, experiences: list[dict]) -> list[dict]:
-    """고른 순서대로 — /draft 요청의 experiences."""
+    """고른 순서대로 — /draft 요청의 experiences. addSupplements 는 그 경험의 보완에 더한다."""
     by_id = {e["id"]: e for e in experiences}
-    return [by_id[i] for i in pair["experienceIds"]]
+    added = pair.get("addSupplements", [])
+
+    def with_added(exp: dict) -> dict:
+        more = [
+            {"id": a["id"], "question": a["question"], "answer": a["answer"]}
+            for a in added
+            if a["experienceId"] == exp["id"]
+        ]
+        return {**exp, "supplements": [*exp.get("supplements", []), *more]}
+
+    return [with_added(by_id[i]) for i in pair["experienceIds"]]
 
 
 # ---- 실행 ----
@@ -256,7 +394,8 @@ async def run(
 
 
 def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
-    rows, details = [], []
+    facts = load_facts()
+    rows, details, question_rows = [], [], []
     for model_dir in sorted(p for p in out.iterdir() if p.is_dir()):
         for prompt_dir in sorted(p for p in model_dir.iterdir() if p.is_dir()):
             t = Score()
@@ -272,7 +411,7 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
                     continue
                 t.retried += record.get("attempt", 1) > 1
                 exps = [MatchExperience.model_validate(e) for e in picked(pair, experiences)]
-                t.add(score(pair, exps, LLMDraftOutput.model_validate(record["response"])))
+                t.add(score(pair, exps, LLMDraftOutput.model_validate(record["response"]), facts))
             if not t.pairs:
                 continue
             name = f"{model_dir.name} · {prompt_dir.name}"
@@ -284,6 +423,13 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
                 f"| {len(t.unused)}/{t.picked_total} "
                 f"| {t.chars // max(t.pairs - len(t.errors), 1)} "
                 f"| {t.order_hit}/{t.order_total} | {len(t.repeated)} | {t.seconds:.0f}초 |"
+            )
+            question_rows.append(
+                f"| {name} | {len(t.asked)}({t.omitted_total}) | {len(t.bad_pairs)} "
+                f"| {t.gap_asked}/{t.gap_chances} | {len(t.forced)} | {len(t.leading)} "
+                f"| {len(t.vague)} | {len(t.compound)} "
+                f"| {len(t.known_asked)}/{t.known_chances} "
+                f"| {t.fill_hit}/{t.fill_chances} | {len(t.fill_reasked)} |"
             )
             lines = [
                 *(f"- 오류 {x}" for x in t.errors),
@@ -297,16 +443,31 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
                 *(f"- 고른 경험 안 씀 {x}" for x in t.unused),
                 *(f"- 구성 순서 어긋남 {x}" for x in t.order_miss),
                 *(f"- 되풀이(후보) {x}" for x in t.repeated),
+                *(f"- 짝 위반 {x}" for x in t.bad_pairs),
+                *(f"- 질문 없는 빈칸 {x}" for x in t.gap_miss),
+                *(f"- 억지 질문 {x}" for x in t.forced),
+                *(f"- 수치 유도(후보) {x}" for x in t.leading),
+                *(f"- 막연함(후보) {x}" for x in t.vague),
+                *(f"- 두 가지(후보) {x}" for x in t.compound),
+                *(f"- 있는 사실 물음(후보) {x}" for x in t.known_asked),
+                *(f"- 보완 안 씀 {x}" for x in t.fill_miss),
+                *(f"- 보완 또 물음(후보) {x}" for x in t.fill_reasked),
                 *(f"- 문장 {x}" for x in t.sentences),
                 *(f"- omitted {x}" for x in t.omitted),
             ]
             details.append(f"\n### {name}\n\n" + "\n".join(lines))
     head = (
         "| 모델 · 프롬프트 | 문장 | 다시 부름 | 오류 | 없는 ID | 없는 숫자 | 지어냄(후보) "
-        "| 팀 일을 내 일로(후보) | 모름에 주체(후보) | omitted 씀 | 맞는 근거 | 고른 경험 안 씀 | 글자(쌍 평균) | 구성 순서 | 시간 합 |\n"
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+        "| 팀 일을 내 일로(후보) | 모름에 주체(후보) | omitted 씀 | 맞는 근거 | 고른 경험 안 씀 | 글자(쌍 평균) | 구성 순서 | 되풀이(후보) | 시간 합 |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
     )
-    return "\n".join([head, *rows]) + "\n" + "".join(details) + "\n"
+    question_head = (
+        "| 모델 · 프롬프트 | 질문(omitted) | 짝 위반 | 질문 붙음 | 억지 질문 | 수치 유도(후보) "
+        "| 막연함(후보) | 두 가지(후보) | 있는 사실 물음(후보) | 보완 씀 | 보완 또 물음(후보) |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+    )
+    tables = "\n".join([head, *rows]) + "\n\n" + "\n".join([question_head, *question_rows])
+    return tables + "\n" + "".join(details) + "\n"
 
 
 def main() -> None:
