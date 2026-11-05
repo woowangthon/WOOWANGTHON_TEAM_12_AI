@@ -404,9 +404,14 @@ def load_facts() -> list[dict]:
 
 
 def question(pair: dict) -> dict:
-    """/draft 요청의 question — jobRole · requirements 는 있는 쌍만."""
-    keys = ("organization", "text", "jobRole", "requirements")
+    """/draft 요청의 question — jobRole · requirements · frame 은 있는 쌍만."""
+    keys = ("organization", "text", "jobRole", "requirements", "frame")
     return {k: pair[k] for k in keys if k in pair}
+
+
+def guidelines(pair: dict) -> list[dict]:
+    """/draft 요청의 guidelines — 정답 칸(expect 등)은 빼고 id · text 만. 없으면 []."""
+    return [{"id": g["id"], "text": g["text"]} for g in pair.get("guidelines", [])]
 
 
 def load_pairs(only: list[str] | None = None) -> list[dict]:
@@ -436,17 +441,22 @@ def picked(pair: dict, experiences: list[dict]) -> list[dict]:
 
 
 async def run(
-    models: list[str], prompts: list[str], experiences: list[dict], pairs: list[dict], out: Path
+    models: list[str],
+    prompts: list[str],
+    experiences: list[dict],
+    pairs: list[dict],
+    out: Path,
+    env: Path = ROOT / ".env",
 ) -> None:
     from dotenv import load_dotenv
 
     from app.config import load_settings, parse_models
-    from app.draft import LLM_JSON_SCHEMA, build_draft_message, check_output, check_request
+    from app.draft import build_draft_message, check_output, check_request, schema_for
     from app.errors import ApiError
     from app.llm import build_llm, generate_valid
     from app.schemas import DraftRequest
 
-    load_dotenv(ROOT / ".env")  # 값은 화면에 찍지 않는다
+    load_dotenv(env)  # 값은 화면에 찍지 않는다
     base = load_settings()
     gate = asyncio.Semaphore(4)
     clients = {}  # 모델마다 클라이언트를 한 번만 만든다(AI#37)
@@ -460,13 +470,14 @@ async def run(
             {
                 "question": question(pair),
                 "experiences": picked(pair, experiences),
+                "guidelines": guidelines(pair),
             }
         )
-        q, exps = check_request(req, settings)
+        q, exps, gs = check_request(req, settings)
 
         def parse(text: str) -> LLMDraftOutput:
             output = LLMDraftOutput.model_validate_json(text)
-            return check_output(output, exps) if prompt == "tuned" else output
+            return check_output(output, exps, gs) if prompt == "tuned" else output
 
         async with gate:
             started = time.monotonic()
@@ -474,8 +485,8 @@ async def run(
                 got = await generate_valid(
                     llm,
                     PROMPTS[prompt],
-                    build_draft_message(q, exps),
-                    LLM_JSON_SCHEMA,
+                    build_draft_message(q, exps, gs),
+                    schema_for(gs),
                     parse,
                     settings,
                 )

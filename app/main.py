@@ -15,6 +15,7 @@ from app.draft import draft
 from app.errors import ApiError
 from app.extract import extract
 from app.ground_check import ground_check
+from app.guidelines import guidelines
 from app.link_suggest import suggest_links
 from app.llm import JsonLLM, ToolLLM, build_llm
 from app.match import match
@@ -32,6 +33,8 @@ from app.schemas import (
     ExtractResponse,
     GroundCheckRequest,
     GroundCheckResponse,
+    GuidelinesRequest,
+    GuidelinesResponse,
     LinkSuggestionsRequest,
     LinkSuggestionsResponse,
     MatchRequest,
@@ -76,7 +79,7 @@ def get_route_llm() -> JsonLLM:
 
 @lru_cache
 def get_sync_match_llm() -> JsonLLM:
-    # /link-suggestions · /ask — 모델은 매칭과 같은 순서, 시간은 동기 호출(계약 — 50초 안에 답하거나 LLM_TIMEOUT)
+    # /link-suggestions · /ask · /guidelines — 모델은 매칭과 같은 순서, 시간은 동기 호출(계약 — 50초 안에 답하거나 LLM_TIMEOUT)
     settings = get_settings()
     return build_llm(settings, settings.match_models, settings.llm_sync_call_timeout_seconds)
 
@@ -196,6 +199,15 @@ async def post_ask(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> AskResponse:
     return await ask(req, llm, settings)
+
+
+@app.post("/guidelines", response_model=GuidelinesResponse)
+async def post_guidelines(
+    req: GuidelinesRequest,
+    llm: Annotated[JsonLLM, Depends(get_sync_match_llm)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> GuidelinesResponse:
+    return await guidelines(req, llm, settings)
 
 
 @app.post("/agent")

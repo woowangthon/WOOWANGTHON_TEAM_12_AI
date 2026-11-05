@@ -315,7 +315,7 @@ def test_hinted_pairs_make_valid_requests():
         req = DraftRequest.model_validate(
             {"question": question(pair), "experiences": picked(pair, EXPERIENCES)}
         )
-        _, exps = check_request(req, load_settings())
+        _, exps, _ = check_request(req, load_settings())
         assert any(e.emphasis for e in exps) == bool(pair.get("hints")), pair["id"]
 
 
