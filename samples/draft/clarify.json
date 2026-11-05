@@ -1,0 +1,11 @@
+{
+  "_note": "SAMPLE(draft-samples): 초안에만 쓰는 지어낸 경험 151 · 152 에 이미 있는 사실과, 그걸 다시 묻는 질문을 거르는 정규식(후보 — 사람이 읽고 판단한다). 모양은 ../match/clarify.json 과 같다",
+  "known": [
+    {"experienceId": 151, "source": "SUPPLEMENT", "id": 351, "fact": "고친 뒤 확인한 방법(가짜 서버로 503)", "pattern": "어떻게 확인|확인한 방법|어떻게 검증|어떻게 테스트"},
+    {"experienceId": 151, "source": "SUPPLEMENT", "id": 352, "fact": "배운 점(실패부터 설계)", "pattern": "배운|느낀"},
+    {"experienceId": 151, "source": "CITATION", "id": 252, "fact": "크롤러가 죽은 원인(503 을 잡지 못함)", "pattern": "원인(은|이)\\s*(무엇|뭐|어디)|왜 (크롤러가 )?(멈|죽)"},
+    {"experienceId": 151, "source": "CITATION", "id": 253, "fact": "재시도 큐를 고른 이유(발표가 3주 남음)", "pattern": "왜|이유|계기|다른 (안|방법)"},
+    {"experienceId": 152, "source": "SUPPLEMENT", "id": 353, "fact": "배운 점(사람들에게 직접 물어보기)", "pattern": "배운|느낀"},
+    {"experienceId": 152, "source": "CITATION", "id": 258, "fact": "설명회를 바꾼 이유(하는 일을 모르는 게 문제)", "pattern": "왜 (바꾸|바꿨|없애|없앴)|바꾼 (이유|계기)|없앤 (이유|계기)|이유는 무엇"}
+  ]
+}

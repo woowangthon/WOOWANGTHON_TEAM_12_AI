@@ -54,7 +54,7 @@
     "text": "Python 이나 SQL 로 데이터를 다루어 문제를 해결한 경험을 적어 주세요.",
     "experienceIds": [121],
     "missing": [
-      {"fact": "Python · SQL 을 쓴 일", "pattern": "(Python|파이썬|SQL).{0,20}(로|으로|을|를|활용|사용)", "omitPattern": "Python|파이썬|SQL", "mustOmit": true},
+      {"fact": "Python · SQL 을 쓴 일", "pattern": "(Python|파이썬|SQL).{0,20}(로|으로|을|를|활용|사용)", "omitPattern": "Python|파이썬|SQL", "mustOmit": true, "noQuestion": true},
       {"fact": "발주 제안의 결과", "pattern": "절감|줄였|줄어|폐기|효율|채택|반영", "omitPattern": "결과|반영|효과"}
     ],
     "expect": [{"pattern": "4주", "evidence": [["SUPPLEMENT", 321]]}]
@@ -135,7 +135,7 @@
     "text": "OO 백엔드 부트캠프에 지원한 동기를 적어 주세요.",
     "experienceIds": [151, 101],
     "missing": [
-      {"fact": "이 부트캠프에 지원하는 이유", "pattern": "지원했|지원하게|배우고 싶|성장하고 싶|관심을", "omitPattern": "지원|동기|이유", "mustOmit": true}
+      {"fact": "이 부트캠프에 지원하는 이유", "pattern": "지원했|지원하게|배우고 싶|성장하고 싶|관심을", "omitPattern": "지원|동기|이유", "mustOmit": true, "noQuestion": true}
     ],
     "expect": [{"pattern": "Redis|큐", "evidence": [["CITATION", 254]]}]
   },
@@ -145,7 +145,7 @@
     "text": "지원 직무에 본인이 적합하다고 생각하는 이유를 경험을 근거로 적어 주세요.",
     "experienceIds": [151, 113],
     "missing": [
-      {"fact": "지원 직무에 대한 이해 · 적합한 이유", "pattern": "적합|직무.{0,10}(이해|역량)", "omitPattern": "직무|적합", "mustOmit": true}
+      {"fact": "지원 직무에 대한 이해 · 적합한 이유", "pattern": "적합|직무.{0,10}(이해|역량)", "omitPattern": "직무|적합", "mustOmit": true, "noQuestion": true}
     ],
     "expect": [{"pattern": "FCM", "evidence": [["CITATION", 213]]}]
   },
@@ -158,5 +158,64 @@
       {"fact": "문서를 쓴 뒤 무엇이 나아졌는지", "pattern": "줄었|줄어|빨라|빠르게|쉽게|도움|익혔|익힐|헷갈리지", "omitPattern": "결과|반응|뒤|이후|효과|나아", "mustOmit": true}
     ],
     "expect": [{"pattern": "레시피", "evidence": [["CITATION", 222]]}]
+  },
+  {
+    "id": "tech-a-fill",
+    "once": ["폴링"],
+    "organization": "OO 백엔드 부트캠프",
+    "text": "기술적인 문제를 해결한 경험을 구체적으로 적어 주세요.",
+    "experienceIds": [101],
+    "addSupplements": [
+      {"experienceId": 101, "id": 901, "question": "WebSocket 으로 바꾼 뒤 메시지가 제때 오는지 어떻게 확인했나요?", "answer": "두 기기로 메시지를 보내고 양쪽 화면에 도착하는지 확인했다", "pattern": "두 기기|양쪽", "omitPattern": "확인한 방법|어떻게 확인"}
+    ],
+    "missing": [
+      {"fact": "나아진 정도 · 결과", "pattern": "빨라|개선|단축|줄였|줄어|감소|향상|안정적|실시간으로", "omitPattern": "결과|성과|개선|얼마나|효과|속도|지연"},
+      {"fact": "배운 점 · 느낀 점", "pattern": "배웠|배움|느꼈|뿌듯|깨달", "omitPattern": "배운|느낀|배움"}
+    ],
+    "expect": [{"pattern": "STOMP|구독", "evidence": [["SUPPLEMENT", 301]]}]
+  },
+  {
+    "id": "team-way-fill",
+    "organization": "OO 연합 동아리",
+    "text": "팀 프로젝트에서 맡은 역할과, 팀과 함께 일한 방식을 적어 주세요.",
+    "experienceIds": [101, 102],
+    "addSupplements": [
+      {"experienceId": 102, "id": 902, "question": "회고에서 맡은 일이 있었다면 무엇이었나요?", "answer": "회고 때 내가 안건을 모아 정리했다", "pattern": "안건", "omitPattern": "회고.*(몫|맡|역할)|(몫|맡|역할).*회고"}
+    ],
+    "missing": [],
+    "expect": []
+  },
+  {
+    "id": "community-fill",
+    "organization": null,
+    "text": "모임이나 조직을 꾸준히 운영해 본 경험이 있다면 적어 주세요.",
+    "experienceIds": [105, 108],
+    "addSupplements": [
+      {"experienceId": 108, "id": 903, "question": "시트를 만든 뒤 참여가 어떻게 됐나요?", "answer": "시트에 적는 사람이 점점 늘어 스터디가 끊기지 않았다", "pattern": "늘어|늘었|끊기지", "omitPattern": "시트.*(뒤|후|이후)|참여가 어떻게"}
+    ],
+    "missing": [],
+    "expect": []
+  },
+  {
+    "id": "unknown-fill",
+    "organization": null,
+    "text": "개발하면서 마주친 기술적 문제와, 그 문제를 어떻게 해결했는지 적어 주세요.",
+    "experienceIds": [114],
+    "addSupplements": [
+      {"experienceId": 114, "id": 904, "question": "서버 장애를 고칠 때 맡은 일이 있었다면 무엇이었나요?", "answer": "내가 커넥션을 닫지 않은 코드를 찾아 try-with-resources 로 고쳤다", "pattern": "try-with-resources", "omitPattern": "고친 사람|내 몫|맡은|본인"}
+    ],
+    "missing": [],
+    "expect": []
+  },
+  {
+    "id": "rich-no-result-fill",
+    "organization": null,
+    "text": "어려움을 해결하기 위해 노력한 경험을 적어 주세요.",
+    "experienceIds": [152],
+    "addSupplements": [
+      {"experienceId": 152, "id": 905, "question": "체험 봉사 뒤 지원자가 어떻게 됐나요?", "answer": "다음 학기 지원자가 9명으로 늘었다", "pattern": "9명", "omitPattern": "(체험|뒤|이후).*지원자|지원자.*(어떻게|변화)"}
+    ],
+    "missing": [],
+    "expect": []
   }
 ]

@@ -4,7 +4,7 @@ import re
 
 from app.draft import backings
 from app.schemas import LLMDraftOutput, MatchExperience
-from scripts.eval_draft import load_experiences, load_pairs, picked, score
+from scripts.eval_draft import load_experiences, load_facts, load_pairs, picked, score
 
 EXPERIENCES = load_experiences()
 PAIRS = load_pairs()
@@ -53,7 +53,7 @@ def test_score_contract_example():
         _out(
             ("제가 폴링을 WebSocket 으로 바꿔 해결했습니다.", [("CITATION", 201)]),
             ("앱의 3초 폴링 코드를 구독 방식으로 바꿨습니다.", [("SUPPLEMENT", 301)]),
-            omitted=["바꾼 뒤 확인한 방법"],
+            omitted=[_gap("바꾼 뒤 확인한 방법", "바꾼 뒤 어떻게 확인했나요?", 101)],
         ),
     )
     assert (s.omit_hit, s.omit_chances) == (1, 1)
@@ -153,3 +153,100 @@ def test_score_team_as_mine():
         ),
     )
     assert len(s.team_as_mine) == 2
+
+
+def _gap(text, question=None, experience=None):
+    return {"text": text, "question": question, "experienceId": experience}
+
+
+def test_score_counts_question_rules():
+    pair = PAIR["tech-a"]
+    s = score(
+        pair,
+        _exps(pair),
+        _out(
+            ("제가 폴링을 WebSocket 으로 바꿔 해결했습니다.", [("CITATION", 201)]),
+            omitted=[
+                _gap("바꾼 뒤 확인한 방법", "지연을 30% 줄이셨죠?", 101),
+                _gap("배운 점", "더 자세히 알려 주세요?", 101),
+                _gap("직접 고친 부분", "직접 고친 부분은 어디였나요?", 101),
+                _gap("결과", "어떻게 됐나요? 얼마나 나아졌나요?", 101),
+            ],
+        ),
+        load_facts(),
+    )
+    assert len(s.asked) == 4
+    assert len(s.leading) == 1
+    assert len(s.vague) == 1
+    assert len(s.known_asked) == 1
+    assert len(s.compound) == 1
+    assert (s.gap_asked, s.gap_chances) == (1, 1)
+    assert s.bad_pairs == []
+
+
+def test_score_counts_bad_pairs_and_forced_questions():
+    pair = PAIR["motivation"]
+    s = score(
+        pair,
+        _exps(pair),
+        _out(
+            ("크롤러가 밤마다 멈췄습니다.", [("CITATION", 251)]),
+            omitted=[
+                _gap("지원 동기", "이 부트캠프에 왜 지원했나요?", 151),
+                _gap("확인한 방법", "어떻게 확인했나요?", None),
+                _gap("확인한 방법", "어떻게 확인했나요?", 999),
+            ],
+        ),
+    )
+    assert len(s.forced) == 1
+    assert len(s.bad_pairs) == 2
+    assert len(s.asked) == 1
+
+
+def test_loose_gap_needs_no_question():
+    pair = PAIR["motivation"]
+    s = score(pair, _exps(pair), _out(omitted=[_gap("이 부트캠프에 지원하는 이유")]))
+    assert s.forced == []
+    assert (s.omit_hit, s.omit_chances) == (1, 1)
+
+
+def test_filled_pair_adds_supplement_to_request():
+    pair = PAIR["tech-a-fill"]
+    exp = _exps(pair)[0]
+    assert [x.id for x in exp.supplements] == [301, 901]
+    assert 901 not in [x.id for x in _exps(PAIR["tech-a"])[0].supplements]
+
+
+def test_score_counts_supplement_use():
+    pair = PAIR["tech-a-fill"]
+    used = _out(("두 기기로 도착을 확인했습니다.", [("SUPPLEMENT", 901)]))
+    s = score(pair, _exps(pair), used)
+    assert (s.fill_hit, s.fill_chances) == (1, 1)
+    wrong_ref = _out(("두 기기로 도착을 확인했습니다.", [("CITATION", 201)]))
+    assert score(pair, _exps(pair), wrong_ref).fill_hit == 0
+    asked_again = _out(
+        ("제가 폴링을 바꿨습니다.", [("CITATION", 201)]),
+        omitted=[_gap("바꾼 뒤 확인한 방법", "어떻게 확인했나요?", 101)],
+    )
+    s = score(pair, _exps(pair), asked_again)
+    assert len(s.fill_miss) == 1
+    assert len(s.fill_reasked) == 1
+
+
+def test_my_share_from_supplement_is_not_team_as_mine():
+    """보완에 사용자가 자기 몫이라 말한 일은 UNKNOWN 경험이어도 「제가」로 쓴다."""
+    pair = PAIR["unknown-fill"]
+    said = _out(("제가 try-with-resources 로 고쳤습니다.", [("SUPPLEMENT", 904)]))
+    s = score(pair, _exps(pair), said)
+    assert s.team_as_mine == []
+    assert s.unknown_actor == []
+    assert s.fill_hit == 1
+    leaked = _out(("제가 서버 장애를 고쳤습니다.", [("CITATION", 214)]))
+    assert len(score(pair, _exps(pair), leaked).team_as_mine) == 1
+
+
+def test_known_facts_point_to_real_items():
+    by_id = {e["id"]: e for e in EXPERIENCES}
+    for fact in load_facts():
+        key = "citations" if fact["source"] == "CITATION" else "supplements"
+        assert fact["id"] in [x["id"] for x in by_id[fact["experienceId"]][key]]

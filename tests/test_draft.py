@@ -64,11 +64,21 @@ SECOND = {
 GOOD = {
     "sentences": [FIRST, SECOND],
     "omitted": [
-        "바꾼 뒤 메시지가 제때 오는지 확인한 방법",
-        "Java · Spring 을 쓴 경험",
-        "이 경험에서 배운 점 · 느낀 점",
+        {
+            "text": "바꾼 뒤 메시지가 제때 오는지 확인한 방법",
+            "question": "WebSocket 으로 바꾼 뒤 메시지가 제때 오는지 어떻게 확인했나요?",
+            "experienceId": 101,
+        },
+        {"text": "Java · Spring 을 쓴 경험", "question": None, "experienceId": None},
+        {
+            "text": "이 경험에서 배운 점 · 느낀 점",
+            "question": "채팅 방식을 바꾸며 배운 점이나 느낀 점이 있나요?",
+            "experienceId": 101,
+        },
     ],
 }
+LOOSE = {"text": "지원 동기", "question": None, "experienceId": None}
+ASKED = {"text": "확인한 방법", "question": "어떻게 확인했나요?", "experienceId": 101}
 
 
 def _with(*sentences, omitted=()):
@@ -121,7 +131,7 @@ def test_no_backing_allows_zero_sentences(client_with):
     """고른 경험에 받칠 것이 하나도 없으면 0개가 맞다 — omitted 만 돌려준다."""
     bare = _exp(105, "매주 풀 문제를 고른다", "ME", status="NEEDS_REVIEW")
     body = {"question": QUESTION, "experiences": [bare]}
-    r = client_with(FakeLLM(_with(omitted=["문제와 해결 과정"]))).post("/draft", json=body)
+    r = client_with(FakeLLM(_with(omitted=[LOOSE]))).post("/draft", json=body)
     assert r.status_code == 200
     assert r.json()["sentences"] == []
 
@@ -153,8 +163,14 @@ def test_no_backing_allows_zero_sentences(client_with):
             _with({**SECOND, "text": "앱의 30초 폴링 코드를 바꿨습니다."}),
             id="숫자가 다른 숫자의 일부로만 있음",
         ),
-        pytest.param(_with(SECOND, omitted=["a", "b", "c", "d", "e", "f"]), id="omitted 6개"),
-        pytest.param(_with(SECOND, omitted=[" "]), id="빈 omitted"),
+        pytest.param(_with(SECOND, omitted=[LOOSE] * 6), id="omitted 6개"),
+        pytest.param(_with(SECOND, omitted=["확인한 방법"]), id="옛 문자열 omitted"),
+        pytest.param(_with(SECOND, omitted=[{"text": "확인한 방법"}]), id="omitted 칸 빠짐"),
+        pytest.param(_with(SECOND, omitted=[{**LOOSE, "text": " "}]), id="빈 omitted"),
+        pytest.param(_with(SECOND, omitted=[{**ASKED, "question": " "}]), id="빈 질문"),
+        pytest.param(_with(SECOND, omitted=[{**ASKED, "experienceId": 999}]), id="요청 밖 경험"),
+        pytest.param(_with(SECOND, omitted=[{**ASKED, "experienceId": None}]), id="질문만 있음"),
+        pytest.param(_with(SECOND, omitted=[{**ASKED, "question": None}]), id="경험만 있음"),
         pytest.param(_with(*[SECOND] * 16), id="문장 16개"),
     ],
 )
