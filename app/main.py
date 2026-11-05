@@ -12,6 +12,7 @@ from app.config import Settings, load_settings
 from app.draft import draft
 from app.errors import ApiError
 from app.extract import extract
+from app.link_suggest import suggest_links
 from app.llm import JsonLLM, build_llm
 from app.match import match
 from app.parse_application import parse_application
@@ -21,6 +22,8 @@ from app.schemas import (
     DraftResponse,
     ExtractRequest,
     ExtractResponse,
+    LinkSuggestionsRequest,
+    LinkSuggestionsResponse,
     MatchRequest,
     MatchResponse,
     ParseApplicationRequest,
@@ -55,6 +58,13 @@ def get_match_llm() -> JsonLLM:
 def get_route_llm() -> JsonLLM:
     settings = get_settings()
     return build_llm(settings, settings.route_models, settings.llm_sync_call_timeout_seconds)
+
+
+@lru_cache
+def get_link_llm() -> JsonLLM:
+    # 모델은 매칭과 같은 순서, 시간은 동기 호출(계약 — 50초 안에 답하거나 LLM_TIMEOUT)
+    settings = get_settings()
+    return build_llm(settings, settings.match_models, settings.llm_sync_call_timeout_seconds)
 
 
 def _error(status: int, code: str, message: str) -> JSONResponse:
@@ -126,3 +136,12 @@ async def post_parse_application(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> ParseApplicationResponse:
     return await parse_application(req, llm, settings)
+
+
+@app.post("/link-suggestions", response_model=LinkSuggestionsResponse)
+async def post_link_suggestions(
+    req: LinkSuggestionsRequest,
+    llm: Annotated[JsonLLM, Depends(get_link_llm)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> LinkSuggestionsResponse:
+    return await suggest_links(req, llm, settings)
