@@ -250,7 +250,7 @@
     "text": "이 스터디에 지원한 동기를 적어 주세요.",
     "experienceIds": [153],
     "missing": [
-      {"fact": "이 스터디에 지원하는 이유", "pattern": "지원했|지원하게|관심을 가|알게 되", "omitPattern": "지원|동기|이유|자료|근거|기여", "mustOmit": true, "noQuestion": true}
+      {"fact": "이 스터디에 지원하는 이유", "pattern": "지원했|지원하게|관심을 가|알게 되", "omitPattern": "지원|동기|이유", "mustOmit": true, "noQuestion": true}
     ],
     "expect": []
   }
