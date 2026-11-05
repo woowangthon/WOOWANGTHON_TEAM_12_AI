@@ -4,7 +4,7 @@ SAMPLE(extract-samples): 전부 **지어낸** 자료다. 실제 사람 · 노트
 
 - 눈으로 보기: `uv run python scripts/try_extract.py samples/<파일>.md`
 - 채점: `uv run python scripts/eval_extract.py` — 정답은 `answers/<같은 이름>.json`, 숫자의 뜻은 스크립트 머리말
-- 매칭(`/match`) 시험 자료는 [`match/`](match/README.md) · 홈 입력 가르기(`/route`)는 [`route/`](route/README.md) · 지원 나누기(`/parse-application`)는 [`parse/`](parse/README.md) · 이어짐 제안(`/link-suggestions`)은 [`link/`](link/README.md)
+- 매칭(`/match`) 시험 자료는 [`match/`](match/README.md) · 홈 입력 가르기(`/route`)는 [`route/`](route/README.md) · 지원 나누기(`/parse-application`)는 [`parse/`](parse/README.md) · 이어짐 제안(`/link-suggestions`)은 [`link/`](link/README.md) · 같은 활동 제안(`/extract` 의 `sameAsActivityId`)은 [`same/`](same/README.md)
 
 | 파일 | 사용자 | 보는 것 |
 | --- | --- | --- |

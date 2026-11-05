@@ -1,0 +1,9 @@
+[
+  { "id": 7, "name": "바꿔요 — 캠퍼스 중고거래 앱", "period": { "start": "2025-03", "end": "2025-06", "ongoing": false } },
+  { "id": 8, "name": "알고리즘 스터디", "period": { "start": "2024-09", "end": null, "ongoing": true } },
+  { "id": 11, "name": "멋쟁이사자처럼 충북대", "period": { "start": "2025-03", "end": "2025-12", "ongoing": false } },
+  { "id": 12, "name": "교내 해커톤 「밤샘코딩」", "period": { "start": "2024-11", "end": "2024-11", "ongoing": false } },
+  { "id": 13, "name": "카페 아르바이트", "period": { "start": "2023-07", "end": "2024-02", "ongoing": false } },
+  { "id": 14, "name": "데이터분석 학회 DASH", "period": { "start": "2024-03", "end": "2024-12", "ongoing": false } },
+  { "id": 15, "name": "여행 일정 공유 앱 「길동무」", "period": { "start": "2024-07", "end": "2024-08", "ongoing": false } }
+]
