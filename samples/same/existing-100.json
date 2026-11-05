@@ -1,0 +1,902 @@
+[
+ {
+  "id": 1001,
+  "name": "토익 스터디",
+  "period": {
+   "start": "2019-07",
+   "end": "2019-10",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1002,
+  "name": "영어 회화 모임",
+  "period": {
+   "start": "2019-09",
+   "end": "2019-12",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1003,
+  "name": "교내 봉사 동아리 「온기」",
+  "period": {
+   "start": "2019-02",
+   "end": "2019-03",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1004,
+  "name": "밴드 동아리 「소음」",
+  "period": {
+   "start": "2019-07",
+   "end": "2019-08",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1005,
+  "name": "사진 동아리 「셔터」",
+  "period": {
+   "start": "2019-05",
+   "end": "2019-06",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1006,
+  "name": "학과 학생회 기획부",
+  "period": {
+   "start": "2019-04",
+   "end": "2019-05",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1007,
+  "name": "편의점 아르바이트",
+  "period": {
+   "start": "2019-01",
+   "end": "2019-02",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1008,
+  "name": "학원 채점 아르바이트",
+  "period": {
+   "start": "2019-03",
+   "end": "2019-06",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1009,
+  "name": "도서관 근로장학",
+  "period": {
+   "start": "2019-05",
+   "end": "2019-08",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1010,
+  "name": "UX 리서치 수업 팀 과제",
+  "period": {
+   "start": "2019-07",
+   "end": "2019-10",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1011,
+  "name": "운영체제 수업 과제",
+  "period": {
+   "start": "2019-07",
+   "end": "2019-10",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1012,
+  "name": "데이터베이스 설계 수업 프로젝트",
+  "period": {
+   "start": "2019-06",
+   "end": "2019-08",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1013,
+  "name": "창업 경진대회 「씨앗」",
+  "period": {
+   "start": "2019-02",
+   "end": "2019-04",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1014,
+  "name": "공공데이터 공모전",
+  "period": {
+   "start": "2019-05",
+   "end": "2019-08",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1015,
+  "name": "교내 아이디어톤",
+  "period": {
+   "start": "2019-03",
+   "end": "2019-04",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1016,
+  "name": "스타트업 인턴 「모아랩」",
+  "period": {
+   "start": "2019-09",
+   "end": "2019-10",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1017,
+  "name": "구청 청년 서포터즈",
+  "period": {
+   "start": "2019-02",
+   "end": "2019-04",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1018,
+  "name": "멘토링 프로그램 「다리」",
+  "period": {
+   "start": "2019-06",
+   "end": "2019-07",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1019,
+  "name": "개인 블로그 운영",
+  "period": {
+   "start": "2019-05",
+   "end": "2019-06",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1020,
+  "name": "날씨 알림 봇 「우산」",
+  "period": {
+   "start": "2019-06",
+   "end": "2019-08",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1021,
+  "name": "가계부 앱 「한푼」",
+  "period": {
+   "start": "2019-02",
+   "end": "2019-04",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1022,
+  "name": "독서 모임 「한 장」",
+  "period": {
+   "start": "2019-08",
+   "end": "2019-09",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1023,
+  "name": "러닝 크루 「새벽」",
+  "period": {
+   "start": "2019-04",
+   "end": "2019-05",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1024,
+  "name": "코딩 교육 봉사 「첫걸음」",
+  "period": {
+   "start": "2019-05",
+   "end": "2019-08",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1025,
+  "name": "해외 교환학생 준비",
+  "period": {
+   "start": "2019-04",
+   "end": "2019-05",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1026,
+  "name": "토익 스터디 2기",
+  "period": {
+   "start": "2020-01",
+   "end": "2020-04",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1027,
+  "name": "영어 회화 모임 2기",
+  "period": {
+   "start": "2020-07",
+   "end": "2020-10",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1028,
+  "name": "교내 봉사 동아리 「온기」 2기",
+  "period": {
+   "start": "2020-01",
+   "end": "2020-04",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1029,
+  "name": "밴드 동아리 「소음」 2기",
+  "period": {
+   "start": "2020-06",
+   "end": "2020-08",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1030,
+  "name": "사진 동아리 「셔터」 2기",
+  "period": {
+   "start": "2020-08",
+   "end": "2020-11",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1031,
+  "name": "학과 학생회 기획부 2기",
+  "period": {
+   "start": "2020-08",
+   "end": "2020-11",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1032,
+  "name": "편의점 아르바이트 2기",
+  "period": {
+   "start": "2020-09",
+   "end": "2020-10",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1033,
+  "name": "학원 채점 아르바이트 2기",
+  "period": {
+   "start": "2020-04",
+   "end": "2020-06",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1034,
+  "name": "도서관 근로장학 2기",
+  "period": {
+   "start": "2020-08",
+   "end": "2020-11",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1035,
+  "name": "UX 리서치 수업 팀 과제 2기",
+  "period": {
+   "start": "2020-06",
+   "end": "2020-09",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1036,
+  "name": "운영체제 수업 과제 2기",
+  "period": {
+   "start": "2020-01",
+   "end": "2020-03",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1037,
+  "name": "데이터베이스 설계 수업 프로젝트 2기",
+  "period": {
+   "start": "2020-03",
+   "end": "2020-04",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1038,
+  "name": "창업 경진대회 「씨앗」 2기",
+  "period": {
+   "start": "2020-04",
+   "end": "2020-05",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1039,
+  "name": "공공데이터 공모전 2기",
+  "period": {
+   "start": "2020-09",
+   "end": "2020-12",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1040,
+  "name": "교내 아이디어톤 2기",
+  "period": {
+   "start": "2020-05",
+   "end": "2020-07",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1041,
+  "name": "스타트업 인턴 「모아랩」 2기",
+  "period": {
+   "start": "2020-04",
+   "end": "2020-06",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1042,
+  "name": "구청 청년 서포터즈 2기",
+  "period": {
+   "start": "2020-02",
+   "end": "2020-04",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1043,
+  "name": "멘토링 프로그램 「다리」 2기",
+  "period": {
+   "start": "2020-06",
+   "end": "2020-07",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1044,
+  "name": "개인 블로그 운영 2기",
+  "period": {
+   "start": "2020-04",
+   "end": "2020-07",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1045,
+  "name": "날씨 알림 봇 「우산」 2기",
+  "period": {
+   "start": "2020-01",
+   "end": "2020-03",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1046,
+  "name": "가계부 앱 「한푼」 2기",
+  "period": {
+   "start": "2020-01",
+   "end": "2020-04",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1047,
+  "name": "독서 모임 「한 장」 2기",
+  "period": {
+   "start": "2020-08",
+   "end": "2020-09",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1048,
+  "name": "러닝 크루 「새벽」 2기",
+  "period": {
+   "start": "2020-03",
+   "end": "2020-04",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1049,
+  "name": "코딩 교육 봉사 「첫걸음」 2기",
+  "period": {
+   "start": "2020-01",
+   "end": "2020-04",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1050,
+  "name": "해외 교환학생 준비 2기",
+  "period": {
+   "start": "2020-05",
+   "end": "2020-08",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1051,
+  "name": "토익 스터디 3기",
+  "period": {
+   "start": "2021-02",
+   "end": "2021-04",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1052,
+  "name": "영어 회화 모임 3기",
+  "period": {
+   "start": "2021-02",
+   "end": "2021-03",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1053,
+  "name": "교내 봉사 동아리 「온기」 3기",
+  "period": {
+   "start": "2021-07",
+   "end": "2021-09",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1054,
+  "name": "밴드 동아리 「소음」 3기",
+  "period": {
+   "start": "2021-03",
+   "end": "2021-06",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1055,
+  "name": "사진 동아리 「셔터」 3기",
+  "period": {
+   "start": "2021-09",
+   "end": "2021-12",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1056,
+  "name": "학과 학생회 기획부 3기",
+  "period": {
+   "start": "2021-04",
+   "end": "2021-05",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1057,
+  "name": "편의점 아르바이트 3기",
+  "period": {
+   "start": "2021-05",
+   "end": "2021-07",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1058,
+  "name": "학원 채점 아르바이트 3기",
+  "period": {
+   "start": "2021-05",
+   "end": "2021-06",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1059,
+  "name": "도서관 근로장학 3기",
+  "period": {
+   "start": "2021-09",
+   "end": "2021-12",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1060,
+  "name": "UX 리서치 수업 팀 과제 3기",
+  "period": {
+   "start": "2021-06",
+   "end": "2021-09",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1061,
+  "name": "운영체제 수업 과제 3기",
+  "period": {
+   "start": "2021-08",
+   "end": "2021-09",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1062,
+  "name": "데이터베이스 설계 수업 프로젝트 3기",
+  "period": {
+   "start": "2021-05",
+   "end": "2021-07",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1063,
+  "name": "창업 경진대회 「씨앗」 3기",
+  "period": {
+   "start": "2021-05",
+   "end": "2021-07",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1064,
+  "name": "공공데이터 공모전 3기",
+  "period": {
+   "start": "2021-07",
+   "end": "2021-09",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1065,
+  "name": "교내 아이디어톤 3기",
+  "period": {
+   "start": "2021-09",
+   "end": "2021-11",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1066,
+  "name": "스타트업 인턴 「모아랩」 3기",
+  "period": {
+   "start": "2021-02",
+   "end": "2021-04",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1067,
+  "name": "구청 청년 서포터즈 3기",
+  "period": {
+   "start": "2021-05",
+   "end": "2021-06",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1068,
+  "name": "멘토링 프로그램 「다리」 3기",
+  "period": {
+   "start": "2021-03",
+   "end": "2021-06",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1069,
+  "name": "개인 블로그 운영 3기",
+  "period": {
+   "start": "2021-03",
+   "end": "2021-04",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1070,
+  "name": "날씨 알림 봇 「우산」 3기",
+  "period": {
+   "start": "2021-08",
+   "end": "2021-10",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1071,
+  "name": "가계부 앱 「한푼」 3기",
+  "period": {
+   "start": "2021-06",
+   "end": "2021-08",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1072,
+  "name": "독서 모임 「한 장」 3기",
+  "period": {
+   "start": "2021-02",
+   "end": "2021-04",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1073,
+  "name": "러닝 크루 「새벽」 3기",
+  "period": {
+   "start": "2021-03",
+   "end": "2021-05",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1074,
+  "name": "코딩 교육 봉사 「첫걸음」 3기",
+  "period": {
+   "start": "2021-09",
+   "end": "2021-12",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1075,
+  "name": "해외 교환학생 준비 3기",
+  "period": {
+   "start": "2021-06",
+   "end": "2021-07",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1076,
+  "name": "토익 스터디 4기",
+  "period": {
+   "start": "2022-01",
+   "end": "2022-04",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1077,
+  "name": "영어 회화 모임 4기",
+  "period": {
+   "start": "2022-04",
+   "end": "2022-07",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1078,
+  "name": "교내 봉사 동아리 「온기」 4기",
+  "period": {
+   "start": "2022-08",
+   "end": "2022-09",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1079,
+  "name": "밴드 동아리 「소음」 4기",
+  "period": {
+   "start": "2022-09",
+   "end": "2022-11",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1080,
+  "name": "사진 동아리 「셔터」 4기",
+  "period": {
+   "start": "2022-07",
+   "end": "2022-10",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1081,
+  "name": "학과 학생회 기획부 4기",
+  "period": {
+   "start": "2022-03",
+   "end": "2022-05",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1082,
+  "name": "편의점 아르바이트 4기",
+  "period": {
+   "start": "2022-05",
+   "end": "2022-06",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1083,
+  "name": "학원 채점 아르바이트 4기",
+  "period": {
+   "start": "2022-04",
+   "end": "2022-07",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1084,
+  "name": "도서관 근로장학 4기",
+  "period": {
+   "start": "2022-06",
+   "end": "2022-09",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1085,
+  "name": "UX 리서치 수업 팀 과제 4기",
+  "period": {
+   "start": "2022-02",
+   "end": "2022-04",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1086,
+  "name": "운영체제 수업 과제 4기",
+  "period": {
+   "start": "2022-06",
+   "end": "2022-08",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1087,
+  "name": "데이터베이스 설계 수업 프로젝트 4기",
+  "period": {
+   "start": "2022-03",
+   "end": "2022-04",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1088,
+  "name": "창업 경진대회 「씨앗」 4기",
+  "period": {
+   "start": "2022-02",
+   "end": "2022-04",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1089,
+  "name": "공공데이터 공모전 4기",
+  "period": {
+   "start": "2022-07",
+   "end": "2022-09",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1090,
+  "name": "교내 아이디어톤 4기",
+  "period": {
+   "start": "2022-09",
+   "end": "2022-11",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1091,
+  "name": "스타트업 인턴 「모아랩」 4기",
+  "period": {
+   "start": "2022-04",
+   "end": "2022-05",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1092,
+  "name": "구청 청년 서포터즈 4기",
+  "period": {
+   "start": "2022-03",
+   "end": "2022-06",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1093,
+  "name": "멘토링 프로그램 「다리」 4기",
+  "period": {
+   "start": "2022-03",
+   "end": "2022-06",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1094,
+  "name": "개인 블로그 운영 4기",
+  "period": {
+   "start": "2022-01",
+   "end": "2022-03",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1095,
+  "name": "날씨 알림 봇 「우산」 4기",
+  "period": {
+   "start": "2022-05",
+   "end": "2022-06",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1096,
+  "name": "가계부 앱 「한푼」 4기",
+  "period": {
+   "start": "2022-09",
+   "end": "2022-12",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1097,
+  "name": "독서 모임 「한 장」 4기",
+  "period": {
+   "start": "2022-04",
+   "end": "2022-07",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1098,
+  "name": "러닝 크루 「새벽」 4기",
+  "period": {
+   "start": "2022-03",
+   "end": "2022-04",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1099,
+  "name": "코딩 교육 봉사 「첫걸음」 4기",
+  "period": {
+   "start": "2022-04",
+   "end": "2022-07",
+   "ongoing": false
+  }
+ },
+ {
+  "id": 1100,
+  "name": "해외 교환학생 준비 4기",
+  "period": {
+   "start": "2022-01",
+   "end": "2022-02",
+   "ongoing": false
+  }
+ }
+]

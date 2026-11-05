@@ -61,9 +61,19 @@ Competencies = Annotated[
 # ---- 요청 ----
 
 
+class ExistingActivity(BaseModel):
+    """이미 가진 활동(S-44) — BE 가 저장한 값 그대로라 너그럽게 받는다. 이름 · 기간만 단서로 쓴다."""
+
+    id: int
+    name: str
+    period: "MatchPeriod | None" = None
+
+
 class ExtractRequest(BaseModel):
     sourceName: str | None = None
     text: str | None = None
+    # 빼면 [] 와 같다(S-44 전 BE 와 맞물리게)
+    existingActivities: list[ExistingActivity] = []
 
 
 # ---- 기간 (요청 · 응답 공통) ----
@@ -95,6 +105,8 @@ class LLMExperience(BaseModel):
 class LLMActivity(BaseModel):
     name: NonBlank
     period: Period
+    # 목록 안의 id 인가는 app/extract.py check_output 이 본다 — 칸이 빠져도 규칙 위반(기본값 없음)
+    sameAsActivityId: int | None
     experiences: list[LLMExperience]
 
 
@@ -127,6 +139,8 @@ class Experience(BaseModel):
 class Activity(BaseModel):
     name: str
     period: Period
+    # 늘 싣는다(계약). 기본값은 S-44 전에 저장한 채점 응답을 다시 읽으려고
+    sameAsActivityId: int | None = None
     experiences: list[Experience]
 
 
@@ -367,3 +381,8 @@ class LLMLinkSuggestionsOutput(BaseModel):
 
 class LinkSuggestionsResponse(LLMLinkSuggestionsOutput):
     model: str | None
+
+
+# ExistingActivity 의 기간은 아래에 정의한 MatchPeriod 를 쓴다(앞에서 이름으로 가리킨 것을 풀어 둔다)
+ExistingActivity.model_rebuild()
+ExtractRequest.model_rebuild()

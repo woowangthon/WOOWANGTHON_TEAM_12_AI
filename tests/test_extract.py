@@ -16,6 +16,7 @@ GOOD = {
         {
             "name": "바꿔요",
             "period": {"start": "2025-03", "end": "2025-06", "ongoing": False},
+            "sameAsActivityId": None,
             "experiences": [
                 {
                     "content": "폴링을 WebSocket 으로 바꿨다",
@@ -34,6 +35,7 @@ GOOD = {
         {
             "name": "경험 없는 활동",
             "period": {"start": None, "end": None, "ongoing": False},
+            "sameAsActivityId": None,
             "experiences": [],
         },
     ]
@@ -208,3 +210,98 @@ def test_missing_api_keys_is_llm_error(client_with):
     res = client_with(build_llm(settings)).post("/extract", json=BODY)
     assert res.status_code == 502
     assert res.json()["error"]["code"] == "LLM_ERROR"
+
+
+# ---- 같은 활동 제안 sameAsActivityId (S-44) ----
+
+EXISTING = [
+    {
+        "id": 7,
+        "name": "바꿔요 — 캠퍼스 중고거래 앱",
+        "period": {"start": "2025-03", "end": "2025-06", "ongoing": False},
+    },
+    {
+        "id": 8,
+        "name": "알고리즘 스터디",
+        "period": {"start": "2024-09", "end": None, "ongoing": True},
+    },
+]
+
+
+class SpyLLM(FakeLLM):
+    """받은 사용자 메시지 · 스키마를 남긴다."""
+
+    async def generate_json(self, system, user, schema, deadline):
+        self.user, self.schema = user, schema
+        return await super().generate_json(system, user, schema, deadline)
+
+
+def _same_schema(schema):
+    return schema["properties"]["activities"]["items"]["properties"]["sameAsActivityId"]
+
+
+def test_no_existing_list_means_null_only(client_with):
+    # existingActivities 를 빼면 [] 와 같다 — 스키마가 null 만 허락한다
+    llm = SpyLLM(GOOD)
+    res = client_with(llm).post("/extract", json=BODY)
+    assert res.status_code == 200
+    assert [a["sameAsActivityId"] for a in res.json()["activities"]] == [None, None]
+    assert _same_schema(llm.schema) == {"type": "null"}
+    assert "<기존 활동>\n(없음)\n</기존 활동>" in llm.user
+
+
+def test_same_as_existing_activity(client_with):
+    out = _bad(lambda d: d["activities"][0].update(sameAsActivityId=7))
+    llm = SpyLLM(out)
+    res = client_with(llm).post("/extract", json={**BODY, "existingActivities": EXISTING})
+    assert res.status_code == 200
+    assert [a["sameAsActivityId"] for a in res.json()["activities"]] == [7, None]
+    # 목록 id 와 null 만 — Structured Outputs enum
+    assert _same_schema(llm.schema) == {
+        "anyOf": [{"type": "integer", "enum": [7, 8]}, {"type": "null"}]
+    }
+    # 이름 · 기간만 싣는다
+    assert "[ID 7] 바꿔요 — 캠퍼스 중고거래 앱 (2025-03 ~ 2025-06)" in llm.user
+    assert "[ID 8] 알고리즘 스터디 (2024-09 ~ 진행 중)" in llm.user
+
+
+def test_two_new_activities_may_point_to_same_id(client_with):
+    out = _bad(lambda d: [a.update(sameAsActivityId=8) for a in d["activities"]])
+    res = client_with(SpyLLM(out)).post("/extract", json={**BODY, "existingActivities": EXISTING})
+    assert res.status_code == 200
+    assert [a["sameAsActivityId"] for a in res.json()["activities"]] == [8, 8]
+
+
+def test_period_less_existing_activity_is_listed():
+    from app.extract import build_user_message
+    from app.schemas import ExistingActivity
+
+    msg = build_user_message("a.md", "본문", [ExistingActivity(id=3, name="멋사")])
+    assert "[ID 3] 멋사 (기간 모름)" in msg
+
+
+@pytest.mark.parametrize(
+    ("existing", "same"),
+    [
+        (EXISTING, 99),  # 목록 밖 id
+        ([], 7),  # 목록이 비었는데 id
+    ],
+)
+def test_unknown_id_retries_then_errors(client_with, existing, same):
+    # 목록 밖 id 를 null 로 바꿔 「같은 활동 없음」처럼 돌려주지 않는다
+    out = _bad(lambda d: d["activities"][0].update(sameAsActivityId=same))
+    llm = FakeLLM(out, out)
+    res = client_with(llm, max_attempts=2).post(
+        "/extract", json={**BODY, "existingActivities": existing}
+    )
+    assert res.status_code == 502
+    assert res.json()["error"]["code"] == "LLM_INVALID_OUTPUT"
+    assert llm.calls == 2
+
+
+def test_missing_same_as_field_is_invalid(client_with):
+    out = _bad(lambda d: d["activities"][0].pop("sameAsActivityId"))
+    llm = FakeLLM(out, out)
+    res = client_with(llm, max_attempts=2).post("/extract", json=BODY)
+    assert res.status_code == 502
+    assert res.json()["error"]["code"] == "LLM_INVALID_OUTPUT"

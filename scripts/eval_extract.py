@@ -4,6 +4,8 @@
     uv run python scripts/eval_extract.py --models openai:gpt-6-luna,openai:gpt-5.4-mini
     uv run python scripts/eval_extract.py --prompts tuned    # 우리 프롬프트만
     uv run python scripts/eval_extract.py --rescore eval-runs/<폴더>   # LLM 을 다시 부르지 않고 저장한 응답만 다시 채점
+    uv run python scripts/eval_extract.py --prompts tuned --existing samples/same/existing-100.json
+                                     # 기존 활동 목록(S-44)을 실어도 활동 · 경험을 빠뜨리지 않나
 
 LLM 호출 수 = 자료 수 × 모델 수 × 프롬프트 수(규칙 위반이면 자료마다 최대 LLM_MAX_ATTEMPTS 번) — 기본 10 × 1 × 2 = 20회.
 응답은 --out 폴더(기본 eval-runs/<시각>, 커밋하지 않음)에 저장한다. 모델 폴백 없이 고른 모델만 부른다.
@@ -24,6 +26,7 @@ optional 경험은 「찾음」 분모에 넣지 않고, 짝지어졌을 때 수
 - 섞임 / 쪼개짐: 다른 활동의 경험이 한 활동에 들어간 LLM 활동 수 / 한 활동이 여러 LLM 활동으로 갈린 수
 - 활동 찾음: 정답 활동(optional 빼고) 중 찾은 수
 - 활동 아닌 것: notActivities(공부 노트 · 스크랩 링크 등)를 활동으로 만든 수
+- 같은 활동 제안: sameAsActivityId 가 null 이 아닌 활동 수 — --existing 목록이 시험 자료와 무관하면 0이어야 한다
 """
 
 import argparse
@@ -81,6 +84,7 @@ class Score:
     activities_found: int = 0
     missed_activities: list[str] = field(default_factory=list)
     not_activities: list[str] = field(default_factory=list)
+    same_as: list[str] = field(default_factory=list)
 
     def add(self, other: "Score") -> None:
         for name, value in vars(other).items():
@@ -162,6 +166,11 @@ def score(stem: str, source: str, answer: dict, data: ExtractResponse) -> Score:
     s.mixed = sum(len(e) > 1 for e in llm_to_expected.values())
     s.split = sum(len(a) > 1 for a in expected_to_llm.values())
 
+    s.same_as += [
+        f"{stem}: 「{a.name}」 → {a.sameAsActivityId}"
+        for a in data.activities
+        if a.sameAsActivityId is not None
+    ]
     names = [normalize(a.name) for a in data.activities]
     for ei, act in enumerate(answer["activities"]):
         if act.get("optional"):
@@ -197,7 +206,12 @@ def _slug(model: str) -> str:
 
 
 async def run(
-    models: list[str], prompts: list[str], samples: dict[str, tuple[str, dict]], out: Path
+    models: list[str],
+    prompts: list[str],
+    samples: dict[str, tuple[str, dict]],
+    out: Path,
+    existing: list[dict],
+    env: Path,
 ) -> None:
     from dotenv import load_dotenv
 
@@ -207,7 +221,7 @@ async def run(
     from app.llm import build_llm
     from app.schemas import ExtractRequest
 
-    load_dotenv(ROOT / ".env")  # 값은 화면에 찍지 않는다
+    load_dotenv(env)  # 값은 화면에 찍지 않는다
     base = load_settings()
     gate = asyncio.Semaphore(4)
 
@@ -220,7 +234,9 @@ async def run(
 
     async def one(model: str, prompt: str, stem: str, source: str) -> None:
         settings, llm = clients[model]
-        req = ExtractRequest(sourceName=f"{stem}.md", text=source)
+        req = ExtractRequest.model_validate(
+            {"sourceName": f"{stem}.md", "text": source, "existingActivities": existing}
+        )
         async with gate:
             started = time.monotonic()
             try:
@@ -271,7 +287,7 @@ def report(out: Path, samples: dict[str, tuple[str, dict]]) -> str:
                 f"| {t.found}/{t.required} | {len(t.not_experiences)} "
                 f"| {t.activities_found}/{t.activities_required} | {len(t.not_activities)} "
                 f"| {t.activities_got} ({t.activities_expected}) | {t.mixed} / {t.split} "
-                f"| {len(t.errors)}/{t.files} | {t.seconds:.0f}초 |"
+                f"| {len(t.same_as)} | {len(t.errors)}/{t.files} | {t.seconds:.0f}초 |"
             )
             lines = [
                 *(f"- 지어낸 수치 {x}" for x in t.made_up_numbers),
@@ -281,6 +297,7 @@ def report(out: Path, samples: dict[str, tuple[str, dict]]) -> str:
                 *(f"- 놓친 활동 {x}" for x in t.missed_activities),
                 *(f"- 활동 아닌 것 {x}" for x in t.not_activities),
                 *(f"- 활동 수 {x}" for x in t.activity_counts),
+                *(f"- 같은 활동 제안 {x}" for x in t.same_as),
                 *(f"- 오류 {x}" for x in t.errors),
             ]
             if lines:
@@ -288,8 +305,7 @@ def report(out: Path, samples: dict[str, tuple[str, dict]]) -> str:
     head = (
         "| 모델 · 프롬프트 | 근거 일치 | 원문에서 확인된 경험 | 지어낸 수치 | 주체 틀림 (ME 로) "
         "| 경험 찾음 | 경험 아닌 것 | 활동 찾음 | 활동 아닌 것 | 활동 수 (정답) | 섞임 / 쪼개짐 "
-        "| 오류 | 시간 합 |\n"
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+        "| 같은 활동 제안 | 오류 | 시간 합 |\n" + "| --- " * 14 + "|"
     )
     return "\n".join([head, *rows]) + "\n" + "".join(details) + "\n"
 
@@ -301,6 +317,8 @@ def main() -> None:
     parser.add_argument("--samples", help="쉼표로 자료 이름(확장자 없이) — 기본은 정답이 있는 전부")
     parser.add_argument("--out", type=Path, help="응답 저장 폴더")
     parser.add_argument("--rescore", type=Path, help="저장한 응답만 다시 채점(LLM 안 부름)")
+    parser.add_argument("--existing", type=Path, help="요청마다 실을 기존 활동 목록 JSON(S-44)")
+    parser.add_argument("--env", type=Path, default=ROOT / ".env", help="키를 읽을 .env")
     args = parser.parse_args()
 
     samples = load_answers(args.samples.split(",") if args.samples else None)
@@ -314,7 +332,7 @@ def main() -> None:
 
             from app.config import load_settings
 
-            load_dotenv(ROOT / ".env")
+            load_dotenv(args.env)
             p, m = load_settings().llm_models[0]
             models = [f"{p}:{m}"]
         prompts = [p.strip() for p in args.prompts.split(",") if p.strip()]
@@ -324,7 +342,8 @@ def main() -> None:
         out = args.out or ROOT / "eval-runs" / datetime.now().strftime("%Y%m%d-%H%M%S")
         calls = len(samples) * len(models) * len(prompts)
         print(f"LLM 호출 {calls}회(규칙 위반 시 더) → {out}")
-        asyncio.run(run(models, prompts, samples, out))
+        existing = json.loads(args.existing.read_text(encoding="utf-8")) if args.existing else []
+        asyncio.run(run(models, prompts, samples, out, existing, args.env))
 
     text = report(out, samples)
     (out / "summary.md").write_text(text, encoding="utf-8")
