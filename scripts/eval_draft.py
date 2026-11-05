@@ -4,7 +4,7 @@
     uv run python scripts/eval_draft.py --models openai:gpt-6-luna --prompts tuned
     uv run python scripts/eval_draft.py --rescore eval-runs/draft-<시각>   # 저장한 응답만 다시 채점(LLM 안 부름)
 
-LLM 호출 수 = 쌍 수 × 모델 수 × 프롬프트 수 — 기본 19 × 1 × 2 = 38회(규칙 위반이면 쌍마다 최대 LLM_MAX_ATTEMPTS 번).
+LLM 호출 수 = 쌍 수 × 모델 수 × 프롬프트 수 — 기본 22 × 1 × 2 = 44회(규칙 위반이면 쌍마다 최대 LLM_MAX_ATTEMPTS 번).
 응답은 --out 폴더(기본 eval-runs/draft-<시각>, 커밋하지 않음)에 저장한다. 모델 폴백 없이 고른 모델만 부른다.
 
 자료: samples/match/experiences.json · samples/draft/experiences.json(지어낸 경험)과
@@ -40,6 +40,11 @@ samples/draft/clarify.json. addSupplements 가 있는 쌍은 빠진 사실에 �
 - 보완 또 물음(후보): 더한 보완이 답한 사실을 omitted 에 다시 적은 수
 - 구성 순서: beats 의 사실이 전부 나오고 적은 순서대로인 쌍 수 / beats 가 있는 쌍 수
 - 되풀이(후보): 문장 둘이 공백을 뺀 8글자 이상을 같이 쓰는 수 + once 의 사실이 두 문장 이상에 나온 수 — 사람이 읽는다
+- 생각 문장: OPINION 수(문장 수 합에 들어 있다)
+- 종류 위반: FACT 근거 0개 · OPINION 근거 · OPINION 숫자 · 초안당 4개 이상 · 생각만 있는 초안(코드 검사와 같은 기준 — 우리 쪽은 0 이어야 한다)
+- 사실로 뺌(후보): OPINION 이 「~했습니다」처럼 일어난 일로 끝나는 수 — 받칠 수 있으면 FACT 로, 없으면 omitted 로 갔어야 한다
+- 없는 사실(후보): 그 문항의 자료에 없는 사실(missing)을 OPINION 이 쓴 것 같은 수 — 가장 큰 위험, 근거 규칙이 새는 곳
+- 감정 · 칭찬 · 단정(후보): OPINION 에 지어낸 감정 · 칭찬 · 의미 단정 낱말이 있는 수 — 낱말로 거른 것이라 문장을 읽는다
 """
 
 import argparse
@@ -56,7 +61,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from app.draft import SYSTEM_PROMPT, backings, missing_numbers  # noqa: E402
+from app.citations import numbers  # noqa: E402
+from app.draft import MAX_OPINIONS, SYSTEM_PROMPT, backings, missing_numbers  # noqa: E402
 from app.schemas import LLMDraftOutput, MatchExperience  # noqa: E402
 from scripts.eval_match import (  # noqa: E402
     LEADING,
@@ -82,6 +88,12 @@ WHO = re.compile(r"팀|회장|우리")
 ACTED = re.compile(r"고쳤|수정했|해결했|바꿨|찾았|만들었")
 # 사용자가 보완의 답에 자기가 했다고 말한 것 — 이 보완을 붙인 문장은 「제가」로 써도 된다
 SAID_MINE = re.compile(r"(?<![가-힣])(?:내가|제가|나는|저는)")
+# 생각 문장 후보(사람이 본다) — 일어난 일로 끝남 · 지어낸 감정 · 칭찬 · 의미 단정
+ENDING = re.compile(r"([가-힣])습니다")
+FLATTERY = re.compile(
+    r"뿌듯|기뻤|보람|즐거|즐겁|감동|설레|행복|벅차|느꼈"
+    r"|훌륭|뛰어난|뛰어납|탁월|적임|최고|값진|소중한|밑거름|증명|큰 의미|성장할 수 있었"
+)
 
 
 @dataclass
@@ -126,6 +138,11 @@ class Score:
     fill_chances: int = 0
     fill_miss: list[str] = field(default_factory=list)
     fill_reasked: list[str] = field(default_factory=list)
+    opinions: list[str] = field(default_factory=list)
+    kind_broken: list[str] = field(default_factory=list)
+    opinion_happened: list[str] = field(default_factory=list)
+    opinion_invented: list[str] = field(default_factory=list)
+    opinion_flattery: list[str] = field(default_factory=list)
 
     def add(self, other: "Score") -> None:
         for name, value in vars(other).items():
@@ -211,6 +228,44 @@ def score_omitted(
     return s
 
 
+def happened(text: str) -> bool:
+    """「~했습니다 · ~느꼈습니다」처럼 지난 일로 끝나는가 — 「습니다」 앞 글자의 받침이 ㅆ(있 · 겠 빼고)."""
+    return any((ord(c) - 0xAC00) % 28 == 20 and c not in "있겠" for c in ENDING.findall(text))
+
+
+def score_opinions(pair: dict, data: LLMDraftOutput) -> Score:
+    """생각 문장(S-27) — 코드가 막는 규칙과, 근거 규칙이 OPINION 으로 새는지."""
+    pid = pair["id"]
+    s = Score()
+    opinions = [x for x in data.sentences if x.kind == "OPINION"]
+    s.kind_broken = [
+        f"{pid}: FACT 근거 0개 「{x.text}」"
+        for x in data.sentences
+        if x.kind == "FACT" and not x.evidence
+    ]
+    if len(opinions) > MAX_OPINIONS:
+        s.kind_broken.append(f"{pid}: OPINION {len(opinions)}개")
+    if opinions and len(opinions) == len(data.sentences):
+        s.kind_broken.append(f"{pid}: 생각 문장만")
+    for x in opinions:
+        line = f"{pid}: 「{x.text}」"
+        s.opinions.append(line)
+        if x.evidence:
+            s.kind_broken.append(f"{pid}: OPINION 근거 「{x.text}」")
+        if numbers(x.text):
+            s.kind_broken.append(f"{pid}: OPINION 숫자 「{x.text}」")
+        if happened(x.text):
+            s.opinion_happened.append(line)
+        if FLATTERY.search(x.text):
+            s.opinion_flattery.append(line)
+        s.opinion_invented += [
+            f"{pid}: {m['fact']} — 「{x.text}」"
+            for m in pair["missing"]
+            if re.search(m["pattern"], x.text)
+        ]
+    return s
+
+
 def score(
     pair: dict,
     experiences: list[MatchExperience],
@@ -219,6 +274,7 @@ def score(
 ) -> Score:
     pid = pair["id"]
     s = score_omitted(pair, experiences, data, list(facts))
+    s.add(score_opinions(pair, data))
     known = backings(experiences)
     used = {
         known[e.type, e.id].experience.id
@@ -229,6 +285,8 @@ def score(
     s.picked_total = len(experiences)
     s.unused = [f"{pid}: 경험 {e.id}" for e in experiences if e.id not in used]
     for sent in data.sentences:
+        if sent.kind == "OPINION":  # 근거 규칙 밖 — score_opinions 가 따로 본다
+            continue
         text = sent.text
         pairs = [(e.type, e.id) for e in sent.evidence]
         cited = [known[p] for p in pairs if p in known]
@@ -395,7 +453,7 @@ async def run(
 
 def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
     facts = load_facts()
-    rows, details, question_rows = [], [], []
+    rows, details, question_rows, opinion_rows = [], [], [], []
     for model_dir in sorted(p for p in out.iterdir() if p.is_dir()):
         for prompt_dir in sorted(p for p in model_dir.iterdir() if p.is_dir()):
             t = Score()
@@ -431,8 +489,17 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
                 f"| {len(t.known_asked)}/{t.known_chances} "
                 f"| {t.fill_hit}/{t.fill_chances} | {len(t.fill_reasked)} |"
             )
+            opinion_rows.append(
+                f"| {name} | {len(t.opinions)} | {len(t.kind_broken)} "
+                f"| {len(t.opinion_happened)} | {len(t.opinion_invented)} "
+                f"| {len(t.opinion_flattery)} |"
+            )
             lines = [
                 *(f"- 오류 {x}" for x in t.errors),
+                *(f"- 종류 위반 {x}" for x in t.kind_broken),
+                *(f"- 사실로 뺌(후보) {x}" for x in t.opinion_happened),
+                *(f"- 없는 사실(후보) {x}" for x in t.opinion_invented),
+                *(f"- 감정 · 칭찬 · 단정(후보) {x}" for x in t.opinion_flattery),
                 *(f"- 없는 ID {x}" for x in t.fake_ids),
                 *(f"- 없는 숫자 {x}" for x in t.bad_numbers),
                 *(f"- 지어냄(후보) {x}" for x in t.invented),
@@ -452,6 +519,7 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
                 *(f"- 있는 사실 물음(후보) {x}" for x in t.known_asked),
                 *(f"- 보완 안 씀 {x}" for x in t.fill_miss),
                 *(f"- 보완 또 물음(후보) {x}" for x in t.fill_reasked),
+                *(f"- 생각 {x}" for x in t.opinions),
                 *(f"- 문장 {x}" for x in t.sentences),
                 *(f"- omitted {x}" for x in t.omitted),
             ]
@@ -466,7 +534,19 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
         "| 막연함(후보) | 두 가지(후보) | 있는 사실 물음(후보) | 보완 씀 | 보완 또 물음(후보) |\n"
         "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
     )
-    tables = "\n".join([head, *rows]) + "\n\n" + "\n".join([question_head, *question_rows])
+    opinion_head = (
+        "| 모델 · 프롬프트 | 생각 문장 | 종류 위반 | 사실로 뺌(후보) | 없는 사실(후보) "
+        "| 감정 · 칭찬 · 단정(후보) |\n"
+        "| --- | --- | --- | --- | --- | --- |"
+    )
+    tables = "\n\n".join(
+        "\n".join(part)
+        for part in (
+            [head, *rows],
+            [question_head, *question_rows],
+            [opinion_head, *opinion_rows],
+        )
+    )
     return tables + "\n" + "".join(details) + "\n"
 
 

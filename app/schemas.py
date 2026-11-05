@@ -276,6 +276,8 @@ class AskResponse(LLMAskOutput):
 # ==== POST /draft — ETC docs/contracts/ai-api.md 「POST /draft」 ====
 
 DraftEvidenceType = Literal["CITATION", "SUPPLEMENT", "EXPERIENCE"]
+# 값 목록은 ETC docs/contracts/README.md 「값 목록」 draftSentenceKind
+DraftSentenceKind = Literal["FACT", "OPINION"]
 
 
 def _one_line(value: str) -> str:
@@ -295,8 +297,10 @@ class DraftEvidence(BaseModel):
 
 
 class DraftSentence(BaseModel):
+    # kind 마다 근거 · 숫자 규칙이 달라 app/draft.py check_output 이 본다
+    kind: DraftSentenceKind
     text: Annotated[NonBlank, AfterValidator(_one_line)]
-    evidence: list[DraftEvidence] = Field(min_length=1)
+    evidence: list[DraftEvidence]
 
 
 class DraftOmitted(BaseModel):

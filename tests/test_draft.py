@@ -54,10 +54,12 @@ QUESTION = {
 BODY = {"question": QUESTION, "experiences": [EXP_101]}
 
 FIRST = {
+    "kind": "FACT",
     "text": "「바꿔요」 프로젝트에서 채팅 메시지가 늦게 도착하는 문제가 있었고, 제가 폴링을 WebSocket 으로 바꿔 해결했습니다.",
     "evidence": [{"type": "CITATION", "id": 201}],
 }
 SECOND = {
+    "kind": "FACT",
     "text": "서버에 STOMP 엔드포인트를 만들고, 앱의 3초 폴링 코드를 구독 방식으로 바꿨습니다.",
     "evidence": [{"type": "SUPPLEMENT", "id": 301}],
 }
@@ -77,6 +79,11 @@ GOOD = {
         },
     ],
 }
+OPINION = {
+    "kind": "OPINION",
+    "text": "앞으로도 문제의 원인을 살피는 개발자가 되고 싶습니다.",
+    "evidence": [],
+}
 LOOSE = {"text": "지원 동기", "question": None, "experienceId": None}
 ASKED = {"text": "확인한 방법", "question": "어떻게 확인했나요?", "experienceId": 101}
 
@@ -93,9 +100,17 @@ def test_contract_example(client_with):
     assert llm.calls == 1
 
 
+def test_opinion_returned_with_kind(client_with):
+    r = client_with(FakeLLM(_with(FIRST, SECOND, *[OPINION] * 3))).post("/draft", json=BODY)
+    assert r.status_code == 200
+    assert [s["kind"] for s in r.json()["sentences"]] == ["FACT", "FACT", *["OPINION"] * 3]
+    assert r.json()["sentences"][-1]["evidence"] == []
+
+
 def test_team_experience_written_as_team(client_with):
     """TEAM 경험 102 를 같이 골랐을 때 — 계약 「예시 읽는 법」의 문장 그대로 통과한다."""
     team = {
+        "kind": "FACT",
         "text": "팀은 매주 금요일 스프린트 회고를 했습니다.",
         "evidence": [{"type": "CITATION", "id": 202}],
     }
@@ -108,6 +123,7 @@ def test_team_experience_written_as_team(client_with):
 def test_user_entered_body_is_evidence(client_with):
     out = _with(
         {
+            "kind": "FACT",
             "text": "혼자 만든 가계부 웹앱을 친구 5명이 한 달 동안 썼습니다.",
             "evidence": [{"type": "EXPERIENCE", "id": 141}],
         }
@@ -119,6 +135,7 @@ def test_user_entered_body_is_evidence(client_with):
 def test_sentence_may_cite_two_experiences(client_with):
     out = _with(
         {
+            "kind": "FACT",
             "text": "폴링을 WebSocket 으로 바꿨고, 팀은 매주 금요일 스프린트 회고를 했습니다.",
             "evidence": [{"type": "CITATION", "id": 201}, {"type": "CITATION", "id": 202}],
         }
@@ -136,11 +153,33 @@ def test_no_backing_allows_zero_sentences(client_with):
     assert r.json()["sentences"] == []
 
 
+def test_no_backing_rejects_opinion_only(client_with):
+    """받칠 것이 없으면 생각만으로 채우지 않는다 — 계약 「sentences」."""
+    bare = _exp(105, "매주 풀 문제를 고른다", "ME", status="NEEDS_REVIEW")
+    body = {"question": QUESTION, "experiences": [bare]}
+    llm = FakeLLM(_with(OPINION), _with(OPINION))
+    r = client_with(llm, max_attempts=2).post("/draft", json=body)
+    assert r.status_code == 502
+    assert r.json()["error"]["code"] == "LLM_INVALID_OUTPUT"
+
+
 @pytest.mark.parametrize(
     "bad",
     [
         pytest.param(_with(), id="받칠 것이 있는데 0개"),
-        pytest.param(_with({"text": "문장", "evidence": []}), id="근거 0개"),
+        pytest.param(_with({**FIRST, "evidence": []}), id="FACT 근거 0개"),
+        pytest.param(_with({k: v for k, v in FIRST.items() if k != "kind"}), id="kind 빠짐"),
+        pytest.param(_with({**FIRST, "kind": "GUESS"}), id="kind 값 목록 밖"),
+        pytest.param(_with(FIRST, {**OPINION, "evidence": FIRST["evidence"]}), id="OPINION 근거"),
+        pytest.param(
+            _with(FIRST, {**OPINION, "text": "3년 안에 해 보고 싶습니다."}), id="OPINION 숫자"
+        ),
+        pytest.param(
+            _with(FIRST, SECOND, {**OPINION, "text": "앱의 3초 폴링처럼 살피겠습니다."}),
+            id="근거에 있는 숫자도 OPINION 엔 금지",
+        ),
+        pytest.param(_with(OPINION), id="OPINION 만"),
+        pytest.param(_with(FIRST, *[OPINION] * 4), id="OPINION 4개"),
         pytest.param(_with({**SECOND, "text": "  "}), id="빈 문장"),
         pytest.param(_with({**SECOND, "text": "한 줄\n두 줄"}), id="줄바꿈"),
         pytest.param(
@@ -194,6 +233,7 @@ def test_number_may_come_from_activity_and_period():
     """활동 이름 · 기간의 숫자는 그 경험이면 받친다 — 「2025년 3월」(기간 2025-03)."""
     out = _with(
         {
+            "kind": "FACT",
             "text": "2025년 3월부터 6월까지 채팅 문제를 해결했습니다.",
             "evidence": [{"type": "CITATION", "id": 201}],
         }
@@ -204,7 +244,9 @@ def test_number_may_come_from_activity_and_period():
 def test_number_in_other_evidence_does_not_back():
     """보완 301 의 「3초」는 근거 201 만 붙인 문장을 받치지 못한다(기간 2025-03 의 3 과 겹치지 않게 기간을 뺀다)."""
     exp = {**EXP_101, "period": None}
-    out = _with({"text": "앱의 3초 폴링 코드를 바꿨습니다.", "evidence": FIRST["evidence"]})
+    out = _with(
+        {"kind": "FACT", "text": "앱의 3초 폴링 코드를 바꿨습니다.", "evidence": FIRST["evidence"]}
+    )
     with pytest.raises(ValueError, match="숫자"):
         check_output(LLMDraftOutput.model_validate(out), [MatchExperience.model_validate(exp)])
 
@@ -213,7 +255,13 @@ def test_supplement_question_does_not_back_numbers():
     """보완의 질문은 사실이 아니다 — 답에 있는 숫자만 받친다."""
     exp = _exp(101, "본문", "ME", supplements=[(301, "3초 폴링을 어떻게 바꿨나요?", "구독으로")])
     exp["period"] = None
-    out = _with({"text": "3초 폴링을 바꿨습니다.", "evidence": [{"type": "SUPPLEMENT", "id": 301}]})
+    out = _with(
+        {
+            "kind": "FACT",
+            "text": "3초 폴링을 바꿨습니다.",
+            "evidence": [{"type": "SUPPLEMENT", "id": 301}],
+        }
+    )
     with pytest.raises(ValueError, match="숫자"):
         check_output(LLMDraftOutput.model_validate(out), [MatchExperience.model_validate(exp)])
 
