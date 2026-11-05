@@ -14,6 +14,7 @@ from app.errors import ApiError
 from app.extract import extract
 from app.llm import JsonLLM, build_llm
 from app.match import match
+from app.parse_application import parse_application
 from app.route import route
 from app.schemas import (
     DraftRequest,
@@ -22,6 +23,8 @@ from app.schemas import (
     ExtractResponse,
     MatchRequest,
     MatchResponse,
+    ParseApplicationRequest,
+    ParseApplicationResponse,
     RouteRequest,
     RouteResponse,
 )
@@ -114,3 +117,12 @@ async def post_route(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> RouteResponse:
     return await route(req, llm, settings)
+
+
+@app.post("/parse-application", response_model=ParseApplicationResponse)
+async def post_parse_application(
+    req: ParseApplicationRequest,
+    llm: Annotated[JsonLLM, Depends(get_route_llm)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> ParseApplicationResponse:
+    return await parse_application(req, llm, settings)

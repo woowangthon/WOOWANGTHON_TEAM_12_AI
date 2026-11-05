@@ -295,3 +295,41 @@ class RouteResponse(BaseModel):
     kind: EntranceKind
     reason: str
     model: str | None
+
+
+# 지원처 종류 · 직무 — 닫힌 목록. 원본은 ETC docs/contracts/README.md 「값 목록」(S-42 · 미결정 17)
+OrganizationType = Literal[
+    "CLUB", "EXTRACURRICULAR", "EXTERNAL", "BOOTCAMP", "INTERN", "JOB", "OTHER"
+]
+ORGANIZATION_TYPES: tuple[str, ...] = get_args(OrganizationType)
+JobRole = Literal[
+    "BACKEND",
+    "FRONTEND",
+    "MOBILE",
+    "AI_DATA",
+    "INFRA",
+    "DESIGN",
+    "PLANNING",
+    "MARKETING",
+    "BUSINESS",
+    "OTHER",
+]
+JOB_ROLES: tuple[str, ...] = get_args(JobRole)
+
+
+class ParseApplicationRequest(BaseModel):
+    # 둘 중 하나만 · 비었는지 · 20000자는 app/parse_application.py check_request 가 본다
+    text: str | None = None
+    url: str | None = None
+
+
+# LLM 이 내는 모양. 글에 적혀 있나 · 순서 · 중복은 app/parse_application.py check_written 이 본다
+class LLMParseApplicationOutput(BaseModel):
+    organization: Annotated[NonBlank, Field(max_length=100)] | None
+    organizationType: OrganizationType | None
+    jobRole: JobRole | None
+    questions: Annotated[list[Annotated[NonBlank, Field(max_length=5000)]], Field(max_length=10)]
+
+
+class ParseApplicationResponse(LLMParseApplicationOutput):
+    model: str | None
