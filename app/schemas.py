@@ -61,9 +61,19 @@ Competencies = Annotated[
 # ---- 요청 ----
 
 
+class ExistingActivity(BaseModel):
+    """이미 가진 활동(S-44) — BE 가 저장한 값 그대로라 너그럽게 받는다. 이름 · 기간만 단서로 쓴다."""
+
+    id: int
+    name: str
+    period: "MatchPeriod | None" = None
+
+
 class ExtractRequest(BaseModel):
     sourceName: str | None = None
     text: str | None = None
+    # 빼면 [] 와 같다(S-44 전 BE 와 맞물리게)
+    existingActivities: list[ExistingActivity] = []
 
 
 # ---- 기간 (요청 · 응답 공통) ----
@@ -95,6 +105,8 @@ class LLMExperience(BaseModel):
 class LLMActivity(BaseModel):
     name: NonBlank
     period: Period
+    # 목록 안의 id 인가는 app/extract.py check_output 이 본다 — 칸이 빠져도 규칙 위반(기본값 없음)
+    sameAsActivityId: int | None
     experiences: list[LLMExperience]
 
 
@@ -127,6 +139,8 @@ class Experience(BaseModel):
 class Activity(BaseModel):
     name: str
     period: Period
+    # 늘 싣는다(계약). 기본값은 S-44 전에 저장한 채점 응답을 다시 읽으려고
+    sameAsActivityId: int | None = None
     experiences: list[Experience]
 
 
@@ -237,6 +251,28 @@ class MatchResponse(BaseModel):
     model: str | None
 
 
+# ==== POST /ask — ETC docs/contracts/ai-api.md 「POST /ask」 ====
+
+
+class AskRequest(BaseModel):
+    query: str | None = None
+    experiences: list[MatchExperience] | None = None
+
+
+class AskRecommendation(BaseModel):
+    experienceId: int
+    reason: NonBlank
+    evidence: list[Evidence]
+
+
+class LLMAskOutput(BaseModel):
+    recommendations: list[AskRecommendation] = Field(max_length=3)
+
+
+class AskResponse(LLMAskOutput):
+    model: str | None
+
+
 # ==== POST /draft — ETC docs/contracts/ai-api.md 「POST /draft」 ====
 
 DraftEvidenceType = Literal["CITATION", "SUPPLEMENT", "EXPERIENCE"]
@@ -272,6 +308,39 @@ class DraftResponse(LLMDraftOutput):
     model: str | None
 
 
+# ==== POST /ground-check — ETC docs/contracts/ai-api.md 「POST /ground-check」 ====
+
+GroundingStatus = Literal["SOURCE", "USER_INPUT", "UNSUPPORTED", "OPINION"]
+
+
+class GroundCheckRequest(BaseModel):
+    text: str | None = None
+    experiences: list[MatchExperience] | None = None
+
+
+class GroundVerdict(BaseModel):
+    index: int
+    status: GroundingStatus
+    evidence: list[DraftEvidence]
+    note: Annotated[NonBlank, AfterValidator(_one_line)] | None
+
+
+class LLMGroundOutput(BaseModel):
+    verdicts: list[GroundVerdict]
+
+
+class GroundSentence(BaseModel):
+    text: str
+    status: GroundingStatus
+    evidence: list[DraftEvidence]
+    note: str | None
+
+
+class GroundCheckResponse(BaseModel):
+    sentences: list[GroundSentence]
+    model: str | None
+
+
 # ==== POST /route — ETC docs/contracts/ai-api.md 「POST /route」 ====
 
 # 홈 입력 가르기 — 닫힌 목록. 원본은 ETC docs/contracts/README.md 「값 목록」 entranceKind
@@ -295,3 +364,98 @@ class RouteResponse(BaseModel):
     kind: EntranceKind
     reason: str
     model: str | None
+
+
+# 지원처 종류 · 직무 — 닫힌 목록. 원본은 ETC docs/contracts/README.md 「값 목록」(S-42 · 미결정 17)
+OrganizationType = Literal[
+    "CLUB", "EXTRACURRICULAR", "EXTERNAL", "BOOTCAMP", "INTERN", "JOB", "OTHER"
+]
+ORGANIZATION_TYPES: tuple[str, ...] = get_args(OrganizationType)
+JobRole = Literal[
+    "BACKEND",
+    "FRONTEND",
+    "MOBILE",
+    "AI_DATA",
+    "INFRA",
+    "DESIGN",
+    "PLANNING",
+    "MARKETING",
+    "BUSINESS",
+    "OTHER",
+]
+JOB_ROLES: tuple[str, ...] = get_args(JobRole)
+
+
+class ParseApplicationRequest(BaseModel):
+    # 둘 중 하나만 · 비었는지 · 20000자는 app/parse_application.py check_request 가 본다
+    text: str | None = None
+    url: str | None = None
+
+
+# LLM 이 내는 모양. 글에 적혀 있나 · 순서 · 중복은 app/parse_application.py check_written 이 본다
+class LLMParseApplicationOutput(BaseModel):
+    organization: Annotated[NonBlank, Field(max_length=100)] | None
+    organizationType: OrganizationType | None
+    jobRole: JobRole | None
+    questions: Annotated[list[Annotated[NonBlank, Field(max_length=5000)]], Field(max_length=10)]
+
+
+class ParseApplicationResponse(LLMParseApplicationOutput):
+    model: str | None
+
+
+# POST /link-suggestions (S-35). 비었나 · 개수 · id 중복 · 글자 수는 app/link_suggest.py check_request 가 본다
+class LinkExperience(BaseModel):
+    id: int
+    content: str
+
+
+class LinkActivity(BaseModel):
+    id: int
+    name: str
+    period: MatchPeriod | None = None
+    note: str | None = None
+    experiences: list[LinkExperience] = []
+
+
+class LinkSuggestionsRequest(BaseModel):
+    # 「from」은 파이썬 예약어라 별칭으로 받는다
+    origin: LinkActivity = Field(alias="from")
+    candidates: list[LinkActivity]
+
+
+# LLM 이 내는 모양. 후보 안인가 · 중복 · 줄바꿈은 app/link_suggest.py check_output 이 본다
+class LinkSuggestion(BaseModel):
+    toActivityId: int
+    reason: Annotated[NonBlank, Field(max_length=200)]
+
+
+class LLMLinkSuggestionsOutput(BaseModel):
+    suggestions: Annotated[list[LinkSuggestion], Field(max_length=3)]
+
+
+class LinkSuggestionsResponse(LLMLinkSuggestionsOutput):
+    model: str | None
+
+
+# ExistingActivity 의 기간은 아래에 정의한 MatchPeriod 를 쓴다(앞에서 이름으로 가리킨 것을 풀어 둔다)
+ExistingActivity.model_rebuild()
+ExtractRequest.model_rebuild()
+
+
+class AgentQuestion(BaseModel):
+    id: int
+    text: str
+    organization: str | None = None
+
+
+class AgentContext(BaseModel):
+    question: AgentQuestion | None = None
+
+
+class AgentRequest(BaseModel):
+    # 전부 선택으로 두고 코드로 검사한다 — pydantic 의 「없음」 오류는 본문 전체를 실어 mcpUrl 토큰이 응답으로 샌다
+    text: str | None = None
+    context: AgentContext | None = None
+    mcpUrl: str | None = None
+    maxToolCalls: int | None = None

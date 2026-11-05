@@ -8,7 +8,7 @@ import asyncio
 import copy
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -46,12 +46,40 @@ class JsonLLM(Protocol):
         ...
 
 
+@dataclass(frozen=True)
+class ToolCall:
+    id: str
+    name: str
+    arguments: str  # 모델이 쓴 JSON 문자열 그대로 — 검사는 부른 쪽에서
+
+
+@dataclass(frozen=True)
+class ToolTurn:
+    text: str
+    calls: tuple[ToolCall, ...]
+    model: str
+
+
+class ToolLLM(Protocol):
+    async def generate_turn(
+        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]], deadline: float
+    ) -> ToolTurn:
+        """함수 호출 한 차례. 실패하면 LLMError · LLMTimeout."""
+        ...
+
+
 class Provider(Protocol):
     name: str
     available: bool
 
     async def call(self, model: str, system: str, user: str, schema: dict[str, Any]) -> str:
         """JSON 문자열. 모델을 지금 못 쓰면 Unavailable, 키 · 요청 문제면 LLMError."""
+        ...
+
+    async def call_tools(
+        self, model: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]]
+    ) -> tuple[str, tuple[ToolCall, ...]]:
+        """글과 도구 호출. 오류는 call 과 같다."""
         ...
 
 
@@ -82,33 +110,54 @@ class OpenAIProvider:
         # 다시 시도 · 시간 제한은 FallbackLLM 이 맡는다 — SDK 자체 재시도는 끈다
         self._client = openai.AsyncOpenAI(api_key=api_key, max_retries=0) if api_key else None
 
-    async def call(self, model: str, system: str, user: str, schema: dict[str, Any]) -> str:
+    async def _create(self, model: str, **kwargs: Any) -> Any:
         assert self._client is not None
         try:
-            response = await self._client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
-                ],
-                response_format={
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": "extraction",
-                        "schema": _strict(schema),
-                        "strict": True,
-                    },
-                },
-            )
+            response = await self._client.chat.completions.create(model=model, **kwargs)
         except openai.APIStatusError as e:
             if e.status_code in FALLBACK_CODES:
                 raise Unavailable(f"{e.status_code} {type(e).__name__}") from e
             raise LLMError(f"LLM 호출 실패(openai:{model}): {e.status_code} {e.message}") from e
         except openai.APIConnectionError as e:
             raise Unavailable(type(e).__name__) from e
-        message = response.choices[0].message
+        return response.choices[0].message
+
+    async def call(self, model: str, system: str, user: str, schema: dict[str, Any]) -> str:
+        message = await self._create(
+            model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "extraction",
+                    "schema": _strict(schema),
+                    "strict": True,
+                },
+            },
+        )
         # 거절 · 빈 답은 빈 문자열 — 호출한 쪽에서 출력 규칙 위반으로 다룬다
         return "" if message.refusal else (message.content or "")
+
+    async def call_tools(
+        self, model: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]]
+    ) -> tuple[str, tuple[ToolCall, ...]]:
+        # 한 차례에 도구 하나 — 단계가 화면에 하나씩 보이고, 쓰기 확인은 한 응답에 하나다(계약 「confirm」)
+        message = await self._create(
+            model,
+            messages=messages,
+            tools=[{"type": "function", "function": t} for t in tools],
+            parallel_tool_calls=False,
+            # gpt-6.1 은 Chat Completions 에서 함수 도구와 추론을 같이 못 쓴다(400 — none 이거나 Responses API)
+            reasoning_effort="none",
+        )
+        calls = tuple(
+            ToolCall(id=c.id, name=c.function.name, arguments=c.function.arguments)
+            for c in message.tool_calls or []
+        )
+        return ("" if message.refusal else (message.content or "")), calls
 
 
 class GeminiProvider:
@@ -136,6 +185,12 @@ class GeminiProvider:
             raise LLMError(f"LLM 호출 실패(gemini:{model}): {e.code} {e.message}") from e
         return response.text or ""
 
+    async def call_tools(
+        self, model: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]]
+    ) -> tuple[str, tuple[ToolCall, ...]]:
+        # 차곡이 루프의 메시지는 OpenAI 모양이다 — Gemini 는 쓰지 않는다(AGENT_LLM_MODELS)
+        raise Unavailable("도구 루프는 OpenAI 만 쓴다")
+
 
 class FallbackLLM:
     def __init__(
@@ -154,6 +209,23 @@ class FallbackLLM:
     async def generate_json(
         self, system: str, user: str, schema: dict[str, Any], deadline: float
     ) -> LLMResult:
+        text, name = await self._first_answer(
+            lambda provider, model: provider.call(model, system, user, schema), deadline
+        )
+        return LLMResult(text=text, model=name)
+
+    async def generate_turn(
+        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]], deadline: float
+    ) -> ToolTurn:
+        (text, calls), name = await self._first_answer(
+            lambda provider, model: provider.call_tools(model, messages, tools), deadline
+        )
+        return ToolTurn(text=text, calls=calls, model=name)
+
+    async def _first_answer[T](
+        self, call: Callable[[Provider, str], Awaitable[T]], deadline: float
+    ) -> tuple[T, str]:
+        """앞 모델부터 불러 처음 나온 답과 그 모델 이름. 못 쓰는 모델은 건너뛴다."""
         usable = [(p, m) for p, m in self.models if self.providers[p].available]
         if not usable:
             raise LLMError("쓸 수 있는 LLM 키가 없습니다(OPENAI_API_KEY · GEMINI_API_KEY)")
@@ -168,10 +240,8 @@ class FallbackLLM:
                 break
             timeout = min(self.call_timeout, remaining)
             try:
-                text = await asyncio.wait_for(
-                    self.providers[provider_name].call(model, system, user, schema), timeout
-                )
-                return LLMResult(text=text, model=name)
+                answer = await asyncio.wait_for(call(self.providers[provider_name], model), timeout)
+                return answer, name
             except TimeoutError:
                 ran_out_of_time = True
                 failures.append(f"{name}: {timeout:.0f}초 초과")

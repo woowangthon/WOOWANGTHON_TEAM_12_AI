@@ -21,11 +21,13 @@ from app.errors import InvalidRequest, TextTooLong
 from app.llm import JsonLLM, generate_valid
 from app.schemas import (
     QUESTION_TYPES,
+    AskRecommendation,
     LLMMatchOutput,
     MatchExperience,
     MatchQuestion,
     MatchRequest,
     MatchResponse,
+    Recommendation,
 )
 
 log = logging.getLogger(__name__)
@@ -178,14 +180,21 @@ def _period(exp: MatchExperience) -> str:
 
 
 def build_user_message(question: MatchQuestion, experiences: list[MatchExperience]) -> str:
-    lines = [
-        "<문항>",
-        f"지원처: {question.organization or '(없음)'}",
-        f"문항: {question.text}",
-        "</문항>",
-        "",
-        "<경험 목록>",
-    ]
+    return "\n".join(
+        [
+            "<문항>",
+            f"지원처: {question.organization or '(없음)'}",
+            f"문항: {question.text}",
+            "</문항>",
+            "",
+            *experience_lines(experiences),
+        ]
+    )
+
+
+def experience_lines(experiences: list[MatchExperience]) -> list[str]:
+    """<경험 목록> 블록 — /ask 도 같은 모양으로 넘긴다."""
+    lines = ["<경험 목록>"]
     if not experiences:
         lines.append("(경험 없음)")
     for exp in experiences:
@@ -208,7 +217,17 @@ def build_user_message(question: MatchQuestion, experiences: list[MatchExperienc
             ]
         lines.append("")
     lines.append("</경험 목록>")
-    return "\n".join(lines)
+    return lines
+
+
+def experience_chars(experiences: list[MatchExperience]) -> int:
+    """413 셈(MAX_MATCH_CHARS) 의 경험 쪽 — 본문 · 근거 · 보완 글자 수 합."""
+    return sum(
+        len(e.content)
+        + sum(len(c.quote) for c in e.citations)
+        + sum(len(s.question) + len(s.answer) for s in e.supplements)
+        for e in experiences
+    )
 
 
 def check_request(
@@ -222,12 +241,7 @@ def check_request(
     ids = [e.id for e in req.experiences]
     if len(set(ids)) != len(ids):
         raise InvalidRequest("경험 id 가 중복됐습니다")
-    chars = len(question.text) + sum(
-        len(e.content)
-        + sum(len(c.quote) for c in e.citations)
-        + sum(len(s.question) + len(s.answer) for s in e.supplements)
-        for e in req.experiences
-    )
+    chars = len(question.text) + experience_chars(req.experiences)
     if chars > settings.max_match_chars:
         raise TextTooLong(f"문항 · 경험 글자 수 합이 {settings.max_match_chars}자를 넘습니다")
     return question, req.experiences
@@ -247,8 +261,24 @@ def check_output(output: LLMMatchOutput, experiences: list[MatchExperience]) -> 
                 f"requirements[{i}] {r.status} 인데 경험 ID {len(r.experienceIds)}개 "
                 "(NOT_FOUND 면 0개, 아니면 1개 이상)"
             )
+    seen = check_recommendations(output.recommendations, by_id)
+    for i, c in enumerate(output.clarifications):
+        # 답이 그 경험의 보완이 되므로 추천하지 않은 경험엔 묻지 않는다(계약)
+        if c.experienceId not in seen:
+            raise ValueError(f"clarifications[{i}] 추천하지 않은 경험 ID {c.experienceId}")
+    return output
+
+
+def check_recommendations(
+    recommendations: list[Recommendation] | list[AskRecommendation],
+    by_id: dict[int, MatchExperience],
+) -> set[int]:
+    """요청에 있는 경험 · 추천끼리 중복 없음 · 같은 경험의 근거 · 보완 · 근거 중복 없음(/match · /ask 같은 규칙).
+
+    어기면 ValueError. 추천한 경험 ID 들을 돌려준다.
+    """
     seen: set[int] = set()
-    for i, rec in enumerate(output.recommendations):
+    for i, rec in enumerate(recommendations):
         exp = by_id.get(rec.experienceId)
         if exp is None:
             raise ValueError(f"recommendations[{i}] 요청에 없는 경험 ID {rec.experienceId}")
@@ -266,11 +296,7 @@ def check_output(output: LLMMatchOutput, experiences: list[MatchExperience]) -> 
             )
         if len(set(pairs)) != len(pairs):
             raise ValueError(f"recommendations[{i}] 근거 중복")
-    for i, c in enumerate(output.clarifications):
-        # 답이 그 경험의 보완이 되므로 추천하지 않은 경험엔 묻지 않는다(계약)
-        if c.experienceId not in seen:
-            raise ValueError(f"clarifications[{i}] 추천하지 않은 경험 ID {c.experienceId}")
-    return output
+    return seen
 
 
 async def match(
