@@ -4,10 +4,11 @@
     uv run python scripts/eval_draft.py --models openai:gpt-6-luna --prompts tuned
     uv run python scripts/eval_draft.py --rescore eval-runs/draft-<시각>   # 저장한 응답만 다시 채점(LLM 안 부름)
 
-LLM 호출 수 = 쌍 수 × 모델 수 × 프롬프트 수 — 기본 10 × 1 × 2 = 20회(규칙 위반이면 쌍마다 최대 LLM_MAX_ATTEMPTS 번).
+LLM 호출 수 = 쌍 수 × 모델 수 × 프롬프트 수 — 기본 14 × 1 × 2 = 28회(규칙 위반이면 쌍마다 최대 LLM_MAX_ATTEMPTS 번).
 응답은 --out 폴더(기본 eval-runs/draft-<시각>, 커밋하지 않음)에 저장한다. 모델 폴백 없이 고른 모델만 부른다.
 
-자료: samples/match/experiences.json(지어낸 경험)과 samples/draft/pairs.json(문항 + 고른 경험 + 손으로 적은 정답).
+자료: samples/match/experiences.json · samples/draft/experiences.json(지어낸 경험)과
+samples/draft/pairs.json(문항 + 고른 경험 + 손으로 적은 정답).
 
 범용 프롬프트는 같은 모델 · 같은 경험 목록 · 같은 출력 모양에 지시만 한 줄이다. **코드 검사를 끄고** 돌린다 — 검사가
 다시 부르면 지어낸 것이 숫자에서 사라지기 때문이다. 우리 쪽은 제품과 같이 검사를 켠다.
@@ -25,6 +26,9 @@ LLM 호출 수 = 쌍 수 × 모델 수 × 프롬프트 수 — 기본 10 × 1 ×
 - omitted 씀: 문항이 대놓고 묻는데 자료에 없는 사실(mustOmit)을 omitted 에 적은 수 / 기회
 - 맞는 근거: 문장이 그 사실을 쓸 때 맞는 근거 · 보완을 붙인 수 / 쓴 수(expect)
 - 고른 경험 안 씀: 사용자가 골랐는데 어느 문장도 그 경험을 붙이지 않은 수 / 고른 경험 수
+- 글자(쌍 평균): 문장을 이어 붙인 글자 수 평균. 길수록 좋다는 뜻이 아니다 — 재료를 얼마나 썼는지 본다
+- 구성 순서: beats 의 사실이 전부 나오고 적은 순서대로인 쌍 수 / beats 가 있는 쌍 수
+- 되풀이(후보): 문장 둘이 공백을 뺀 8글자 이상을 같이 쓰는 수 + once 의 사실이 두 문장 이상에 나온 수 — 사람이 읽는다
 """
 
 import argparse
@@ -35,6 +39,7 @@ import sys
 import time
 from dataclasses import dataclass, field, replace
 from datetime import datetime
+from itertools import combinations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -78,10 +83,21 @@ class Score:
     omitted: list[str] = field(default_factory=list)
     picked_total: int = 0
     unused: list[str] = field(default_factory=list)
+    chars: int = 0
+    order_hit: int = 0
+    order_total: int = 0
+    order_miss: list[str] = field(default_factory=list)
+    repeated: list[str] = field(default_factory=list)
 
     def add(self, other: "Score") -> None:
         for name, value in vars(other).items():
             setattr(self, name, getattr(self, name) + value)
+
+
+def shared_run(a: str, b: str, size: int = 8) -> str | None:
+    """두 문장이 공백을 빼고 같이 쓰는 size 글자 토막. 없으면 None."""
+    a, b = a.replace(" ", ""), b.replace(" ", "")
+    return next((a[i : i + size] for i in range(len(a) - size + 1) if a[i : i + size] in b), None)
 
 
 def score(pair: dict, experiences: list[MatchExperience], data: LLMDraftOutput) -> Score:
@@ -127,6 +143,30 @@ def score(pair: dict, experiences: list[MatchExperience], data: LLMDraftOutput) 
                     s.expect_hit += 1
                 else:
                     s.expect_miss.append(f"{pid}: {want['evidence']} 아님 — {line}")
+    s.chars = sum(len(x.text) for x in data.sentences)
+    # 문장 쌍마다 한 번만 센다 — 토막과 once 에 같이 걸려도 되풀이 하나다
+    texts = [x.text for x in data.sentences]
+    twice: dict[tuple[int, int], str] = {}
+    for fact in pair.get("once", []):
+        hits = [i for i, text in enumerate(texts) if re.search(fact, text)]
+        twice.update(dict.fromkeys(combinations(hits, 2), fact))
+    for i, j in combinations(range(len(texts)), 2):
+        run = shared_run(texts[i], texts[j])
+        if run:
+            twice.setdefault((i, j), run)
+    s.repeated = [
+        f"{pid}: 「{v}」 — 「{texts[i]}」 / 「{texts[j]}」" for (i, j), v in twice.items()
+    ]
+    if pair.get("beats"):
+        s.order_total = 1
+        spots = [
+            next((i for i, x in enumerate(data.sentences) if re.search(b, x.text)), None)
+            for b in pair["beats"]
+        ]
+        if None not in spots and spots == sorted(spots):
+            s.order_hit = 1
+        else:
+            s.order_miss.append(f"{pid}: 문장 위치 {spots}")
     for m in pair["missing"]:
         if m.get("mustOmit"):
             s.omit_chances += 1
@@ -138,7 +178,8 @@ def score(pair: dict, experiences: list[MatchExperience], data: LLMDraftOutput) 
 
 
 def load_experiences() -> list[dict]:
-    return json.loads(EXPERIENCES.read_text(encoding="utf-8"))
+    extra = (DATA / "experiences.json").read_text(encoding="utf-8")
+    return json.loads(EXPERIENCES.read_text(encoding="utf-8")) + json.loads(extra)
 
 
 def load_pairs(only: list[str] | None = None) -> list[dict]:
@@ -240,7 +281,9 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
                 f"| {len(t.fake_ids)} | {len(t.bad_numbers)} | {len(t.invented)} "
                 f"| {len(t.team_as_mine)} | {len(t.unknown_actor)} | {t.omit_hit}/{t.omit_chances} "
                 f"| {t.expect_hit}/{t.expect_chances} "
-                f"| {len(t.unused)}/{t.picked_total} | {t.seconds:.0f}초 |"
+                f"| {len(t.unused)}/{t.picked_total} "
+                f"| {t.chars // max(t.pairs - len(t.errors), 1)} "
+                f"| {t.order_hit}/{t.order_total} | {len(t.repeated)} | {t.seconds:.0f}초 |"
             )
             lines = [
                 *(f"- 오류 {x}" for x in t.errors),
@@ -252,14 +295,16 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
                 *(f"- omitted 안 씀 {x}" for x in t.omit_miss),
                 *(f"- 근거 다름 {x}" for x in t.expect_miss),
                 *(f"- 고른 경험 안 씀 {x}" for x in t.unused),
+                *(f"- 구성 순서 어긋남 {x}" for x in t.order_miss),
+                *(f"- 되풀이(후보) {x}" for x in t.repeated),
                 *(f"- 문장 {x}" for x in t.sentences),
                 *(f"- omitted {x}" for x in t.omitted),
             ]
             details.append(f"\n### {name}\n\n" + "\n".join(lines))
     head = (
         "| 모델 · 프롬프트 | 문장 | 다시 부름 | 오류 | 없는 ID | 없는 숫자 | 지어냄(후보) "
-        "| 팀 일을 내 일로(후보) | 모름에 주체(후보) | omitted 씀 | 맞는 근거 | 고른 경험 안 씀 | 시간 합 |\n"
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+        "| 팀 일을 내 일로(후보) | 모름에 주체(후보) | omitted 씀 | 맞는 근거 | 고른 경험 안 씀 | 글자(쌍 평균) | 구성 순서 | 시간 합 |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
     )
     return "\n".join([head, *rows]) + "\n" + "".join(details) + "\n"
 

@@ -84,6 +84,45 @@ def test_score_counts_unused_experience():
     assert s.picked_total == 2
 
 
+def test_score_counts_order_and_chars():
+    pair = PAIR["rich-problem"]
+    right = _out(
+        ("크롤러가 밤마다 멈춰 문의가 왔습니다.", [("CITATION", 251)]),
+        ("원인은 503 을 잡지 못한 코드였습니다.", [("CITATION", 252)]),
+        ("발표가 3주 남아 일부만 고치기로 판단했습니다.", [("CITATION", 253)]),
+        ("제가 Redis 큐로 다시 긁게 했습니다.", [("CITATION", 254)]),
+        ("4주 동안 멈춘 날이 없었습니다.", [("CITATION", 255)]),
+        ("실패부터 설계해야 한다는 걸 배웠습니다.", [("SUPPLEMENT", 352)]),
+    )
+    s = score(pair, _exps(pair), right)
+    assert (s.order_hit, s.order_total) == (1, 1)
+    assert s.chars == sum(len(x.text) for x in right.sentences)
+    swapped = LLMDraftOutput(sentences=right.sentences[::-1], omitted=[])
+    assert score(pair, _exps(pair), swapped).order_hit == 0
+    short = LLMDraftOutput(sentences=right.sentences[:2], omitted=[])
+    assert score(pair, _exps(pair), short).order_miss
+
+
+def test_score_counts_repeated_sentences():
+    pair = PAIR["tech-a"]
+    twice = _out(
+        ("폴링을 WebSocket 으로 바꿔 문제를 풀었습니다.", [("CITATION", 201)]),
+        ("저는 폴링을 WebSocket 으로 바꿔 지연을 없앴습니다.", [("CITATION", 201)]),
+    )
+    assert len(score(pair, _exps(pair), twice).repeated) == 1
+    once = _out(("채팅이 늦게 도착했습니다.", [("CITATION", 201)]))
+    assert score(pair, _exps(pair), once).repeated == []
+
+
+def test_score_counts_once_fact_in_two_sentences():
+    pair = PAIR["team-way"]
+    twice = _out(
+        ("제가 폴링을 바꿔 해결했습니다.", [("CITATION", 201)]),
+        ("앱의 폴링 코드를 구독으로 바꿨습니다.", [("SUPPLEMENT", 301)]),
+    )
+    assert len(score(pair, _exps(pair), twice).repeated) == 1
+
+
 def test_score_unknown_actor():
     pair = PAIR["unknown-only"]
     s = score(
