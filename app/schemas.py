@@ -333,3 +333,37 @@ class LLMParseApplicationOutput(BaseModel):
 
 class ParseApplicationResponse(LLMParseApplicationOutput):
     model: str | None
+
+
+# POST /link-suggestions (S-35). 비었나 · 개수 · id 중복 · 글자 수는 app/link_suggest.py check_request 가 본다
+class LinkExperience(BaseModel):
+    id: int
+    content: str
+
+
+class LinkActivity(BaseModel):
+    id: int
+    name: str
+    period: MatchPeriod | None = None
+    note: str | None = None
+    experiences: list[LinkExperience] = []
+
+
+class LinkSuggestionsRequest(BaseModel):
+    # 「from」은 파이썬 예약어라 별칭으로 받는다
+    origin: LinkActivity = Field(alias="from")
+    candidates: list[LinkActivity]
+
+
+# LLM 이 내는 모양. 후보 안인가 · 중복 · 줄바꿈은 app/link_suggest.py check_output 이 본다
+class LinkSuggestion(BaseModel):
+    toActivityId: int
+    reason: Annotated[NonBlank, Field(max_length=200)]
+
+
+class LLMLinkSuggestionsOutput(BaseModel):
+    suggestions: Annotated[list[LinkSuggestion], Field(max_length=3)]
+
+
+class LinkSuggestionsResponse(LLMLinkSuggestionsOutput):
+    model: str | None

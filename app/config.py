@@ -36,15 +36,15 @@ class Settings:
     # (제공사, 모델). 앞에서부터 쓰고, 「지금 못 씀」(404 · 429 · 5xx · 시간 초과)이면 다음으로.
     # 키가 없는 제공사는 건너뛴다
     llm_models: tuple[tuple[str, str], ...]
-    # /match · /draft 에 쓰는 순서 — 규칙은 llm_models 와 같다
+    # /match · /draft · /link-suggestions 에 쓰는 순서 — 규칙은 llm_models 와 같다
     match_models: tuple[tuple[str, str], ...]
     # /route · /parse-application 에 쓰는 순서 — 규칙은 llm_models 와 같다
     route_models: tuple[tuple[str, str], ...]
     # BE 제한 시간(제안 120초)보다 짧게 — 폴백 · 다시 시도까지 합친 전체 시간
     llm_timeout_seconds: float
-    # 입구 셋(/route …) — 사용자가 기다리는 동기 호출. BE 제한 시간(AI_SYNC_TIMEOUT_SECONDS 60초)보다 짧게
+    # 입구 셋(/route …) · /link-suggestions — 사용자가 기다리는 동기 호출. BE 제한 시간(AI_SYNC_TIMEOUT_SECONDS 60초)보다 짧게
     llm_sync_timeout_seconds: float
-    # 입구 셋에서 모델 하나를 한 번 부를 때 제한 — 한 모델이 멈춰도 50초 안에 다음 모델로 넘어가게 짧게
+    # 동기 호출에서 모델 하나를 한 번 부를 때 제한 — 한 모델이 멈춰도 50초 안에 다음 모델로 넘어가게 짧게
     llm_sync_call_timeout_seconds: float
     # 모델 하나를 한 번 부를 때 제한 시간 — 한 모델이 전체 시간을 다 먹지 않게
     llm_call_timeout_seconds: float
