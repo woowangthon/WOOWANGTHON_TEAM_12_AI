@@ -13,7 +13,15 @@ from app.errors import ApiError
 from app.extract import extract
 from app.llm import JsonLLM, build_llm
 from app.match import match
-from app.schemas import ExtractRequest, ExtractResponse, MatchRequest, MatchResponse
+from app.route import route
+from app.schemas import (
+    ExtractRequest,
+    ExtractResponse,
+    MatchRequest,
+    MatchResponse,
+    RouteRequest,
+    RouteResponse,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("app")
@@ -35,6 +43,12 @@ def get_llm() -> JsonLLM:
 def get_match_llm() -> JsonLLM:
     settings = get_settings()
     return build_llm(settings, settings.match_models)
+
+
+@lru_cache
+def get_route_llm() -> JsonLLM:
+    settings = get_settings()
+    return build_llm(settings, settings.route_models, settings.llm_sync_call_timeout_seconds)
 
 
 def _error(status: int, code: str, message: str) -> JSONResponse:
@@ -79,3 +93,12 @@ async def post_match(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> MatchResponse:
     return await match(req, llm, settings)
+
+
+@app.post("/route", response_model=RouteResponse)
+async def post_route(
+    req: RouteRequest,
+    llm: Annotated[JsonLLM, Depends(get_route_llm)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> RouteResponse:
+    return await route(req, llm, settings)

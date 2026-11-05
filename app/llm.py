@@ -191,13 +191,21 @@ class FallbackLLM:
         raise LLMError(f"쓸 수 있는 모델이 없습니다 — {summary}")
 
 
-def build_llm(settings: Settings, models: tuple[tuple[str, str], ...] | None = None) -> FallbackLLM:
-    """models 를 안 주면 settings.llm_models(추출) 순서로."""
+def build_llm(
+    settings: Settings,
+    models: tuple[tuple[str, str], ...] | None = None,
+    call_timeout: float | None = None,
+) -> FallbackLLM:
+    """models 를 안 주면 settings.llm_models(추출) 순서로, call_timeout 을 안 주면 settings.llm_call_timeout_seconds."""
     providers: dict[str, Provider] = {
         "openai": OpenAIProvider(settings.openai_api_key),
         "gemini": GeminiProvider(settings.gemini_api_key),
     }
-    return FallbackLLM(models or settings.llm_models, providers, settings.llm_call_timeout_seconds)
+    return FallbackLLM(
+        models or settings.llm_models,
+        providers,
+        settings.llm_call_timeout_seconds if call_timeout is None else call_timeout,
+    )
 
 
 @dataclass(frozen=True)
@@ -215,13 +223,15 @@ async def generate_valid[T](
     schema: dict[str, Any],
     parse: Callable[[str], T],
     settings: Settings,
+    timeout: float | None = None,
 ) -> Valid[T]:
     """LLM 출력을 parse 로 검사하고, 규칙을 벗어나면 다시 부른다(최대 settings.max_attempts 번).
 
     parse 는 규칙 위반이면 ValueError(pydantic ValidationError 포함)를 던진다. 출력을 그럴듯하게
     고치지 않는다 — 끝까지 벗어나면 LLMInvalidOutput(계약 ai-api 「응답 규칙」).
+    timeout 은 폴백 · 다시 시도까지 합친 전체 시간 — 안 주면 settings.llm_timeout_seconds(작업 호출).
     """
-    deadline = time.monotonic() + settings.llm_timeout_seconds
+    deadline = time.monotonic() + (settings.llm_timeout_seconds if timeout is None else timeout)
     last_error = ""
     for attempt in range(1, settings.max_attempts + 1):
         if deadline - time.monotonic() <= 0:

@@ -218,3 +218,28 @@ class MatchResponse(BaseModel):
     recommendations: list[Recommendation]
     clarifications: list[Clarification]
     model: str | None
+
+
+# ==== POST /route — ETC docs/contracts/ai-api.md 「POST /route」 ====
+
+# 홈 입력 가르기 — 닫힌 목록. 원본은 ETC docs/contracts/README.md 「값 목록」 entranceKind
+EntranceKind = Literal["SOURCE", "APPLICATION", "ASK", "UNSURE"]
+ENTRANCE_KINDS: tuple[str, ...] = get_args(EntranceKind)
+
+
+class RouteRequest(BaseModel):
+    # 비었는지 · 4000자 · totalLength 와 맞는지는 app/route.py check_request 가 본다(400 INVALID_REQUEST)
+    text: str
+    totalLength: int
+
+
+# LLM 이 내는 모양 — reason 이 200자를 넘으면 잘라 내지 않고 규칙 위반(다시 부른다)
+class LLMRouteOutput(BaseModel):
+    reason: Annotated[NonBlank, Field(max_length=200)]
+    kind: EntranceKind
+
+
+class RouteResponse(BaseModel):
+    kind: EntranceKind
+    reason: str
+    model: str | None
