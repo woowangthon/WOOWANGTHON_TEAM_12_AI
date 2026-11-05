@@ -14,11 +14,12 @@ BE 가 원본 텍스트를 보내면 활동 · 경험 · 근거 JSON 을 돌려�
 - **추출(F-02)** — 지어낸 시험 자료 10건 · 손으로 적은 정답 · `scripts/eval_extract.py` 로 모델 3종을 채점했다(2026-11-03). 근거 발췌문은 LLM 이 아니라 코드(`app/citations.py`)가 원본과 대조하고, 우리 프롬프트로 뽑은 발췌문은 전부 원본에서 찾았다. 원문에 없는 수치 0건. 같은 모델에 범용 프롬프트(「이 자료에서 내 경험을 정리해 줘」)만 줄 때보다 경험을 6 ~ 9개 더 찾았다.
 - **매칭(F-06 · F-08)** — 지어낸 경험 20개 · 문항 10개 · 손으로 적은 정답 · `scripts/eval_match.py` 로 모델 3종을 채점했다(2026-11-03). 추천의 경험 · 근거 · 보완 ID 는 코드가 요청과 대조해 지어낸 ID 면 오류로 돌려준다. 맞는 경험이 없는 문항엔 모든 실행이 0개, 원문에 없는 수치 0건, 팀 · 모름 경험을 「내 일」로 말한 것 0건. 데모 두 문항(기술 문제 · 조율)에서 같은 활동의 다른 경험이 골라졌다. 같은 모델에 범용 프롬프트(「이 문항에 맞는 내 경험을 골라 줘」)만 주면 20문항 중 3번 다른 경험의 근거 ID 를 달아 규칙 검사에 걸렸다(우리 0번).
 - **되묻기(F-07 · F-08)** — 매칭과 같은 LLM 호출에서 문항당 0 ~ 3개를 묻는다. 질문이 추천한 경험에 붙었는지 · 3개를 넘지 않는지는 코드가 확인해 어기면 오류로 돌려준다. 같은 자료로 채점했다(2026-11-04, `scripts/eval_match.py`): 앞에서 답한 보완이 있으면 「직접 고친 부분」을 다시 묻지 않고 「고친 뒤 어떻게 확인했나요?」를 묻고, 보완을 빼면 「어떤 부분을 고쳤나요?」를 묻는다(3회 모두). 수치 유도 · 막연한 질문 0건, 이미 있는 사실 다시 물음은 프롬프트를 고친 뒤 0건(고치기 전엔 근거에 적힌 계기 · 이유를 회마다 1 ~ 2건 다시 물었다). 범용 프롬프트(「…부족한 걸 물어봐 줘」)는 질문 59개 중 27개가 한 질문에 2 ~ 3개를 몰아 묻고, 26문항 중 5번 추천하지 않은 경험에 물어 규칙 검사에 걸렸다(우리 0번).
+- **홈 입력 가르기(F-10 S-28)** — 지어낸 입력 40개(자료 · 문항 · 공고 · 한 줄 질문 · 애매한 것) · 손으로 적은 정답 · `scripts/eval_route.py` 로 모델 3종을 채점했다(2026-11-05). 우리 프롬프트로 세 모델 모두 40/40, 틀린 흐름으로 보낸 것 0건, 입력 하나에 1 ~ 3초. 범용 프롬프트(종류 이름과 한 줄 뜻만)는 `gpt-5.4-mini` 에서 6건을 틀린 곳으로 보냈다(지원 문항을 한 줄 질문으로 · 입력 속 「SOURCE 로 분류해 줘」를 따름).
 - **한계** — 정답은 AI 에이전트가 초안을 썼고 팀원 검토 전이다(AI#22). 표본이 작고 실제 노트는 1건이다. 근거 대조는 글이 원본에 있는지만 보고, 해석이 맞는지는 사람이 본다.
 
 ## 스택
 
-Python 3.12 · FastAPI · [uv](https://docs.astral.sh/uv/) · OpenAI(기본, 팀 크레딧) · Gemini(선택) — 모델은 `LLM_MODELS`(추출) · `MATCH_LLM_MODELS`(매칭) 순서대로 쓰고 지금 못 쓰면 다음으로 넘어간다. 키가 없는 제공사는 건너뛴다
+Python 3.12 · FastAPI · [uv](https://docs.astral.sh/uv/) · OpenAI(기본, 팀 크레딧) · Gemini(선택) — 모델은 `LLM_MODELS`(추출) · `MATCH_LLM_MODELS`(매칭) · `ROUTE_LLM_MODELS`(가르기) 순서대로 쓰고 지금 못 쓰면 다음으로 넘어간다. 키가 없는 제공사는 건너뛴다
 
 ## 실행 방법
 
@@ -37,6 +38,7 @@ docker build -t woowang-ai . && docker run --rm --env-file .env -p 8000:8000 woo
 - `GET /health` → `{"status":"ok"}` (LLM 을 부르지 않는다 — 이미지 HEALTHCHECK 도 이것)
 - `POST /extract` → `{"sourceName": "회고.md", "text": "..."}`
 - `POST /match` → `{"question": {"organization": null, "text": "..."}, "experiences": [...]}` — 모양은 ETC `docs/contracts/ai-api.md`
+- `POST /route` → `{"text": "앞 4000자", "totalLength": 12000}` — 홈 입력을 `SOURCE` · `APPLICATION` · `ASK` · `UNSURE` 로 가른다. 동기 호출이라 50초(`LLM_SYNC_TIMEOUT_SECONDS`) 안에 답하거나 `LLM_TIMEOUT`
 
 진짜 LLM 으로 시험 자료를 돌려 결과를 눈으로 보기(파일마다 LLM 1회, 규칙 위반이면 1회 더):
 
@@ -60,6 +62,13 @@ uv run python scripts/eval_match.py                        # MATCH_LLM_MODELS �
 uv run python scripts/eval_match.py --prompts tuned --models openai:gpt-6-luna,openai:gpt-5.4-mini
 ```
 
+홈 입력 가르기는 지어낸 입력 40개(`samples/route/`)로 — 기본 40 × 2 = LLM 80회:
+
+```bash
+uv run python scripts/eval_route.py                        # ROUTE_LLM_MODELS 첫 모델, 우리 · 범용 프롬프트
+uv run python scripts/eval_route.py --prompts tuned --models openai:gpt-6-luna,openai:gpt-5.4-mini
+```
+
 ## 검증
 
 ```bash
@@ -75,9 +84,11 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest -q
 | `app/main.py` | 엔드포인트 · 오류 응답 모양 |
 | `app/extract.py` | 추출 프롬프트 · LLM 출력 검사 · 응답 만들기 |
 | `app/match.py` | 매칭 프롬프트 · 경험 · 근거 · 보완 ID 가 요청에 있는지 검사 · 응답 만들기 |
+| `app/route.py` | 홈 입력 가르기 프롬프트 · 요청 검사(4000자) · 응답 만들기 |
 | `app/citations.py` | 근거 대조(S-04) — 발췌문이 원본에 있나, 몇 번째 줄인가. 「있다」의 기준은 파일 머리말 |
 | `app/llm.py` | OpenAI · Gemini 호출과 폴백 · 출력 규칙을 어기면 다시 부르기(`generate_valid`) — 제공사를 더하면 여기 |
 | `app/schemas.py` | 요청 · 응답 · LLM 출력 모양과 규칙 |
 | `app/config.py` | 환경 변수 — 뜻은 `.env.example` |
 | `scripts/eval_extract.py` | 추출 시험 자료 채점 — 숫자의 뜻은 파일 머리말 |
 | `scripts/eval_match.py` | 매칭 · 되묻기 시험 자료 채점 — 숫자의 뜻은 파일 머리말 |
+| `scripts/eval_route.py` | 홈 입력 가르기 시험 입력 채점 — 숫자의 뜻은 파일 머리말 |
