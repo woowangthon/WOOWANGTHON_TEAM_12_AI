@@ -7,7 +7,14 @@ import pytest
 
 from app.citations import numbers, unsupported_numbers
 from app.config import load_settings
-from app.draft import backings, build_draft_message, check_output, check_request
+from app.draft import (
+    LLM_JSON_SCHEMA,
+    backings,
+    build_draft_message,
+    check_output,
+    check_request,
+    schema_for,
+)
 from app.match import build_user_message, experience_chars
 from app.schemas import DraftRequest, LLMDraftOutput, MatchExperience
 from tests.conftest import FakeLLM
@@ -98,7 +105,7 @@ def test_contract_example(client_with):
     llm = FakeLLM(GOOD)
     r = client_with(llm).post("/draft", json=BODY)
     assert r.status_code == 200
-    assert r.json() == {**GOOD, "model": "fake-model"}
+    assert r.json() == {**GOOD, "guidelines": [], "model": "fake-model"}
     assert llm.calls == 1
 
 
@@ -375,7 +382,7 @@ def test_hints_go_to_prompt_as_clues(client_with):
 def test_without_hints_prompt_is_unchanged(client_with):
     Spy, seen = _spy()
     client_with(Spy(GOOD)).post("/draft", json=BODY)
-    question, exps = check_request(DraftRequest.model_validate(BODY), load_settings())
+    question, exps, _ = check_request(DraftRequest.model_validate(BODY), load_settings())
     assert seen["user"] == build_user_message(question, exps)
     assert "<매칭 단서>" not in seen["user"]
 
@@ -385,7 +392,7 @@ def test_null_job_role_and_empty_hints_are_unchanged():
         "question": {**QUESTION, "jobRole": None, "requirements": []},
         "experiences": [{**EXP_101, "gaps": []}],
     }
-    question, exps = check_request(DraftRequest.model_validate(body), load_settings())
+    question, exps, _ = check_request(DraftRequest.model_validate(body), load_settings())
     assert build_draft_message(question, exps) == build_user_message(question, exps)
 
 
@@ -436,4 +443,106 @@ def test_hints_count_toward_text_limit(client_with):
         == 200
     )
     r = client_with(FakeLLM(GOOD), max_match_chars=limit).post("/draft", json=HINTED)
+    assert r.status_code == 413
+
+
+# ---- 구성 틀 · 작성 지침 (S-49 · S-50) ----
+
+GUIDES = [
+    {"id": 901, "text": "첫 문장에 무엇을 했고 어떻게 됐는지 먼저 쓴다"},
+    {"id": 905, "text": "결과는 꼭 수치로 쓴다"},
+]
+GUIDED = {"question": {**QUESTION, "frame": "STAR"}, "experiences": [EXP_101], "guidelines": GUIDES}
+RESULTS = [
+    {"id": 901, "applied": True, "note": None},
+    {"id": 905, "applied": False, "note": "결과를 보여 줄 수치가 자료에 없어 넣지 않았어요"},
+]
+
+
+def test_guided_contract_example(client_with):
+    Spy, seen = _spy()
+    llm = Spy({**GOOD, "guidelines": RESULTS})
+    r = client_with(llm).post("/draft", json=GUIDED)
+    assert r.status_code == 200
+    assert r.json()["guidelines"] == RESULTS
+    assert "<구성 틀>\nSTAR: 상황" in seen["user"]
+    assert "- [905] 결과는 꼭 수치로 쓴다" in seen["user"]
+    # 틀 · 지침은 단서 뒤 맨 끝 — 경험 목록에 섞이지 않는다
+    assert seen["user"].index("</경험 목록>") < seen["user"].index("<작성 지침>")
+
+
+def test_none_frame_and_no_guidelines_are_unchanged():
+    body = {"question": {**QUESTION, "frame": "NONE"}, "experiences": [EXP_101], "guidelines": []}
+    question, exps, gs = check_request(DraftRequest.model_validate(body), load_settings())
+    assert build_draft_message(question, exps, gs) == build_user_message(question, exps)
+    assert schema_for(gs) is LLM_JSON_SCHEMA
+
+
+def test_schema_asks_guidelines_only_when_given():
+    gs = DraftRequest.model_validate(GUIDED).guidelines
+    schema = schema_for(gs)
+    assert "guidelines" in schema["required"]
+    assert schema["properties"]["guidelines"]["items"]["properties"]["id"]["enum"] == [901, 905]
+
+
+@pytest.mark.parametrize(
+    "results",
+    [
+        pytest.param(RESULTS[::-1], id="순서 다름"),
+        pytest.param(RESULTS[:1], id="하나 빠짐"),
+        pytest.param([*RESULTS, {"id": 999, "applied": True, "note": None}], id="없는 id"),
+        pytest.param([{**RESULTS[0], "note": "했어요"}, RESULTS[1]], id="true 인데 note"),
+        pytest.param([RESULTS[0], {**RESULTS[1], "note": None}], id="false 인데 note 없음"),
+        pytest.param([RESULTS[0], {**RESULTS[1], "note": "가" * 81}], id="note 80자 넘음"),
+        pytest.param([RESULTS[0], {**RESULTS[1], "note": "가\n나"}], id="note 줄바꿈"),
+    ],
+)
+def test_bad_guideline_results_retry_then_fail(client_with, results):
+    bad = {**GOOD, "guidelines": results}
+    llm = FakeLLM(bad, bad)
+    r = client_with(llm, max_attempts=2).post("/draft", json=GUIDED)
+    assert r.status_code == 502
+    assert r.json()["error"]["code"] == "LLM_INVALID_OUTPUT"
+    assert llm.calls == 2
+
+
+def test_guideline_results_without_request_guidelines_fail():
+    exps = DraftRequest.model_validate(BODY).experiences
+    with pytest.raises(ValueError, match="guidelines id"):
+        check_output(LLMDraftOutput.model_validate({**GOOD, "guidelines": RESULTS}), exps)
+
+
+def test_guideline_does_not_back_numbers(client_with):
+    # 「수치로」 지침이 있어도 근거에 없는 숫자는 코드가 막는다 — 지침은 받치는 글이 아니다
+    bad = {
+        **_with({**FIRST, "text": "제가 폴링을 WebSocket 으로 바꿔 지연을 40% 줄였습니다."}),
+        "guidelines": RESULTS,
+    }
+    llm = FakeLLM(bad, bad)
+    r = client_with(llm, max_attempts=2).post("/draft", json=GUIDED)
+    assert r.status_code == 502
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        pytest.param({"question": {**QUESTION, "frame": "SWOT"}}, id="frame 목록 밖"),
+        pytest.param(
+            {"guidelines": [{"id": i, "text": f"지침 {i}"} for i in range(11)]}, id="지침 11개"
+        ),
+        pytest.param({"guidelines": [GUIDES[0], {**GUIDES[1], "id": 901}]}, id="지침 id 중복"),
+        pytest.param({"guidelines": [{"id": 1, "text": " "}]}, id="빈 지침"),
+    ],
+)
+def test_bad_style_request(client_with, change):
+    llm = FakeLLM()
+    r = client_with(llm).post("/draft", json={**GUIDED, **change})
+    assert r.status_code == 400
+    assert r.json()["error"]["code"] == "INVALID_REQUEST"
+    assert llm.calls == 0
+
+
+def test_guidelines_count_toward_text_limit(client_with):
+    limit = len(QUESTION["text"]) + experience_chars(DraftRequest.model_validate(BODY).experiences)
+    r = client_with(FakeLLM(GOOD), max_match_chars=limit).post("/draft", json=GUIDED)
     assert r.status_code == 413

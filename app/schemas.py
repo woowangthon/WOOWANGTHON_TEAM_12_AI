@@ -278,6 +278,8 @@ class AskResponse(LLMAskOutput):
 DraftEvidenceType = Literal["CITATION", "SUPPLEMENT", "EXPERIENCE"]
 # 값 목록은 ETC docs/contracts/README.md 「값 목록」 draftSentenceKind
 DraftSentenceKind = Literal["FACT", "OPINION"]
+# 구성 틀 — README 「값 목록」 draftFrame(S-50). NONE 이나 없으면 기본 순서(AI#46)
+DraftFrame = Literal["STAR", "CARL", "PREP", "NONE"]
 
 
 def _one_line(value: str) -> str:
@@ -297,6 +299,7 @@ class DraftQuestion(MatchQuestion):
     # jobRole 의 값 목록 JobRole(S-42)은 아래에 있어 이름으로 가리키고 파일 끝에서 푼다
     jobRole: "JobRole | None" = None
     requirements: list[DraftRequirement] | None = None
+    frame: DraftFrame | None = None
 
 
 class DraftExperience(MatchExperience):
@@ -306,10 +309,17 @@ class DraftExperience(MatchExperience):
     gaps: list[NonBlank] | None = None
 
 
+class DraftGuideline(BaseModel):
+    # 사용자가 켜 둔 작성 지침(S-49). 개수 · id 중복은 app/draft.py check_request 가 본다(400)
+    id: int
+    text: NonBlank
+
+
 class DraftRequest(MatchRequest):
     # 모양은 /match 와 같고 고른 경험만 싣는다. 개수는 app/draft.py check_request 가 본다(400)
     question: DraftQuestion | None = None
     experiences: list[DraftExperience] | None = None
+    guidelines: list[DraftGuideline] | None = None
 
 
 class DraftEvidence(BaseModel):
@@ -332,9 +342,18 @@ class DraftOmitted(BaseModel):
     experienceId: int | None
 
 
+class DraftGuidelineResult(BaseModel):
+    # 요청 지침마다 하나, 같은 순서 · applied 와 note 의 짝은 app/draft.py check_output 이 본다
+    id: int
+    applied: bool
+    note: Annotated[NonBlank, AfterValidator(_one_line), Field(max_length=80)] | None
+
+
 class LLMDraftOutput(BaseModel):
     sentences: list[DraftSentence] = Field(max_length=15)
     omitted: list[DraftOmitted] = Field(max_length=5)
+    # 요청에 지침이 없으면 LLM 에 묻지 않는다 — 빠지면 [](계약)
+    guidelines: list[DraftGuidelineResult] = []
 
 
 class DraftResponse(LLMDraftOutput):
@@ -526,4 +545,23 @@ class NewFactCandidate(BaseModel):
 
 class NewFactsResponse(BaseModel):
     candidates: list[NewFactCandidate]
+    model: str | None
+
+
+# ==== POST /guidelines — ETC docs/contracts/ai-api.md 「POST /guidelines」 ====
+
+
+class GuidelinesRequest(BaseModel):
+    text: str | None = None
+
+
+class GuidelineLine(BaseModel):
+    text: Annotated[NonBlank, AfterValidator(_one_line), Field(max_length=100)]
+
+
+class LLMGuidelinesOutput(BaseModel):
+    guidelines: list[GuidelineLine] = Field(max_length=10)
+
+
+class GuidelinesResponse(LLMGuidelinesOutput):
     model: str | None

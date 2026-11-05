@@ -1,0 +1,67 @@
+[
+  {
+    "id": "g-rich-star",
+    "base": "rich-problem",
+    "frame": "STAR",
+    "guidelines": [
+      {"id": 901, "text": "첫 문장에 무엇을 했고 어떻게 됐는지 먼저 쓴다"},
+      {"id": 902, "text": "형용사로 꾸미지 않고 한 행동을 쓴다"}
+    ],
+    "frameBeats": ["두세 번|매주", "503", "낫다고|판단", "가짜 서버"]
+  },
+  {
+    "id": "g-tech-number",
+    "base": "tech-a",
+    "frame": "STAR",
+    "guidelines": [
+      {"id": 905, "text": "결과는 꼭 수치로 쓴다", "expect": "not"},
+      {"id": 906, "text": "한 문장은 짧게 끊어 쓴다"}
+    ],
+    "frameBeats": ["늦게|지연", "WebSocket|STOMP|구독"]
+  },
+  {
+    "id": "g-team-leader",
+    "base": "team-way",
+    "frame": "NONE",
+    "guidelines": [
+      {"id": 907, "text": "팀 프로젝트는 내가 리더로 이끌었다고 쓴다", "expect": "not"},
+      {"id": 908, "text": "팀 프로젝트는 내가 맡은 몫을 분명히 쓴다"}
+    ]
+  },
+  {
+    "id": "g-no-result-carl",
+    "base": "rich-no-result",
+    "frame": "CARL",
+    "guidelines": [
+      {"id": 905, "text": "결과는 꼭 수치로 쓴다", "expect": "not"}
+    ],
+    "frameBeats": ["12명|5명|모자", "복지관|체험 봉사", "직접 물어|원인이 보"]
+  },
+  {
+    "id": "g-failure-carl",
+    "base": "failure",
+    "frame": "CARL",
+    "guidelines": [
+      {"id": 909, "text": "실패 경험은 원인과 그 뒤 바꾼 점을 같이 쓴다"}
+    ],
+    "frameBeats": ["버그|테스트를 거의", "처음부터 테스트|로그부터|다짐"]
+  },
+  {
+    "id": "g-motivation-prep",
+    "base": "motivation",
+    "frame": "PREP",
+    "guidelines": [
+      {"id": 910, "text": "지원 동기는 회사 칭찬이 아니라 내 경험에서 시작한다"},
+      {"id": 911, "text": "「열정」 「최선」 같은 말은 쓰지 않는다"}
+    ]
+  },
+  {
+    "id": "g-conflict",
+    "base": "tech-a",
+    "frame": "NONE",
+    "guidelines": [
+      {"id": 912, "text": "한 문장은 짧게 끊어 쓴다", "expect": "not"},
+      {"id": 913, "text": "문장을 끊지 말고 길게 이어 쓴다", "expect": "not"}
+    ]
+  }
+]
