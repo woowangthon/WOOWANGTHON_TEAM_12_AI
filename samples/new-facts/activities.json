@@ -1,0 +1,8 @@
+[
+  {"id": 7, "name": "바꿔요 — 캠퍼스 중고거래 앱", "period": {"start": "2025-03", "end": "2025-06", "ongoing": false}},
+  {"id": 8, "name": "알고리즘 스터디", "period": {"start": "2024-09", "end": null, "ongoing": true}},
+  {"id": 9, "name": "모여봄 — 동네 소모임 앱", "period": {"start": "2024-09", "end": "2024-12", "ongoing": false}},
+  {"id": 10, "name": "카페 아르바이트", "period": {"start": "2024-01", "end": "2024-08", "ongoing": false}},
+  {"id": 11, "name": "컴퓨터공학과 학생회", "period": {"start": "2024-03", "end": "2025-02", "ongoing": false}},
+  {"id": 12, "name": "개인 프로젝트 — 가계부 웹앱", "period": {"start": "2025-07", "end": "2025-08", "ongoing": false}}
+]

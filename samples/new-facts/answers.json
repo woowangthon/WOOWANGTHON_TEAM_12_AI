@@ -1,0 +1,60 @@
+[
+  {"id": "contract", "sentences": [
+    {"text": "「바꿔요」 프로젝트에서 채팅 메시지가 늦게 도착하는 문제가 있었고, 제가 폴링을 WebSocket 으로 바꿔 해결했습니다.", "want": "SKIP", "kind": "draft", "excluded": true},
+    {"text": "서버에 STOMP 엔드포인트를 만들고, 앱의 3초 폴링 코드를 구독 방식으로 바꿨습니다.", "want": "SKIP", "kind": "draft", "excluded": true},
+    {"text": "바꾼 뒤에는 두 기기로 메시지를 보내 양쪽 화면에 바로 도착하는지 확인했습니다.", "want": "NEW", "kind": "new", "actor": "ME", "activityId": 7},
+    {"text": "이어서 알림 기능도 같은 방식으로 바꿔 서버 요청을 하루 1,200회 줄였습니다.", "want": "NEW", "kind": "new", "actor": "ME", "activityId": 7},
+    {"text": "배포까지 제가 맡아 AWS 에 올렸습니다.", "want": "SKIP", "kind": "mine"},
+    {"text": "누구보다 끈질기게 문제를 파고들었습니다.", "want": "SKIP", "kind": "puff"},
+    {"text": "앞으로도 문제의 원인을 살피는 개발자가 되고 싶습니다.", "want": "SKIP", "kind": "draft", "excluded": true}
+  ]},
+  {"id": "cafe", "sentences": [
+    {"text": "카페 아르바이트에서 매주 일요일 마감 뒤 재고를 엑셀 표로 정리했습니다.", "want": "SKIP", "kind": "backed"},
+    {"text": "표를 보고 다음 주 발주량을 사장님께 제안했습니다.", "want": "SKIP", "kind": "backed"},
+    {"text": "제안한 발주량대로 주문하면서 우유 폐기가 한 달에 20팩에서 5팩으로 줄었습니다.", "want": "NEW", "kind": "new", "actor": ["ME", "UNKNOWN"], "activityId": 10},
+    {"text": "주말 오픈 근무 때는 혼자 매장을 열고 마감 정산까지 했습니다.", "want": "NEW", "kind": "new", "actor": "ME", "activityId": 10},
+    {"text": "손님 한 분 한 분에게 진심을 다하는 자세로 일했습니다.", "want": "SKIP", "kind": "puff"},
+    {"text": "작은 기록이 가게를 바꾼다는 것을 배웠습니다.", "want": "SKIP", "kind": "opinion"}
+  ]},
+  {"id": "moyeo", "sentences": [
+    {"text": "모여봄에서 저는 로그인과 알림 서버를 맡았습니다.", "want": "SKIP", "kind": "backed"},
+    {"text": "FCM 으로 모임 시작 알림을 보내게 했고, 알림을 켠 사용자는 모임 출석이 늘었습니다.", "want": "NEW", "kind": "mixed", "actor": ["ME", "UNKNOWN"], "activityId": 9, "notIn": ["FCM"]},
+    {"text": "모임 추천 로직도 제가 거리와 관심사를 섞어 점수를 매기도록 만들었습니다.", "want": "SKIP", "kind": "mine"},
+    {"text": "서버가 자주 죽던 원인인 DB 커넥션 문제를 제가 찾아 고쳤습니다.", "want": "SKIP", "kind": "mine"},
+    {"text": "그 뒤 서버에 헬스 체크를 붙여 서버가 죽으면 슬랙으로 알림이 오게 했습니다.", "want": "NEW", "kind": "new", "actor": "ME", "activityId": 9},
+    {"text": "팀은 매주 월요일 30분씩 스탠드업을 했습니다.", "want": "SKIP", "kind": "backed"}
+  ]},
+  {"id": "ledger", "sentences": [
+    {"text": "혼자 가계부 웹앱을 만들어 친구 10명이 두 달 동안 썼습니다.", "want": "SKIP", "kind": "number"},
+    {"text": "친구들 피드백을 받아 지출 카테고리를 직접 고칠 수 있게 바꿨습니다.", "want": "NEW", "kind": "new", "actor": "ME", "activityId": 12},
+    {"text": "덕분에 사용자 경험이 크게 좋아졌습니다.", "want": "SKIP", "kind": "puff"},
+    {"text": "이 경험으로 사용자의 목소리를 듣는 게 중요하다는 걸 느꼈습니다.", "want": "SKIP", "kind": "opinion"}
+  ]},
+  {"id": "study", "sentences": [
+    {"text": "알고리즘 스터디에서 저는 매주 풀 문제를 골랐습니다.", "want": "SKIP", "kind": "backed"},
+    {"text": "참여가 줄자 출석 체크 대신 풀이 공유 시트를 만들어 각자 푼 문제를 적게 했습니다.", "want": "SKIP", "kind": "draft", "excluded": true},
+    {"text": "시트를 만든 뒤 매주 모이는 사람이 3명에서 7명으로 늘었습니다.", "want": "NEW", "kind": "new", "actor": ["ME", "UNKNOWN"], "activityId": 8},
+    {"text": "스터디원들이 저를 믿고 잘 따라 주었습니다.", "want": "SKIP", "kind": "puff"},
+    {"text": "저는 매주 고른 문제의 풀이 해설 영상을 1편씩 올렸습니다.", "want": "NEW", "kind": "new", "actor": "ME", "activityId": 8}
+  ]},
+  {"id": "council", "sentences": [
+    {"text": "학생회에서 새내기 배움터 일정표를 만들고 당일 진행을 맡았습니다.", "want": "SKIP", "kind": "backed"},
+    {"text": "축제 부스 예산을 제가 짜고 영수증까지 관리했습니다.", "want": "SKIP", "kind": "mine"},
+    {"text": "축제 부스 영수증을 모았습니다.", "want": "SKIP", "kind": "draft", "excluded": true},
+    {"text": "졸업한 선배 6명을 섭외해 진로 특강을 열었습니다.", "want": "NEW", "kind": "new", "actor": "ME", "activityId": 11},
+    {"text": "학생회 활동은 제 대학 생활의 가장 큰 자산입니다.", "want": "SKIP", "kind": "opinion"}
+  ]},
+  {"id": "nothing-new", "sentences": [
+    {"text": "바꿔요에서 중간 발표 2주 전 일정이 밀리자 남은 기능을 꼭 할 것과 미룰 것으로 나눠 일정표를 다시 짰습니다.", "want": "SKIP", "kind": "backed"},
+    {"text": "거래 후기 화면을 두고 의견이 갈렸을 때는 두 안의 장단점을 표로 정리해 회의에 올렸습니다.", "want": "SKIP", "kind": "backed"},
+    {"text": "그 자리에서 별점 없이 한 줄 후기만 받기로 정했습니다.", "want": "SKIP", "kind": "backed"},
+    {"text": "갈등을 대화로 풀어내는 것이 협업의 핵심이라고 생각합니다.", "want": "SKIP", "kind": "opinion"},
+    {"text": "저는 언제나 팀을 먼저 생각하는 사람입니다.", "want": "SKIP", "kind": "puff"}
+  ]},
+  {"id": "outside", "sentences": [
+    {"text": "고등학교 때 교내 코딩 동아리를 만들어 2년 동안 회장을 맡았습니다.", "want": "NEW", "kind": "new", "actor": "ME", "activityId": null},
+    {"text": "그때부터 개발자의 꿈을 키웠습니다.", "want": "SKIP", "kind": "opinion"},
+    {"text": "대학에서는 바꿔요 프로젝트의 채팅 문제를 WebSocket 으로 바꿔 해결했고, 채팅 중 앱을 나가는 비율이 15% 줄었습니다.", "want": "NEW", "kind": "mixed", "actor": ["ME", "UNKNOWN"], "activityId": 7, "notIn": ["WebSocket"]},
+    {"text": "배포는 팀원이 맡아 AWS 에 올렸습니다.", "want": "SKIP", "kind": "backed"}
+  ]}
+]

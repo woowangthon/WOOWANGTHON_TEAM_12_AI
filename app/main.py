@@ -19,6 +19,7 @@ from app.link_suggest import suggest_links
 from app.llm import JsonLLM, ToolLLM, build_llm
 from app.match import match
 from app.mcp_client import McpConnect, connect_mcp
+from app.new_facts import new_facts
 from app.parse_application import parse_application
 from app.route import route
 from app.schemas import (
@@ -35,6 +36,8 @@ from app.schemas import (
     LinkSuggestionsResponse,
     MatchRequest,
     MatchResponse,
+    NewFactsRequest,
+    NewFactsResponse,
     ParseApplicationRequest,
     ParseApplicationResponse,
     RouteRequest,
@@ -139,6 +142,15 @@ async def post_ground_check(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> GroundCheckResponse:
     return await ground_check(req, llm, settings)
+
+
+@app.post("/new-facts", response_model=NewFactsResponse)
+async def post_new_facts(
+    req: NewFactsRequest,
+    llm: Annotated[JsonLLM, Depends(get_match_llm)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> NewFactsResponse:
+    return await new_facts(req, llm, settings)
 
 
 @app.post("/draft", response_model=DraftResponse)
