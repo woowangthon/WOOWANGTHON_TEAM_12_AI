@@ -4,12 +4,13 @@
     uv run python scripts/eval_draft.py --models openai:gpt-6-luna --prompts tuned
     uv run python scripts/eval_draft.py --rescore eval-runs/draft-<시각>   # 저장한 응답만 다시 채점(LLM 안 부름)
 
-LLM 호출 수 = 쌍 수 × 모델 수 × 프롬프트 수 — 기본 22 × 1 × 2 = 44회(규칙 위반이면 쌍마다 최대 LLM_MAX_ATTEMPTS 번).
+LLM 호출 수 = 쌍 수 × 모델 수 × 프롬프트 수 — 기본 26 × 1 × 2 = 52회(규칙 위반이면 쌍마다 최대 LLM_MAX_ATTEMPTS 번).
 응답은 --out 폴더(기본 eval-runs/draft-<시각>, 커밋하지 않음)에 저장한다. 모델 폴백 없이 고른 모델만 부른다.
 
 자료: samples/match/experiences.json · samples/draft/experiences.json(지어낸 경험)과
 samples/draft/pairs.json(문항 + 고른 경험 + 손으로 적은 정답). 「이미 있는 사실」은 samples/match/clarify.json 과
 samples/draft/clarify.json. addSupplements 가 있는 쌍은 빠진 사실에 답한 뒤 다시 만든 요청이다 — 그 보완을 경험에 더해 부른다.
+jobRole · requirements · hints 가 있는 쌍은 매칭 결과 · 직무를 선택 칸으로 같이 싣는다(ETC#141 — 근거가 아니다).
 
 범용 프롬프트는 같은 모델 · 같은 경험 목록 · 같은 출력 모양에 지시만 한 줄이다. **코드 검사를 끄고** 돌린다 — 검사가
 다시 부르면 지어낸 것이 숫자에서 사라지기 때문이다. 우리 쪽은 제품과 같이 검사를 켠다.
@@ -45,6 +46,11 @@ samples/draft/clarify.json. addSupplements 가 있는 쌍은 빠진 사실에 �
 - 사실로 뺌(후보): OPINION 이 「~했습니다」처럼 일어난 일로 끝나는 수 — 받칠 수 있으면 FACT 로, 없으면 omitted 로 갔어야 한다
 - 없는 사실(후보): 그 문항의 자료에 없는 사실(missing)을 OPINION 이 쓴 것 같은 수 — 가장 큰 위험, 근거 규칙이 새는 곳
 - 감정 · 칭찬 · 단정(후보): OPINION 에 지어낸 감정 · 칭찬 · 의미 단정 낱말이 있는 수 — 낱말로 거른 것이라 문장을 읽는다
+- 강조 앞: 강조점(hints)의 받칠 수 있는 사실(lead)이 FACT 앞 leadWithin(기본 2)문장 안에 나온 쌍 수 / lead 가 있는 쌍 수.
+  같은 경험 151 을 다른 문항 · 강조점으로 부른 쌍(rich-problem · emph-*)의 문장을 나란히 읽어 앞세운 사실이 달라졌는지 본다
+- 강조 쌍 지어냄(후보): hints 가 있는 쌍의 지어냄 + 없는 사실 — 강조점 · 직무 때문에 없는 사실이 늘었나(강조점에만 있는 판단 ·
+  숫자 · 직무 경력을 missing 에 적어 둔다)
+- 지난 빈칸 또 물음(후보): 매칭 때 gaps 에 있었지만 지금 보완이 채운 사실(staleGaps)을 omitted 에 다시 적은 수
 """
 
 import argparse
@@ -143,6 +149,11 @@ class Score:
     opinion_happened: list[str] = field(default_factory=list)
     opinion_invented: list[str] = field(default_factory=list)
     opinion_flattery: list[str] = field(default_factory=list)
+    lead_hit: int = 0
+    lead_chances: int = 0
+    lead_miss: list[str] = field(default_factory=list)
+    hinted_invented: list[str] = field(default_factory=list)
+    stale_reasked: list[str] = field(default_factory=list)
 
     def add(self, other: "Score") -> None:
         for name, value in vars(other).items():
@@ -224,6 +235,27 @@ def score_omitted(
             f"{pid}: 보완 {add['id']} — 「{x.text}」 「{x.question}」"
             for x in data.omitted
             if re.search(add["omitPattern"], f"{x.text} {x.question or ''}")
+        ]
+    return s
+
+
+def score_hints(pair: dict, data: LLMDraftOutput) -> Score:
+    """매칭 결과 · 직무를 실은 쌍(ETC#141) — 강조점을 앞세웠나, 보완이 채운 지난 빈칸을 또 묻나."""
+    pid = pair["id"]
+    s = Score()
+    if pair.get("lead"):
+        s.lead_chances = 1
+        facts = [x.text for x in data.sentences if x.kind == "FACT"]
+        spot = next((i for i, t in enumerate(facts) if re.search(pair["lead"], t)), None)
+        if spot is not None and spot < pair.get("leadWithin", 2):
+            s.lead_hit = 1
+        else:
+            s.lead_miss.append(f"{pid}: FACT 위치 {spot} — 「{pair['lead']}」")
+    for gap in pair.get("staleGaps", []):
+        s.stale_reasked += [
+            f"{pid}: {gap['fact']} — 「{x.text}」 「{x.question}」"
+            for x in data.omitted
+            if re.search(gap["pattern"], f"{x.text} {x.question or ''}")
         ]
     return s
 
@@ -337,6 +369,9 @@ def score(
     s.repeated = [
         f"{pid}: 「{v}」 — 「{texts[i]}」 / 「{texts[j]}」" for (i, j), v in twice.items()
     ]
+    s.add(score_hints(pair, data))
+    if pair.get("hints"):
+        s.hinted_invented = [*s.invented, *s.opinion_invented]
     if pair.get("beats"):
         s.order_total = 1
         spots = [
@@ -368,13 +403,20 @@ def load_facts() -> list[dict]:
     return load_known() + extra
 
 
+def question(pair: dict) -> dict:
+    """/draft 요청의 question — jobRole · requirements 는 있는 쌍만."""
+    keys = ("organization", "text", "jobRole", "requirements")
+    return {k: pair[k] for k in keys if k in pair}
+
+
 def load_pairs(only: list[str] | None = None) -> list[dict]:
     pairs = json.loads((DATA / "pairs.json").read_text(encoding="utf-8"))
     return [p for p in pairs if p["id"] in only] if only else pairs
 
 
 def picked(pair: dict, experiences: list[dict]) -> list[dict]:
-    """고른 순서대로 — /draft 요청의 experiences. addSupplements 는 그 경험의 보완에 더한다."""
+    """고른 순서대로 — /draft 요청의 experiences. addSupplements 는 그 경험의 보완에 더하고,
+    hints(경험 ID → reason · emphasis · gaps)는 그 경험의 선택 칸으로 싣는다."""
     by_id = {e["id"]: e for e in experiences}
     added = pair.get("addSupplements", [])
 
@@ -384,7 +426,8 @@ def picked(pair: dict, experiences: list[dict]) -> list[dict]:
             for a in added
             if a["experienceId"] == exp["id"]
         ]
-        return {**exp, "supplements": [*exp.get("supplements", []), *more]}
+        hint = pair.get("hints", {}).get(str(exp["id"]), {})
+        return {**exp, **hint, "supplements": [*exp.get("supplements", []), *more]}
 
     return [with_added(by_id[i]) for i in pair["experienceIds"]]
 
@@ -398,10 +441,9 @@ async def run(
     from dotenv import load_dotenv
 
     from app.config import load_settings, parse_models
-    from app.draft import LLM_JSON_SCHEMA, check_output, check_request
+    from app.draft import LLM_JSON_SCHEMA, build_draft_message, check_output, check_request
     from app.errors import ApiError
     from app.llm import build_llm, generate_valid
-    from app.match import build_user_message
     from app.schemas import DraftRequest
 
     load_dotenv(ROOT / ".env")  # 값은 화면에 찍지 않는다
@@ -416,11 +458,11 @@ async def run(
         settings, llm = clients[model]
         req = DraftRequest.model_validate(
             {
-                "question": {"organization": pair["organization"], "text": pair["text"]},
+                "question": question(pair),
                 "experiences": picked(pair, experiences),
             }
         )
-        question, exps = check_request(req, settings)
+        q, exps = check_request(req, settings)
 
         def parse(text: str) -> LLMDraftOutput:
             output = LLMDraftOutput.model_validate_json(text)
@@ -432,7 +474,7 @@ async def run(
                 got = await generate_valid(
                     llm,
                     PROMPTS[prompt],
-                    build_user_message(question, exps),
+                    build_draft_message(q, exps),
                     LLM_JSON_SCHEMA,
                     parse,
                     settings,
@@ -453,7 +495,7 @@ async def run(
 
 def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
     facts = load_facts()
-    rows, details, question_rows, opinion_rows = [], [], [], []
+    rows, details, question_rows, opinion_rows, hint_rows = [], [], [], [], []
     for model_dir in sorted(p for p in out.iterdir() if p.is_dir()):
         for prompt_dir in sorted(p for p in model_dir.iterdir() if p.is_dir()):
             t = Score()
@@ -494,8 +536,15 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
                 f"| {len(t.opinion_happened)} | {len(t.opinion_invented)} "
                 f"| {len(t.opinion_flattery)} |"
             )
+            hint_rows.append(
+                f"| {name} | {t.lead_hit}/{t.lead_chances} | {len(t.hinted_invented)} "
+                f"| {len(t.stale_reasked)} |"
+            )
             lines = [
                 *(f"- 오류 {x}" for x in t.errors),
+                *(f"- 강조 뒤로 {x}" for x in t.lead_miss),
+                *(f"- 강조 쌍 지어냄(후보) {x}" for x in t.hinted_invented),
+                *(f"- 지난 빈칸 또 물음(후보) {x}" for x in t.stale_reasked),
                 *(f"- 종류 위반 {x}" for x in t.kind_broken),
                 *(f"- 사실로 뺌(후보) {x}" for x in t.opinion_happened),
                 *(f"- 없는 사실(후보) {x}" for x in t.opinion_invented),
@@ -539,12 +588,17 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
         "| 감정 · 칭찬 · 단정(후보) |\n"
         "| --- | --- | --- | --- | --- | --- |"
     )
+    hint_head = (
+        "| 모델 · 프롬프트 | 강조 앞 | 강조 쌍 지어냄(후보) | 지난 빈칸 또 물음(후보) |\n"
+        "| --- | --- | --- | --- |"
+    )
     tables = "\n\n".join(
         "\n".join(part)
         for part in (
             [head, *rows],
             [question_head, *question_rows],
             [opinion_head, *opinion_rows],
+            [hint_head, *hint_rows],
         )
     )
     return tables + "\n" + "".join(details) + "\n"

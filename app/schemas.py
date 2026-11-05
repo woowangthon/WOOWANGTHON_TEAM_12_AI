@@ -286,9 +286,30 @@ def _one_line(value: str) -> str:
     return value
 
 
+class DraftRequirement(BaseModel):
+    # question-api Requirement 에서 experienceIds 를 뺀 것(ETC#141)
+    text: NonBlank
+    status: RequirementStatus
+
+
+class DraftQuestion(MatchQuestion):
+    # 선택 칸 — 없으면(null 도) 지금과 같다. 모양이 틀리면 400(RequestValidationError).
+    # jobRole 의 값 목록 JobRole(S-42)은 아래에 있어 이름으로 가리키고 파일 끝에서 푼다
+    jobRole: "JobRole | None" = None
+    requirements: list[DraftRequirement] | None = None
+
+
+class DraftExperience(MatchExperience):
+    # 그 문항 추천의 이 경험 몫 — question-api Recommendation 그대로. 근거가 아니다(ETC#141)
+    reason: NonBlank | None = None
+    emphasis: NonBlank | None = None
+    gaps: list[NonBlank] | None = None
+
+
 class DraftRequest(MatchRequest):
     # 모양은 /match 와 같고 고른 경험만 싣는다. 개수는 app/draft.py check_request 가 본다(400)
-    pass
+    question: DraftQuestion | None = None
+    experiences: list[DraftExperience] | None = None
 
 
 class DraftEvidence(BaseModel):
@@ -453,6 +474,8 @@ class LinkSuggestionsResponse(LLMLinkSuggestionsOutput):
 # ExistingActivity 의 기간은 아래에 정의한 MatchPeriod 를 쓴다(앞에서 이름으로 가리킨 것을 풀어 둔다)
 ExistingActivity.model_rebuild()
 ExtractRequest.model_rebuild()
+DraftQuestion.model_rebuild()
+DraftRequest.model_rebuild()
 
 
 class AgentQuestion(BaseModel):

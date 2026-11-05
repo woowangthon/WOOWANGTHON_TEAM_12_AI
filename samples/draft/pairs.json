@@ -253,5 +253,216 @@
       {"fact": "이 스터디에 지원하는 이유", "pattern": "지원했|지원하게|관심을 가|알게 되", "omitPattern": "지원|동기|이유", "mustOmit": true, "noQuestion": true}
     ],
     "expect": []
+  },
+  {
+    "id": "emph-judgment",
+    "organization": "OO 소프트웨어",
+    "text": "주어진 시간이 부족한 상황에서 우선순위를 정해 문제를 해결한 경험을 적어 주세요.",
+    "jobRole": "BACKEND",
+    "requirements": [
+      {
+        "text": "시간 제약 속에서 우선순위를 정한 판단",
+        "status": "SUPPORTED"
+      },
+      {
+        "text": "그 판단의 결과",
+        "status": "SUPPORTED"
+      }
+    ],
+    "hints": {
+      "151": {
+        "reason": "발표를 앞두고 고칠 범위를 좁혀 문제를 해결한 사례라 문항과 맞는다",
+        "emphasis": "크롤러를 통째로 바꾸지 않고 실패한 학과만 다시 긁기로 정한 판단",
+        "gaps": []
+      }
+    },
+    "experienceIds": [
+      151
+    ],
+    "lead": "통째로|3주|낫다고",
+    "missing": [
+      {
+        "fact": "그 직무의 일을 해 본 경력",
+        "pattern": "백엔드.{0,8}(일하|근무|실무|경력)",
+        "omitPattern": "백엔드 (실무|경력)"
+      }
+    ],
+    "expect": [
+      {
+        "pattern": "통째로|3주",
+        "evidence": [
+          [
+            "CITATION",
+            253
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "emph-verify",
+    "organization": "OO 소프트웨어",
+    "text": "결과물의 품질을 확인하기 위해 테스트하거나 검증한 경험을 적어 주세요.",
+    "jobRole": "BACKEND",
+    "requirements": [
+      {
+        "text": "고친 것을 검증한 방법",
+        "status": "SUPPORTED"
+      },
+      {
+        "text": "검증을 자동화하거나 반복한 경험",
+        "status": "NOT_FOUND"
+      }
+    ],
+    "hints": {
+      "151": {
+        "reason": "고친 뒤 직접 검증한 방법이 자료에 있어 문항과 맞는다",
+        "emphasis": "점검 시간대를 흉내 낸 가짜 서버로 재시도가 끝까지 도는지 확인한 검증",
+        "gaps": [
+          "검증을 자동화했는지는 자료에 없다"
+        ]
+      }
+    },
+    "experienceIds": [
+      151
+    ],
+    "lead": "가짜 서버|흉내",
+    "leadWithin": 3,
+    "missing": [
+      {
+        "fact": "검증 자동화 · 테스트 코드",
+        "pattern": "자동화|CI|단위 ?테스트|테스트 코드",
+        "omitPattern": "자동|테스트 코드|CI|반복"
+      },
+      {
+        "fact": "그 직무의 일을 해 본 경력",
+        "pattern": "백엔드.{0,8}(일하|근무|실무|경력)",
+        "omitPattern": "백엔드 (실무|경력)"
+      }
+    ],
+    "expect": [
+      {
+        "pattern": "가짜 서버",
+        "evidence": [
+          [
+            "SUPPLEMENT",
+            351
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "emph-number",
+    "organization": "OO 백엔드 부트캠프",
+    "text": "기술적인 문제를 해결한 경험을 구체적으로 적어 주세요.",
+    "hints": {
+      "151": {
+        "reason": "크롤러 장애를 직접 고친 사례라 문항과 맞는다",
+        "emphasis": "재시도 큐로 크롤러 장애를 90% 줄인 성과",
+        "gaps": []
+      }
+    },
+    "experienceIds": [
+      151
+    ],
+    "lead": "4주|멈춘 날",
+    "leadWithin": 3,
+    "missing": [
+      {
+        "fact": "장애를 줄인 비율(강조점에만 있는 숫자)",
+        "pattern": "90|구십",
+        "omitPattern": "비율|얼마나|줄인 정도"
+      }
+    ],
+    "expect": [
+      {
+        "pattern": "4주|멈춘 날",
+        "evidence": [
+          [
+            "CITATION",
+            255
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "emph-unbacked",
+    "once": [
+      "폴링"
+    ],
+    "organization": "OO 백엔드 부트캠프",
+    "text": "기술적인 문제를 해결한 경험을 구체적으로 적어 주세요.",
+    "jobRole": "BACKEND",
+    "requirements": [
+      {
+        "text": "기술 문제의 원인을 찾아 해결한 경험",
+        "status": "SUPPORTED"
+      },
+      {
+        "text": "해결한 뒤 결과를 확인한 방법",
+        "status": "NOT_FOUND"
+      },
+      {
+        "text": "Java · Spring 사용 경험",
+        "status": "NOT_FOUND"
+      }
+    ],
+    "hints": {
+      "101": {
+        "reason": "채팅 지연이라는 기술 문제를 직접 해결한 사례라 문항과 맞는다",
+        "emphasis": "폴링의 한계를 보고 WebSocket 으로 바꾼 판단",
+        "gaps": [
+          "직접 고친 범위가 자료에 없다",
+          "고친 뒤 확인한 방법이 자료에 없다"
+        ]
+      }
+    },
+    "experienceIds": [
+      101
+    ],
+    "staleGaps": [
+      {
+        "fact": "직접 고친 범위(보완 301 이 채움)",
+        "pattern": "직접 고친|고친 (부분|범위)|맡은 (부분|범위)"
+      }
+    ],
+    "missing": [
+      {
+        "fact": "폴링의 한계를 본 판단(강조점에만 있음)",
+        "pattern": "한계|판단",
+        "omitPattern": "한계|판단|이유|왜"
+      },
+      {
+        "fact": "고친 뒤 확인한 방법",
+        "pattern": "확인했|테스트|검증|모니터링",
+        "omitPattern": "확인|검증|테스트",
+        "mustOmit": true
+      },
+      {
+        "fact": "Java · Spring 을 쓴 경험",
+        "pattern": "Java|Spring|자바|스프링",
+        "omitPattern": "Java|Spring|자바|스프링",
+        "mustOmit": true,
+        "noQuestion": true
+      },
+      {
+        "fact": "그 직무의 일을 해 본 경력",
+        "pattern": "백엔드.{0,8}(일하|근무|실무|경력)",
+        "omitPattern": "백엔드 (실무|경력)"
+      }
+    ],
+    "expect": [
+      {
+        "pattern": "STOMP|구독",
+        "evidence": [
+          [
+            "SUPPLEMENT",
+            301
+          ]
+        ]
+      }
+    ]
   }
 ]
