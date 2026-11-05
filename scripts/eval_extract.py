@@ -211,9 +211,15 @@ async def run(
     base = load_settings()
     gate = asyncio.Semaphore(4)
 
-    async def one(model: str, prompt: str, stem: str, source: str) -> None:
+    # 모델마다 클라이언트를 한 번만 만든다(eval_route 와 같은 이유 — 호출마다 만들면 생성이 이벤트 루프를 막아
+    # 먼저 시작한 호출의 시간이 부푼다, AI#37)
+    clients = {}
+    for model in models:
         settings = replace(base, llm_models=parse_models(model))
-        llm = build_llm(settings)
+        clients[model] = (settings, build_llm(settings))
+
+    async def one(model: str, prompt: str, stem: str, source: str) -> None:
+        settings, llm = clients[model]
         req = ExtractRequest(sourceName=f"{stem}.md", text=source)
         async with gate:
             started = time.monotonic()
