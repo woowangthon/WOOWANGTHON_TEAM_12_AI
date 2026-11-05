@@ -1,6 +1,7 @@
 [
   {
     "id": "tech-a",
+    "once": ["폴링"],
     "organization": "OO 백엔드 부트캠프",
     "text": "기술적인 문제를 해결한 경험을 구체적으로 적어 주세요.",
     "experienceIds": [101],
@@ -13,6 +14,7 @@
   },
   {
     "id": "team-way",
+    "once": ["폴링"],
     "organization": "OO 연합 동아리",
     "text": "팀 프로젝트에서 맡은 역할과, 팀과 함께 일한 방식을 적어 주세요.",
     "experienceIds": [101, 102],
@@ -59,6 +61,7 @@
   },
   {
     "id": "budget",
+    "once": ["컴퓨터공학과"],
     "organization": "OO 학생 단체",
     "text": "예산을 직접 짜고 집행해 본 경험을 적어 주세요.",
     "experienceIds": [132, 133],
@@ -86,6 +89,65 @@
       {"fact": "기술적 문제와 해결", "pattern": "오류|버그|장애|원인|해결했|고쳤", "omitPattern": "문제|해결", "mustOmit": true}
     ],
     "expect": [{"pattern": "5명|5 명", "evidence": [["EXPERIENCE", 141]]}]
+  },
+  {
+    "id": "unknown-only",
+    "organization": null,
+    "text": "개발하면서 마주친 기술적 문제와, 그 문제를 어떻게 해결했는지 적어 주세요.",
+    "experienceIds": [114],
+    "missing": [
+      {"fact": "장애를 고친 사람 · 내 몫", "pattern": "(제가|직접|팀은|팀이).{0,40}(고쳤|수정|해결|찾아)", "omitPattern": "맡은|몫|역할|직접|누가|한 일", "mustOmit": true}
+    ],
+    "expect": [{"pattern": "커넥션", "evidence": [["CITATION", 214]]}]
+  },
+  {
+    "id": "rich-problem",
+    "organization": "OO 백엔드 부트캠프",
+    "text": "기술적인 문제를 해결한 경험을 구체적으로 적어 주세요.",
+    "experienceIds": [151],
+    "missing": [
+      {"fact": "서비스 사용자 수", "pattern": "[0-9]+ ?명|사용자 수", "omitPattern": "사용자|규모"}
+    ],
+    "expect": [
+      {"pattern": "Redis|큐", "evidence": [["CITATION", 254]]},
+      {"pattern": "가짜 서버", "evidence": [["SUPPLEMENT", 351]]},
+      {"pattern": "실패부터|설계해야", "evidence": [["SUPPLEMENT", 352]]}
+    ],
+    "beats": ["문의|멈춰|비어", "503", "판단|낫다고|3주", "Redis|큐", "4주", "실패부터|설계해야"]
+  },
+  {
+    "id": "rich-no-result",
+    "organization": "OO 연합 동아리",
+    "text": "어려움을 해결하기 위해 노력한 경험을 적어 주세요.",
+    "experienceIds": [152],
+    "missing": [
+      {"fact": "체험 봉사 뒤 지원자가 어떻게 됐는지", "pattern": "늘었|늘어|회복|증가|성공적|호응|만족", "omitPattern": "지원자|결과|뒤|이후|변화", "mustOmit": true}
+    ],
+    "expect": [
+      {"pattern": "복지관", "evidence": [["CITATION", 259]]},
+      {"pattern": "직접 물어|원인이 보", "evidence": [["SUPPLEMENT", 353]]}
+    ],
+    "beats": ["12명|5명|모자", "설명회만|모르겠다", "포스터|문제라고|문제로", "복지관|체험 봉사 하루", "직접 물어|원인이 보"]
+  },
+  {
+    "id": "motivation",
+    "organization": "OO 백엔드 부트캠프",
+    "text": "OO 백엔드 부트캠프에 지원한 동기를 적어 주세요.",
+    "experienceIds": [151, 101],
+    "missing": [
+      {"fact": "이 부트캠프에 지원하는 이유", "pattern": "지원했|지원하게|배우고 싶|성장하고 싶|관심을", "omitPattern": "지원|동기|이유", "mustOmit": true}
+    ],
+    "expect": [{"pattern": "Redis|큐", "evidence": [["CITATION", 254]]}]
+  },
+  {
+    "id": "job-fit",
+    "organization": "OO 소프트웨어",
+    "text": "지원 직무에 본인이 적합하다고 생각하는 이유를 경험을 근거로 적어 주세요.",
+    "experienceIds": [151, 113],
+    "missing": [
+      {"fact": "지원 직무에 대한 이해 · 적합한 이유", "pattern": "적합|직무.{0,10}(이해|역량)", "omitPattern": "직무|적합", "mustOmit": true}
+    ],
+    "expect": [{"pattern": "FCM", "evidence": [["CITATION", 213]]}]
   },
   {
     "id": "teaching",
