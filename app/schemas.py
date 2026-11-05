@@ -408,3 +408,21 @@ class LinkSuggestionsResponse(LLMLinkSuggestionsOutput):
 # ExistingActivity 의 기간은 아래에 정의한 MatchPeriod 를 쓴다(앞에서 이름으로 가리킨 것을 풀어 둔다)
 ExistingActivity.model_rebuild()
 ExtractRequest.model_rebuild()
+
+
+class AgentQuestion(BaseModel):
+    id: int
+    text: str
+    organization: str | None = None
+
+
+class AgentContext(BaseModel):
+    question: AgentQuestion | None = None
+
+
+class AgentRequest(BaseModel):
+    # 전부 선택으로 두고 코드로 검사한다 — pydantic 의 「없음」 오류는 본문 전체를 실어 mcpUrl 토큰이 응답으로 샌다
+    text: str | None = None
+    context: AgentContext | None = None
+    mcpUrl: str | None = None
+    maxToolCalls: int | None = None
