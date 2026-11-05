@@ -251,6 +251,28 @@ class MatchResponse(BaseModel):
     model: str | None
 
 
+# ==== POST /ask — ETC docs/contracts/ai-api.md 「POST /ask」 ====
+
+
+class AskRequest(BaseModel):
+    query: str | None = None
+    experiences: list[MatchExperience] | None = None
+
+
+class AskRecommendation(BaseModel):
+    experienceId: int
+    reason: NonBlank
+    evidence: list[Evidence]
+
+
+class LLMAskOutput(BaseModel):
+    recommendations: list[AskRecommendation] = Field(max_length=3)
+
+
+class AskResponse(LLMAskOutput):
+    model: str | None
+
+
 # ==== POST /draft — ETC docs/contracts/ai-api.md 「POST /draft」 ====
 
 DraftEvidenceType = Literal["CITATION", "SUPPLEMENT", "EXPERIENCE"]

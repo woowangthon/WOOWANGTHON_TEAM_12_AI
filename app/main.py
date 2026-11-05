@@ -8,6 +8,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.ask import ask
 from app.config import Settings, load_settings
 from app.draft import draft
 from app.errors import ApiError
@@ -18,6 +19,8 @@ from app.match import match
 from app.parse_application import parse_application
 from app.route import route
 from app.schemas import (
+    AskRequest,
+    AskResponse,
     DraftRequest,
     DraftResponse,
     ExtractRequest,
@@ -61,8 +64,8 @@ def get_route_llm() -> JsonLLM:
 
 
 @lru_cache
-def get_link_llm() -> JsonLLM:
-    # 모델은 매칭과 같은 순서, 시간은 동기 호출(계약 — 50초 안에 답하거나 LLM_TIMEOUT)
+def get_sync_match_llm() -> JsonLLM:
+    # /link-suggestions · /ask — 모델은 매칭과 같은 순서, 시간은 동기 호출(계약 — 50초 안에 답하거나 LLM_TIMEOUT)
     settings = get_settings()
     return build_llm(settings, settings.match_models, settings.llm_sync_call_timeout_seconds)
 
@@ -141,7 +144,16 @@ async def post_parse_application(
 @app.post("/link-suggestions", response_model=LinkSuggestionsResponse)
 async def post_link_suggestions(
     req: LinkSuggestionsRequest,
-    llm: Annotated[JsonLLM, Depends(get_link_llm)],
+    llm: Annotated[JsonLLM, Depends(get_sync_match_llm)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> LinkSuggestionsResponse:
     return await suggest_links(req, llm, settings)
+
+
+@app.post("/ask", response_model=AskResponse)
+async def post_ask(
+    req: AskRequest,
+    llm: Annotated[JsonLLM, Depends(get_sync_match_llm)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> AskResponse:
+    return await ask(req, llm, settings)
