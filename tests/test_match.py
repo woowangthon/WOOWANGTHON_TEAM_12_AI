@@ -61,6 +61,7 @@ BODY = {
 }
 
 GOOD = {
+    "questionType": "COLLABORATION",
     "requirements": [
         {"text": "팀에서 내가 맡은 역할", "status": "SUPPORTED", "experienceIds": [101]},
         {"text": "팀과 함께 일한 방식", "status": "PARTIAL", "experienceIds": [102]},
@@ -93,6 +94,7 @@ def test_match_contract_shape(client_with):
     res = client_with(llm).post("/match", json=BODY)
     assert res.status_code == 200
     data = res.json()
+    assert data["questionType"] == "COLLABORATION"
     assert data["requirements"] == GOOD["requirements"]
     assert data["recommendations"] == GOOD["recommendations"]
     assert data["clarifications"] == GOOD["clarifications"]
@@ -120,6 +122,7 @@ def test_prompt_uses_content_not_tags(client_with):
 
 def test_no_experiences_all_not_found(client_with):
     out = {
+        "questionType": "GROWTH",
         "requirements": [{"text": "해외 봉사 경험", "status": "NOT_FOUND", "experienceIds": []}],
         "recommendations": [],
         "clarifications": [],
@@ -129,6 +132,7 @@ def test_no_experiences_all_not_found(client_with):
     data = res.json()
     assert data["recommendations"] == [] and data["clarifications"] == []
     assert data["requirements"][0]["status"] == "NOT_FOUND"
+    assert data["questionType"] == "GROWTH"  # 경험이 [] 여도 붙는다(S-41)
 
 
 def test_no_experiences_cannot_be_supported(client_with):
@@ -176,6 +180,7 @@ def test_user_entered_without_citations_ok(client_with):
     exp = {**EXPERIENCES[0], "id": 141, "sourceStatus": "USER_ENTERED", "period": None}
     exp |= {"citations": [], "supplements": [], "activityName": None}
     out = {
+        "questionType": "COLLABORATION",
         "requirements": [{"text": "역할", "status": "PARTIAL", "experienceIds": [141]}],
         "recommendations": [
             {"experienceId": 141, "reason": "r", "emphasis": "e", "evidence": [], "gaps": []}
@@ -230,6 +235,12 @@ BAD_OUTPUTS = [
     _bad(lambda d: d["clarifications"][0].update(experienceId=999)),
     _bad(lambda d: d["clarifications"][0].update(question=" ")),
     _bad(lambda d: d.pop("clarifications")),
+    # 문항 유형: 목록 밖 · 소문자 · 빠짐 · null · 배열(하나만)
+    _bad(lambda d: d.update(questionType="TEAMWORK")),
+    _bad(lambda d: d.update(questionType="collaboration")),
+    _bad(lambda d: d.pop("questionType")),
+    _bad(lambda d: d.update(questionType=None)),
+    _bad(lambda d: d.update(questionType=["COLLABORATION"])),
 ]
 
 
@@ -264,6 +275,7 @@ def test_three_clarifications_ok(client_with):
 
 def test_zero_recommendations_ok(client_with):
     out = {
+        "questionType": "OTHER",
         "requirements": [{"text": "해외 봉사", "status": "NOT_FOUND", "experienceIds": []}],
         "recommendations": [],
         "clarifications": [],
@@ -271,3 +283,13 @@ def test_zero_recommendations_ok(client_with):
     res = client_with(FakeLLM(out)).post("/match", json=BODY)
     assert res.status_code == 200
     assert res.json()["recommendations"] == []
+
+
+def test_question_type_in_llm_schema():
+    # Structured Outputs 스키마에 enum 으로 — 목록은 계약 README 「값 목록」 questionType 11개
+    from app.match import LLM_JSON_SCHEMA
+    from app.schemas import QUESTION_TYPES
+
+    assert "questionType" in LLM_JSON_SCHEMA["required"]
+    assert LLM_JSON_SCHEMA["properties"]["questionType"]["enum"] == list(QUESTION_TYPES)
+    assert len(QUESTION_TYPES) == 11 and "OTHER" in QUESTION_TYPES

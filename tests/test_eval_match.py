@@ -5,12 +5,20 @@ import re
 import pytest
 
 from app.match import check_output, check_request
-from app.schemas import LLMMatchOutput, MatchExperience, MatchRequest, MatchResponse
+from app.schemas import (
+    QUESTION_TYPES,
+    LLMMatchOutput,
+    MatchExperience,
+    MatchRequest,
+    MatchResponse,
+)
 from scripts.eval_match import (
     load_data,
     load_known,
+    load_types,
     nosupp_questions,
     score,
+    score_type,
     strip_supplements,
 )
 
@@ -57,6 +65,7 @@ def test_demo_two_questions_pick_different_experiences_of_same_activity():
 def _response(requirements, recs, clarifications=(), exps=EXPS):
     out = LLMMatchOutput.model_validate(
         {
+            "questionType": "OTHER",
             "requirements": [
                 {"text": t, "status": s, "experienceIds": ids} for t, s, ids in requirements
             ],
@@ -66,6 +75,7 @@ def _response(requirements, recs, clarifications=(), exps=EXPS):
     )
     check_output(out, exps)  # 채점하는 응답도 계약 규칙 안이다
     return MatchResponse(
+        questionType=out.questionType,
         requirements=out.requirements,
         recommendations=out.recommendations,
         clarifications=out.clarifications,
@@ -174,3 +184,33 @@ def test_score_clarifications_without_supplement():
     assert not s.repeats and (s.gap_asked, s.gap_chances) == (1, 1)
     assert (s.share_asked, s.share_chances) == (1, 1)
     assert not s.leading and not s.vague
+
+
+TYPE_QUESTIONS = load_types(None)
+
+
+@pytest.mark.parametrize("q", QUESTIONS + TYPE_QUESTIONS, ids=lambda q: q["id"])
+def test_question_type_answers_in_closed_list(q):
+    # 정답 유형도 계약 README 「값 목록」 questionType 안 — 허용 칸에 정답을 겹쳐 적지 않는다
+    assert q["questionType"] in QUESTION_TYPES
+    assert set(q["questionTypeOk"]) <= set(QUESTION_TYPES)
+    assert q["questionType"] not in q["questionTypeOk"]
+
+
+def test_type_questions_cover_every_type_but_other():
+    ids = [q["id"] for q in QUESTIONS + TYPE_QUESTIONS]
+    assert len(ids) == len(set(ids))  # --questions 로 같이 고른다
+    covered = {q["questionType"] for q in QUESTIONS + TYPE_QUESTIONS}
+    assert covered == set(QUESTION_TYPES)
+
+
+def test_score_question_type():
+    q = Q["failure-learning"]  # 정답 FAILURE, 허용 GROWTH
+    for got, right, ok in [("FAILURE", 1, 1), ("GROWTH", 0, 1), ("CONFLICT", 0, 0)]:
+        data = _response([("실패", "SUPPORTED", [115])], []).model_copy(
+            update={"questionType": got}
+        )
+        s = score(q, EXPS, data)
+        assert (s.type_right, s.type_ok, s.type_total) == (right, ok, 1), got
+        assert len(s.type_wrong) == 1 - right
+        assert score_type(q, data).type_ok == ok

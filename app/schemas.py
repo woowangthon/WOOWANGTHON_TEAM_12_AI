@@ -141,6 +141,21 @@ class ExtractResponse(BaseModel):
 
 RequirementStatus = Literal["SUPPORTED", "PARTIAL", "NOT_FOUND"]
 EvidenceType = Literal["CITATION", "SUPPLEMENT"]
+# 문항 유형(S-41) — 닫힌 목록. 원본은 ETC docs/contracts/README.md 「값 목록」 questionType
+QuestionType = Literal[
+    "MOTIVATION",
+    "SELF_INTRO",
+    "STRENGTH_WEAKNESS",
+    "ACHIEVEMENT",
+    "PROBLEM_SOLVING",
+    "COLLABORATION",
+    "CONFLICT",
+    "FAILURE",
+    "GROWTH",
+    "IDEA",
+    "OTHER",
+]
+QUESTION_TYPES: tuple[str, ...] = get_args(QuestionType)
 
 
 class MatchQuestion(BaseModel):
@@ -208,12 +223,14 @@ class Clarification(BaseModel):
 
 # LLM 이 내는 모양 — 개수가 넘치면 잘라 내지 않고 규칙 위반(다시 부른다)
 class LLMMatchOutput(BaseModel):
+    questionType: QuestionType
     requirements: list[Requirement] = Field(min_length=1, max_length=6)
     recommendations: list[Recommendation] = Field(max_length=3)
     clarifications: list[Clarification] = Field(max_length=3)
 
 
 class MatchResponse(BaseModel):
+    questionType: QuestionType
     requirements: list[Requirement]
     recommendations: list[Recommendation]
     clarifications: list[Clarification]
