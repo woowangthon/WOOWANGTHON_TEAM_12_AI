@@ -41,6 +41,7 @@ docker build -t woowang-ai . && docker run --rm --env-file .env -p 8000:8000 woo
 - `POST /extract` → `{"sourceName": "회고.md", "text": "..."}`
 - `POST /match` → `{"question": {"organization": null, "text": "..."}, "experiences": [...]}` — 모양은 ETC `docs/contracts/ai-api.md`
 - `POST /draft` → `{"question": {...}, "experiences": [고른 경험 1 ~ 3개]}` — 문장마다 근거 · 보완이 붙은 초안(`sentences`)과 받칠 게 없어 쓰지 않은 것(`omitted`)
+- `POST /ground-check` → `{"text": "내가 쓴 답", "experiences": [경험 전부]}` — 코드가 나눈 문장마다 원문 · 내가 입력 · 근거 없음 · 생각 판정(`sentences`)
 - `POST /route` → `{"text": "앞 4000자", "totalLength": 12000}` — 홈 입력을 `SOURCE` · `APPLICATION` · `ASK` · `UNSURE` 로 가른다. 동기 호출이라 50초(`LLM_SYNC_TIMEOUT_SECONDS`) 안에 답하거나 `LLM_TIMEOUT`
 - `POST /parse-application` → `{"text": "문항 · 공고 글"}` — 지원처 · 종류 · 직무 · 글에 **적힌** 문항을 나눈다. 저장하지 않는다. 링크(`url`)는 아직 400(AI#39)
 - `POST /link-suggestions` → `{"from": 활동, "candidates": [활동…]}` — 계기가 이어져 보이는 후보 0 ~ 3개와 이유. 0개도 정상이다. 정하는 건 사용자다
@@ -67,6 +68,8 @@ uv run python scripts/eval_extract.py --rescore eval-runs/<폴더>   # LLM 없�
 uv run python scripts/eval_match.py                        # MATCH_LLM_MODELS 첫 모델, 우리 · 범용 프롬프트
 uv run python scripts/eval_match.py --prompts tuned --models openai:gpt-6-luna,openai:gpt-5.4-mini
 ```
+
+근거 점검은 지어낸 답 9건(`samples/ground/` — 문장마다 손으로 적은 정답)으로 — `uv run python scripts/eval_ground.py` (기본 LLM 9회).
 
 답변 초안은 지어낸 문항 · 고른 경험 9쌍(`samples/draft/`)으로 — 기본 9 × 2 = LLM 18회. 범용 프롬프트는 코드 검사를 끄고 돌린다:
 
@@ -116,6 +119,7 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest -q
 | `app/extract.py` | 추출 프롬프트 · LLM 출력 검사 · 응답 만들기 |
 | `app/match.py` | 매칭 프롬프트 · 경험 · 근거 · 보완 ID 가 요청에 있는지 검사 · 응답 만들기 |
 | `app/draft.py` | 초안 프롬프트 · 근거 ID · 문장 속 숫자 검사 · 응답 만들기 |
+| `app/ground_check.py` | 근거 점검 — 문장 나누기 · 판정 프롬프트 · ID · 모양 검사 · 숫자 대조 · 응답 만들기 |
 | `app/route.py` | 홈 입력 가르기 프롬프트 · 요청 검사(4000자) · 응답 만들기 |
 | `app/parse_application.py` | 지원 나누기 프롬프트 · 요청 검사 · 글에 적혀 있나 · 순서 · 중복 확인 |
 | `app/link_suggest.py` | 이어짐 제안 프롬프트 · 요청 검사 · 후보 안인가 · 중복 · 줄바꿈 확인 |
