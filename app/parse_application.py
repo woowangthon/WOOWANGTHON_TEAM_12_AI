@@ -3,14 +3,17 @@
 문항은 글에 **적힌** 것만 꺼낸다 — 만들거나 다듬지 않는다(R-03 범위 제외). 이 규칙을 프롬프트만 믿지 않고
 check_written 이 코드로 본다: 어기면 고치거나 빼지 않고 규칙 위반으로 다시 부른 뒤 LLM_INVALID_OUTPUT.
 저장하지 않는다 — 결과는 사용자가 고친 뒤에야 지원이 된다(계약 entrance-api). 맞게 나눈 수는
-scripts/eval_parse.py 로 잰다. 링크(`url`)는 AI#39 에서 얹는다.
+scripts/eval_parse.py 로 잰다. 링크(`url`, S-46)는 app/fetch_page.py 가 받아 뽑은 글을 `text` 와 똑같이
+나눈다 — 「적혀 있나」의 기준도 뽑은 글이다.
 """
 
 import logging
+import time
 from typing import Any
 
 from app.config import Settings
-from app.errors import InvalidRequest, TextTooLong
+from app.errors import InvalidRequest, LLMTimeout, TextTooLong
+from app.fetch_page import read_url
 from app.llm import JsonLLM, generate_valid
 from app.schemas import (
     JOB_ROLES,
@@ -76,12 +79,14 @@ LLM_JSON_SCHEMA: dict[str, Any] = {
 }
 
 
-def check_request(req: ParseApplicationRequest) -> str:
-    """계약 「/parse-application 400 · 413」을 보고 나눌 글을 돌려준다."""
+def check_request(req: ParseApplicationRequest) -> str | None:
+    """계약 「/parse-application 400 · 413」을 본다. 나눌 글을 돌려주고, 링크면 None(받아서 뽑는다)."""
     if (req.text is None) == (req.url is None):
         raise InvalidRequest("text · url 중 하나만 보낸다")
-    if req.text is None:
-        raise InvalidRequest("url 은 아직 받지 않는다 — 공고 본문을 text 로 보낸다(AI#39)")
+    if req.url is not None:
+        if not req.url.lower().startswith(("http://", "https://")):
+            raise InvalidRequest("url 은 http(s):// 주소다")
+        return None
     if not req.text.strip():
         raise InvalidRequest("text 가 비었습니다")
     if len(req.text) > MAX_APPLICATION_CHARS:
@@ -118,7 +123,15 @@ async def parse_application(
     req: ParseApplicationRequest, llm: JsonLLM, settings: Settings, system: str = SYSTEM_PROMPT
 ) -> ParseApplicationResponse:
     """system 은 시험용(scripts/eval_parse.py 가 범용 프롬프트와 견줄 때)만 바꾼다."""
+    started = time.monotonic()
     text = check_request(req)
+    if text is None:
+        assert req.url is not None
+        text = await read_url(req.url)
+    # 받기 15초를 포함해 전체 50초(계약) — 받는 데 쓴 만큼 LLM 시간을 줄인다
+    left = settings.llm_sync_timeout_seconds - (time.monotonic() - started)
+    if left <= 0:
+        raise LLMTimeout("링크를 받는 데 시간을 다 썼습니다")
 
     def parse(raw: str) -> LLMParseApplicationOutput:
         out = LLMParseApplicationOutput.model_validate_json(raw)
@@ -132,10 +145,11 @@ async def parse_application(
         LLM_JSON_SCHEMA,
         parse,
         settings,
-        timeout=settings.llm_sync_timeout_seconds,
+        timeout=left,
     )
     log.info(
-        "지원 나누기 완료 attempt=%d model=%s elapsed=%.1fs chars=%d questions=%d type=%s role=%s",
+        "지원 나누기 완료 source=%s attempt=%d model=%s elapsed=%.1fs chars=%d questions=%d type=%s role=%s",
+        "url" if req.url is not None else "text",
         got.attempt,
         got.model,
         got.seconds,

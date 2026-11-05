@@ -3,11 +3,13 @@ name = "woowang-ai"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
+    "beautifulsoup4>=4.15.0",
     "fastapi>=0.162.0",
     "google-genai>=2.33.0",
     "openai>=3.37.0",
     "pydantic>=2.14.1",
     "python-dotenv>=1.2.4",
+    "requests>=2.34.2",
     "uvicorn[standard]>=0.54.0",
 ]
 

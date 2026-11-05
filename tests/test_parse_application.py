@@ -166,10 +166,10 @@ def test_bad_request_does_not_call_llm(client_with, body):
     assert llm.calls == 0
 
 
-def test_url_is_refused_until_ai39(client_with):
-    # 정해진 결과로 채우지 않는다 — 링크 받기가 생길 때까지 오류다(AI#39)
+def test_url_must_be_http(client_with):
+    # 링크 받기 자체는 tests/test_fetch_page.py
     llm = FakeLLM()
-    res = client_with(llm).post("/parse-application", json={"url": "https://example.com/1"})
+    res = client_with(llm).post("/parse-application", json={"url": "ftp://example.com/1"})
     assert res.status_code == 400
     assert llm.calls == 0
 
