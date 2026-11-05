@@ -1,0 +1,22 @@
+{
+  "activities": [
+    {"name": "오픈소스 컨트리뷰션 부트캠프", "category": ["STUDY"], "keys": ["오픈소스"], "experiences": []},
+    {"name": "둥지", "category": [null], "keys": ["둥지"], "experiences": []},
+    {"name": "베트남 해외 봉사단", "category": ["CLUB"], "keys": ["베트남"], "experiences": []},
+    {"name": "교내 SW 경진대회", "category": ["PROJECT"], "keys": ["경진대회"], "experiences": []},
+    {"name": "공공데이터 활용 공모전", "category": ["PROJECT"], "keys": ["공모전"], "experiences": []},
+    {"name": "로봇공학 연구실 학부 연구생", "category": ["PROJECT"], "keys": ["연구실"], "experiences": []},
+    {"name": "데이터베이스 전공 수업", "category": ["STUDY"], "keys": ["데이터베이스"], "experiences": []},
+    {"name": "SQLD 자격증", "category": ["STUDY"], "keys": ["SQLD"], "experiences": []},
+    {"name": "TOEIC 900", "category": ["STUDY"], "keys": ["TOEIC"], "experiences": []},
+    {"name": "동네 카페 아르바이트", "category": ["PROJECT"], "keys": ["카페"], "experiences": []},
+    {"name": "중학생 코딩 멘토링", "category": ["CLUB"], "keys": ["멘토링"], "experiences": []},
+    {"name": "오로라", "category": [null], "keys": ["오로라"], "experiences": []},
+    {"name": "IT 기업 서포터즈 3기", "category": ["CLUB"], "keys": ["서포터즈"], "experiences": []},
+    {"name": "경제 학회 「가치」", "category": ["CLUB"], "keys": ["학회"], "experiences": []},
+    {"name": "유기견 보호소 봉사", "category": ["CLUB"], "keys": ["유기견"], "experiences": []},
+    {"name": "지역 기업 산학 협력 과제", "category": ["PROJECT"], "keys": ["산학"], "experiences": []},
+    {"name": "하늘 3기", "category": [null, "CLUB"], "keys": ["하늘"], "experiences": []}
+  ],
+  "notExperiences": []
+}

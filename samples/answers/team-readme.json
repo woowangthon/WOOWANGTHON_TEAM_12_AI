@@ -2,6 +2,7 @@
   "activities": [
     {
       "name": "냉장고털이",
+      "category": ["PROJECT"],
       "keys": ["냉장고털이"],
       "experiences": [
         { "anchor": "촬영 화면에 밝기 안내 문구를 넣었다", "actor": ["UNKNOWN", "TEAM"] },

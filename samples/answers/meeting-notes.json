@@ -2,6 +2,7 @@
   "activities": [
     {
       "name": "다온 봉사 동아리 앱 TF",
+      "category": ["PROJECT", "CLUB"],
       "keys": ["다온"],
       "experiences": [
         { "anchor": "한결: QR 체크인 제안", "actor": ["TEAM"] },

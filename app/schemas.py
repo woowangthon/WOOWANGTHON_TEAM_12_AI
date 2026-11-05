@@ -44,6 +44,10 @@ Competency = Literal[
 ]
 COMPETENCIES: tuple[str, ...] = get_args(Competency)
 
+# 활동 분류(S-57) — 닫힌 목록. 원본은 ETC docs/contracts/README.md 「값 목록」 activityCategory
+ActivityCategory = Literal["PROJECT", "STUDY", "CLUB"]
+ACTIVITY_CATEGORIES: tuple[str, ...] = get_args(ActivityCategory)
+
 
 def _no_duplicates(values: list[str]) -> list[str]:
     # 중복을 지우지 않고 규칙 위반으로 본다 — 조용히 고쳐 넣지 않는다
@@ -107,6 +111,8 @@ class LLMActivity(BaseModel):
     period: Period
     # 목록 안의 id 인가는 app/extract.py check_output 이 본다 — 칸이 빠져도 규칙 위반(기본값 없음)
     sameAsActivityId: int | None
+    # 목록 밖 값 · 칸 빠짐은 규칙 위반 — null 로 바꾸지 않고 다시 부른다
+    category: ActivityCategory | None
     experiences: list[LLMExperience]
 
 
@@ -141,6 +147,8 @@ class Activity(BaseModel):
     period: Period
     # 늘 싣는다(계약). 기본값은 S-44 전에 저장한 채점 응답을 다시 읽으려고
     sameAsActivityId: int | None = None
+    # 늘 싣는다(계약). 기본값은 S-57 전에 저장한 채점 응답을 다시 읽으려고
+    category: ActivityCategory | None = None
     experiences: list[Experience]
 
 

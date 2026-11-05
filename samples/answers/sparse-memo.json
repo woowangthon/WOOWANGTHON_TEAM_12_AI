@@ -2,6 +2,7 @@
   "activities": [
     {
       "name": "편의점 야간 아르바이트",
+      "category": ["PROJECT"],
       "keys": ["편의점"],
       "experiences": [
         { "anchor": "재고 정리 순서 바꿔서 마감이 빨라짐", "actor": ["ME", "UNKNOWN"] }
@@ -9,6 +10,7 @@
     },
     {
       "name": "토익 스터디",
+      "category": ["STUDY"],
       "keys": ["토익"],
       "experiences": [
         { "anchor": "3번 나가고 안 나감", "actor": ["ME", "UNKNOWN"] }
@@ -16,6 +18,7 @@
     },
     {
       "name": "수학 과외",
+      "category": ["PROJECT", null],
       "keys": ["과외"],
       "experiences": [
         { "anchor": "과외 학생 수학 성적 올랐다고 어머님이 연락 주심", "actor": ["ME", "UNKNOWN", "TEAM"] }

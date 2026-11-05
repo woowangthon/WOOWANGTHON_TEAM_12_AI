@@ -2,6 +2,7 @@
   "activities": [
     {
       "name": "기술블로그 운영",
+      "category": ["PROJECT", "STUDY"],
       "keys": ["기술블로그"],
       "experiences": [
         { "anchor": "2학년 때 시작했다가 시험 기간마다 멈춤", "actor": ["ME", "UNKNOWN"], "optional": true },
@@ -10,6 +11,7 @@
     },
     {
       "name": "할일앱 클론코딩",
+      "category": ["PROJECT", "STUDY"],
       "keys": ["할일앱"],
       "experiences": [
         { "anchor": "강의 예제를 내 식으로 바꿔 봤다", "actor": ["ME", "UNKNOWN"] },
@@ -20,11 +22,13 @@
     },
     {
       "name": "웹프로그래밍 수업 팀 프로젝트",
+      "category": ["STUDY", "PROJECT"],
       "keys": ["웹프"],
       "experiences": []
     },
     {
       "name": "개인 가계부 앱",
+      "category": ["PROJECT"],
       "keys": ["가계부"],
       "experiences": [
         { "anchor": "3주 하다가 기획이 자꾸 바뀌어서 멈춤", "actor": ["ME", "UNKNOWN"] }
@@ -32,16 +36,19 @@
     },
     {
       "name": "코드잇 부트캠프 단기",
+      "category": ["STUDY"],
       "keys": ["부트캠프"],
       "experiences": []
     },
     {
       "name": "코딩동아리 브릿지 7기",
+      "category": ["CLUB"],
       "keys": ["브릿지 7기"],
       "experiences": []
     },
     {
       "name": "브릿지 해커톤",
+      "category": ["PROJECT"],
       "keys": ["해커톤"],
       "experiences": [
         { "anchor": "나는 지도 API 연동 담당", "actor": ["ME"] },
@@ -50,33 +57,39 @@
     },
     {
       "name": "정보처리기사 필기",
+      "category": ["STUDY"],
       "keys": ["정보처리기사"],
       "experiences": []
     },
     {
       "name": "캡스톤 디자인",
+      "category": ["PROJECT", "STUDY"],
       "keys": ["캡스톤"],
       "experiences": []
     },
     {
       "name": "학과 멘토링 멘티",
+      "category": ["CLUB", "STUDY"],
       "keys": ["멘토링"],
       "experiences": []
     },
     {
       "name": "대학 전공수업",
+      "category": ["STUDY"],
       "keys": ["전공수업", "프로그래밍 기초", "이산수학"],
       "optional": true,
       "experiences": []
     },
     {
       "name": "컴활 1급",
+      "category": ["STUDY"],
       "keys": ["컴활"],
       "optional": true,
       "experiences": []
     },
     {
       "name": "카카오 인턴 지원",
+      "category": ["PROJECT", null],
       "keys": ["카카오"],
       "optional": true,
       "experiences": [
@@ -85,6 +98,7 @@
     },
     {
       "name": "대외활동 서포터즈 지원",
+      "category": ["CLUB", null],
       "keys": ["서포터즈"],
       "optional": true,
       "experiences": [
@@ -93,6 +107,7 @@
     },
     {
       "name": "현직자 특강",
+      "category": ["STUDY", "CLUB"],
       "keys": ["특강"],
       "optional": true,
       "experiences": []

@@ -2,6 +2,7 @@
   "activities": [
     {
       "name": "모여봄 캡스톤 디자인",
+      "category": ["PROJECT", "STUDY"],
       "keys": ["모여봄"],
       "experiences": [
         { "anchor": "우리는 매주 월요일 30분씩 스탠드업을 했다", "actor": ["TEAM"] },

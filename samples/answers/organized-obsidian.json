@@ -2,6 +2,7 @@
   "activities": [
     {
       "name": "오늘한끼 백엔드 인턴",
+      "category": ["PROJECT"],
       "keys": ["오늘한끼"],
       "experiences": [
         { "anchor": "내가 쿼리 로그를 뽑아 보니 인덱스가 없는 컬럼으로 조회하고 있었다", "actor": ["ME"] },
@@ -14,6 +15,7 @@
     },
     {
       "name": "학과 학생회 IT 부",
+      "category": ["CLUB"],
       "keys": ["학생회"],
       "experiences": [
         { "anchor": "부장이 제안해서 학생회 홈페이지 신청 페이지로 옮겼다", "actor": ["TEAM", "UNKNOWN"] },
