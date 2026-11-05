@@ -494,3 +494,36 @@ class AgentRequest(BaseModel):
     context: AgentContext | None = None
     mcpUrl: str | None = None
     maxToolCalls: int | None = None
+
+
+# ==== POST /new-facts — ETC docs/contracts/ai-api.md 「POST /new-facts」 ====
+
+
+class NewFactsRequest(BaseModel):
+    text: str | None = None
+    experiences: list[MatchExperience] | None = None
+    activities: list[ExistingActivity] | None = None
+    excludedSentences: list[str] | None = None
+
+
+class LLMNewFact(BaseModel):
+    index: int
+    content: Annotated[NonBlank, AfterValidator(_one_line)]
+    actor: Actor
+    activityId: int | None
+
+
+class LLMNewFactsOutput(BaseModel):
+    candidates: list[LLMNewFact]
+
+
+class NewFactCandidate(BaseModel):
+    sentence: str
+    content: str
+    actor: Actor
+    activityId: int | None
+
+
+class NewFactsResponse(BaseModel):
+    candidates: list[NewFactCandidate]
+    model: str | None
