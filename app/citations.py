@@ -5,13 +5,19 @@
 - 공백 · 줄바꿈과 마크다운 기호(IGNORED)를 빼고
 - 발췌문이 원본의 이어진 부분 문자열이면 찾은 것이다. 글자 · 맞춤법 · 대소문자는 그대로 비교한다.
 뜻이 맞는지(인용은 있지만 해석이 틀림)는 보지 않는다 — 사람이 본다(F-04).
+
+숫자 대조(SPEC S-27 · S-45) — 글 속 숫자가 받치는 글에 있는지 코드로 확인한다. 계약 ai-api 「숫자 대조」.
 """
 
+import re
 import unicodedata
 from dataclasses import dataclass
 
 # 마크다운 목록 · 제목 · 강조 · 인용 · 표 기호. LLM 이 발췌하며 빼거나 남겨도 같은 문장으로 본다
 IGNORED = frozenset("#*_`~>|-")
+
+# 연속된 숫자 하나 — 3 · 80 · 1,200 · 3.5. 쉼표는 세 자리 끊기일 때만 숫자 안이다(「3,4주차」는 둘)
+_NUMBER = re.compile(r"\d{1,3}(?:,\d{3})+(?!\d)|\d+(?:\.\d+)?")
 
 
 def _normalize(text: str) -> tuple[str, list[int]]:
@@ -53,3 +59,20 @@ class SourceIndex:
         if at < 0:
             return None
         return Match(self._lines[at], self._lines[at + len(needle) - 1])
+
+
+def numbers(text: str) -> set[str]:
+    """글 속 숫자들. NFKC 로 맞추고, 1,200 은 1200 으로, 03 은 3 으로 본다(기간 2025-03 ↔ 「3월」).
+
+    글자가 아니라 숫자 단위로 비교한다 — 「3초」가 「30초」 안의 글자로 맞았다고 치면 안 된다.
+    """
+    found = set()
+    for raw in _NUMBER.findall(unicodedata.normalize("NFKC", text)):
+        value = raw.replace(",", "")
+        found.add(value if "." in value else str(int(value)))
+    return found
+
+
+def unsupported_numbers(text: str, source: str) -> list[str]:
+    """text 의 숫자 중 source 에 없는 것. 한글 수사(「세 번」)는 못 잡는다 — 채점으로 잰다."""
+    return sorted(numbers(text) - numbers(source))

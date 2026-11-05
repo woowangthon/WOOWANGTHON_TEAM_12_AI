@@ -237,6 +237,41 @@ class MatchResponse(BaseModel):
     model: str | None
 
 
+# ==== POST /draft — ETC docs/contracts/ai-api.md 「POST /draft」 ====
+
+DraftEvidenceType = Literal["CITATION", "SUPPLEMENT", "EXPERIENCE"]
+
+
+def _one_line(value: str) -> str:
+    if "\n" in value or "\r" in value:
+        raise ValueError("문장에 줄바꿈이 있다")
+    return value
+
+
+class DraftRequest(MatchRequest):
+    # 모양은 /match 와 같고 고른 경험만 싣는다. 개수는 app/draft.py check_request 가 본다(400)
+    pass
+
+
+class DraftEvidence(BaseModel):
+    type: DraftEvidenceType
+    id: int
+
+
+class DraftSentence(BaseModel):
+    text: Annotated[NonBlank, AfterValidator(_one_line)]
+    evidence: list[DraftEvidence] = Field(min_length=1)
+
+
+class LLMDraftOutput(BaseModel):
+    sentences: list[DraftSentence] = Field(max_length=15)
+    omitted: list[NonBlank] = Field(max_length=5)
+
+
+class DraftResponse(LLMDraftOutput):
+    model: str | None
+
+
 # ==== POST /route — ETC docs/contracts/ai-api.md 「POST /route」 ====
 
 # 홈 입력 가르기 — 닫힌 목록. 원본은 ETC docs/contracts/README.md 「값 목록」 entranceKind
