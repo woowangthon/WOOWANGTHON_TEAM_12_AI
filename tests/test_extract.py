@@ -17,6 +17,7 @@ GOOD = {
             "name": "바꿔요",
             "period": {"start": "2025-03", "end": "2025-06", "ongoing": False},
             "sameAsActivityId": None,
+            "category": "PROJECT",
             "experiences": [
                 {
                     "content": "폴링을 WebSocket 으로 바꿨다",
@@ -36,6 +37,7 @@ GOOD = {
             "name": "경험 없는 활동",
             "period": {"start": None, "end": None, "ongoing": False},
             "sameAsActivityId": None,
+            "category": None,
             "experiences": [],
         },
     ]
@@ -305,3 +307,60 @@ def test_missing_same_as_field_is_invalid(client_with):
     res = client_with(llm, max_attempts=2).post("/extract", json=BODY)
     assert res.status_code == 502
     assert res.json()["error"]["code"] == "LLM_INVALID_OUTPUT"
+
+
+def test_activity_category_in_response(client_with):
+    # 경험 0개 활동도 분류가 붙고, 없으면 null 이 늘 실린다(S-57)
+    out = _bad(lambda d: d["activities"][1].update(category="CLUB"))
+    res = client_with(FakeLLM(out)).post("/extract", json=BODY)
+    assert res.status_code == 200
+    assert [a["category"] for a in res.json()["activities"]] == ["PROJECT", "CLUB"]
+
+    res = client_with(FakeLLM(GOOD)).post("/extract", json=BODY)
+    assert [a["category"] for a in res.json()["activities"]] == ["PROJECT", None]
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda a: a.update(category="COMPETITION"),  # 목록 밖 값
+        lambda a: a.update(category=""),
+        lambda a: a.pop("category"),  # 칸이 빠짐
+    ],
+)
+def test_bad_category_retries_then_errors(client_with, change):
+    # 목록 밖 값을 null 로 바꿔 「미분류」처럼 돌려주지 않는다
+    out = _bad(lambda d: change(d["activities"][0]))
+    llm = FakeLLM(out, out)
+    res = client_with(llm, max_attempts=2).post("/extract", json=BODY)
+    assert res.status_code == 502
+    assert res.json()["error"]["code"] == "LLM_INVALID_OUTPUT"
+    assert llm.calls == 2
+
+
+def test_bad_category_then_good_retry(client_with):
+    llm = FakeLLM(_bad(lambda d: d["activities"][0].update(category="ETC")), GOOD)
+    res = client_with(llm, max_attempts=2).post("/extract", json=BODY)
+    assert res.status_code == 200
+    assert res.json()["activities"][0]["category"] == "PROJECT"
+    assert llm.calls == 2
+
+
+def test_category_meanings_match_contract_list():
+    from app.extract import ACTIVITY_CATEGORY_MEANINGS, LLM_JSON_SCHEMA, SYSTEM_PROMPT
+    from app.schemas import ACTIVITY_CATEGORIES
+
+    assert ACTIVITY_CATEGORIES == ("PROJECT", "STUDY", "CLUB")
+    assert tuple(ACTIVITY_CATEGORY_MEANINGS) == ACTIVITY_CATEGORIES
+    assert all(f"- {value}:" in SYSTEM_PROMPT for value in ACTIVITY_CATEGORIES)
+    assert "{category_lines}" not in SYSTEM_PROMPT
+    item = LLM_JSON_SCHEMA["properties"]["activities"]["items"]
+    assert item["properties"]["category"] == {
+        "anyOf": [{"type": "string", "enum": ["PROJECT", "STUDY", "CLUB"]}, {"type": "null"}]
+    }
+    assert "category" in item["required"]
+    # 범위 — 공모전 · 대회 · 아르바이트 / 자격증 · 어학 / 봉사 · 멘토링
+    meanings = ACTIVITY_CATEGORY_MEANINGS
+    assert all(w in meanings["PROJECT"] for w in ("공모전", "대회", "아르바이트"))
+    assert all(w in meanings["STUDY"] for w in ("자격증", "어학"))
+    assert all(w in meanings["CLUB"] for w in ("봉사", "멘토링"))

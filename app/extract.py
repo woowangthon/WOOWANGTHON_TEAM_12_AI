@@ -6,6 +6,9 @@ LLM 이 단 근거는 코드가 원본과 대조한다(app.citations, S-04). 출
 같은 활동 제안(F-04 / S-44): BE 가 준 기존 활동(이름 · 기간)을 같은 호출에 실어, 새 활동마다 같아 보이는 기존 활동
 id 하나 또는 null 을 받는다. 목록 밖 id 는 스키마 enum 으로 막고, 그래도 오면 다시 부른 뒤 LLM_INVALID_OUTPUT —
 null 로 바꿔 「같은 활동 없음」처럼 보이게 하지 않는다. 판단의 질은 scripts/eval_same.py 로 잰다.
+
+활동 분류(S-57): 활동마다 category 하나 또는 null 을 같은 호출로 받는다. 원문 사실이 아니라 AI 해석이다.
+목록 밖 값은 app.schemas.LLMActivity 가 막아 다시 부른 뒤 LLM_INVALID_OUTPUT — null 로 바꾸지 않는다.
 """
 
 import copy
@@ -17,6 +20,7 @@ from app.config import Settings
 from app.errors import InvalidRequest, TextTooLong
 from app.llm import JsonLLM, generate_valid
 from app.schemas import (
+    ACTIVITY_CATEGORIES,
     COMPETENCIES,
     Activity,
     Citation,
@@ -49,6 +53,15 @@ COMPETENCY_MEANINGS: dict[str, str] = {
 }
 
 _COMPETENCY_LINES = "\n".join(f"   - {v}: {m}" for v, m in COMPETENCY_MEANINGS.items())
+
+# 활동 분류 값마다 한 줄 뜻 — 계약 README 「값 목록」 activityCategory 그대로
+ACTIVITY_CATEGORY_MEANINGS: dict[str, str] = {
+    "PROJECT": "프로젝트 · 일 — 팀 · 개인 프로젝트 · 산학 · 연구실 · 인턴 · 실무 · 아르바이트 · 공모전 · 대회",
+    "STUDY": "공부 · 성장 — 수업 · 전공과목 · 스터디 · 외부교육 · 자격증 · 어학",
+    "CLUB": "동아리 · 대외활동 — 동아리 · 학회 · 서포터즈 · 봉사 · 멘토링 · 해외 활동",
+}
+
+_CATEGORY_LINES = "\n".join(f"   - {v}: {m}" for v, m in ACTIVITY_CATEGORY_MEANINGS.items())
 
 SYSTEM_PROMPT = """\
 너는 사용자가 넣은 자료(README · 회고 · 노트 등) 하나에서 **활동**과 **경험**을 찾아 JSON 으로 정리한다.
@@ -111,7 +124,13 @@ SYSTEM_PROMPT = """\
    - **틀리게 붙이는 것이 놓치는 것보다 나쁘다.** 확실하지 않으면 null.
    - 목록에 없는 ID 를 쓰지 않는다. 목록이 비었으면 전부 null.
    - 목록은 이미 있는 활동과 견주는 데만 쓴다. <원본> 에 없는 활동을 목록을 보고 만들지 않는다.
-""".replace("{competency_lines}", _COMPETENCY_LINES)
+12. 활동 분류 category: 활동마다 아래 영문 값 하나를 고르거나 null 을 넣는다. 원문 사실이 아니라 네 해석이다.
+{category_lines}
+   - 활동 이름 · 내용으로 가장 가까운 하나를 고른다. 경험이 0개인 활동도 이름으로 판단한다.
+   - 둘 사이에 걸쳐 있어도 활동이 무엇인지 알면 더 가까운 하나로 정한다(사용자가 고칠 수 있다).
+   - 이름 · 내용으로 무엇을 한 활동인지 가늠이 안 되면 null 이다. 억지로 고르지 않는다.
+   - 목록에 없는 값을 만들지 않는다.
+""".replace("{competency_lines}", _COMPETENCY_LINES).replace("{category_lines}", _CATEGORY_LINES)
 
 _PERIOD_VALUE = {"type": ["string", "null"], "description": "YYYY · YYYY-MM · YYYY-MM-DD 또는 null"}
 
@@ -137,6 +156,12 @@ LLM_JSON_SCHEMA: dict[str, Any] = {
                         "required": ["start", "end", "ongoing"],
                     },
                     "sameAsActivityId": {"type": "null"},  # 기존 활동이 없을 때 — llm_json_schema
+                    "category": {
+                        "anyOf": [
+                            {"type": "string", "enum": list(ACTIVITY_CATEGORIES)},
+                            {"type": "null"},
+                        ]
+                    },
                     "experiences": {
                         "type": "array",
                         "items": {
@@ -156,7 +181,7 @@ LLM_JSON_SCHEMA: dict[str, Any] = {
                         },
                     },
                 },
-                "required": ["name", "period", "sameAsActivityId", "experiences"],
+                "required": ["name", "period", "sameAsActivityId", "category", "experiences"],
             },
         }
     },
@@ -229,6 +254,7 @@ def to_response(output: LLMOutput, model: str | None, text: str) -> ExtractRespo
                 name=act.name,
                 period=act.period,
                 sameAsActivityId=act.sameAsActivityId,
+                category=act.category,
                 experiences=experiences,
             )
         )
@@ -257,7 +283,8 @@ async def extract(
     schema = llm_json_schema([a.id for a in existing])
     got = await generate_valid(llm, system, user, schema, parse, settings)
     log.info(
-        "추출 완료 attempt=%d model=%s elapsed=%.1fs chars=%d existing=%d activities=%d same=%s",
+        "추출 완료 attempt=%d model=%s elapsed=%.1fs chars=%d existing=%d activities=%d same=%s "
+        "category=%s",
         got.attempt,
         got.model,
         got.seconds,
@@ -265,5 +292,6 @@ async def extract(
         len(existing),
         len(got.value.activities),
         [a.sameAsActivityId for a in got.value.activities],
+        [a.category for a in got.value.activities],
     )
     return to_response(got.value, got.model, text)

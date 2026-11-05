@@ -27,7 +27,8 @@ def show(path: Path, data) -> None:
     print(f"\n=== {path.name} ({data.model}) — 활동 {len(data.activities)}개")
     for act in data.activities:
         p = act.period
-        print(f"\n■ {act.name}  [{p.start} ~ {'진행 중' if p.ongoing else p.end}]")
+        period = f"{p.start} ~ {'진행 중' if p.ongoing else p.end}"
+        print(f"\n■ {act.name}  [{period}] 분류 {act.category or '없음'}")
         for exp in act.experiences:
             print(f"  - ({exp.actor:<7} · {', '.join(exp.competencies)}) {exp.content}")
             for c in exp.citations:

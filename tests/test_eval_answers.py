@@ -3,7 +3,7 @@
 import pytest
 
 from app.citations import SourceIndex
-from app.schemas import ExtractResponse
+from app.schemas import ACTIVITY_CATEGORIES, ExtractResponse
 from scripts.eval_extract import ANSWERS, SAMPLES, load_answers, score
 
 ALL = load_answers(None)
@@ -27,6 +27,8 @@ def test_anchors_are_in_source(stem):
     for act in answer["activities"]:
         for exp in act["experiences"]:
             assert exp["actor"] and set(exp["actor"]) <= {"ME", "TEAM", "UNKNOWN"}
+    for act in answer["activities"]:
+        assert act["category"] and set(act["category"]) <= {*ACTIVITY_CATEGORIES, None}
 
 
 def _exp(content, actor, *quotes, status="SOURCE_CONFIRMED"):
@@ -102,3 +104,27 @@ def test_score_activities_without_experiences():
     assert s.activities_found == 3
     assert len(s.not_activities) == 1 and "스프링" in s.not_activities[0]
     assert len(s.not_experiences) == 1
+
+
+def test_score_categories():
+    # 맞음 · 판단이 갈리는 정답 · 억지로 고름 · 정답 null · 놓친 null 을 나눠 센다
+    source, answer = ALL["category-list"]
+    none = {"start": None, "end": None, "ongoing": False}
+    picks = [
+        ("공공데이터 활용 공모전", "PROJECT"),  # 맞음
+        ("하늘 3기", "CLUB"),  # 판단이 갈려 CLUB 도 맞음
+        ("둥지", "STUDY"),  # 가늠이 안 되는데 골랐다 — 틀림
+        ("오로라", None),  # 정답이 null — 맞음
+        ("TOEIC 900", None),  # 고를 수 있는데 비웠다 — 틀림
+    ]
+    data = ExtractResponse.model_validate(
+        {
+            "model": "fake",
+            "activities": [
+                {"name": n, "period": none, "category": c, "experiences": []} for n, c in picks
+            ],
+        }
+    )
+    s = score("category-list", source, answer, data)
+    assert (s.categories, s.category_right, s.category_null) == (5, 3, 2)
+    assert len(s.category_wrong) == 2 and "둥지" in s.category_wrong[0]

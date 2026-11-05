@@ -2,6 +2,7 @@
   "activities": [
     {
       "name": "하루가계",
+      "category": ["PROJECT"],
       "keys": ["하루가계"],
       "experiences": [
         { "anchor": "금액을 자주 잘못 읽어서 저장 전에 확인 화면을 넣었다", "actor": ["ME"] },

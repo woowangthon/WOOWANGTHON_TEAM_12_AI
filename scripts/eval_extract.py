@@ -27,6 +27,8 @@ optional 경험은 「찾음」 분모에 넣지 않고, 짝지어졌을 때 수
 - 활동 찾음: 정답 활동(optional 빼고) 중 찾은 수
 - 활동 아닌 것: notActivities(공부 노트 · 스크랩 링크 등)를 활동으로 만든 수
 - 같은 활동 제안: sameAsActivityId 가 null 이 아닌 활동 수 — --existing 목록이 시험 자료와 무관하면 0이어야 한다
+- 분류 맞음: 정답 활동에 짝지어진 LLM 활동 중 category 가 정답(판단이 갈리면 여럿, null 도 값) 안인 수
+- 분류 null: 그중 category 가 null 인 수 — 정답이 null 이면 맞음에도 들어간다
 """
 
 import argparse
@@ -85,6 +87,10 @@ class Score:
     missed_activities: list[str] = field(default_factory=list)
     not_activities: list[str] = field(default_factory=list)
     same_as: list[str] = field(default_factory=list)
+    categories: int = 0
+    category_right: int = 0
+    category_null: int = 0
+    category_wrong: list[str] = field(default_factory=list)
 
     def add(self, other: "Score") -> None:
         for name, value in vars(other).items():
@@ -181,6 +187,20 @@ def score(stem: str, source: str, answer: dict, data: ExtractResponse) -> Score:
             s.activities_found += 1
         else:
             s.missed_activities.append(f"{stem}: {act['name']}")
+    # 분류는 찾은 활동만 본다 — 못 찾은 활동은 「활동 찾음」이 센다
+    for ei, act in enumerate(answer["activities"]):
+        keys = [normalize(k) for k in act.get("keys", [])]
+        by_name = {i for i, n in enumerate(names) if any(k in n for k in keys)}
+        for ai in sorted(expected_to_llm.get(ei, set()) | by_name):
+            got = data.activities[ai].category
+            s.categories += 1
+            s.category_null += got is None
+            if got in act["category"]:
+                s.category_right += 1
+            else:
+                s.category_wrong.append(
+                    f"{stem}: 「{data.activities[ai].name}」 정답 {act['category']} → {got}"
+                )
     for key in answer.get("notActivities", []):
         k = normalize(key)
         hits = [a.name for a, n in zip(data.activities, names, strict=True) if k in n]
@@ -287,7 +307,8 @@ def report(out: Path, samples: dict[str, tuple[str, dict]]) -> str:
                 f"| {t.found}/{t.required} | {len(t.not_experiences)} "
                 f"| {t.activities_found}/{t.activities_required} | {len(t.not_activities)} "
                 f"| {t.activities_got} ({t.activities_expected}) | {t.mixed} / {t.split} "
-                f"| {len(t.same_as)} | {len(t.errors)}/{t.files} | {t.seconds:.0f}초 |"
+                f"| {len(t.same_as)} | {t.category_right}/{t.categories} | {t.category_null} "
+                f"| {len(t.errors)}/{t.files} | {t.seconds:.0f}초 |"
             )
             lines = [
                 *(f"- 지어낸 수치 {x}" for x in t.made_up_numbers),
@@ -298,6 +319,7 @@ def report(out: Path, samples: dict[str, tuple[str, dict]]) -> str:
                 *(f"- 활동 아닌 것 {x}" for x in t.not_activities),
                 *(f"- 활동 수 {x}" for x in t.activity_counts),
                 *(f"- 같은 활동 제안 {x}" for x in t.same_as),
+                *(f"- 분류 틀림 {x}" for x in t.category_wrong),
                 *(f"- 오류 {x}" for x in t.errors),
             ]
             if lines:
@@ -305,7 +327,7 @@ def report(out: Path, samples: dict[str, tuple[str, dict]]) -> str:
     head = (
         "| 모델 · 프롬프트 | 근거 일치 | 원문에서 확인된 경험 | 지어낸 수치 | 주체 틀림 (ME 로) "
         "| 경험 찾음 | 경험 아닌 것 | 활동 찾음 | 활동 아닌 것 | 활동 수 (정답) | 섞임 / 쪼개짐 "
-        "| 같은 활동 제안 | 오류 | 시간 합 |\n" + "| --- " * 14 + "|"
+        "| 같은 활동 제안 | 분류 맞음 | 분류 null | 오류 | 시간 합 |\n" + "| --- " * 16 + "|"
     )
     return "\n".join([head, *rows]) + "\n" + "".join(details) + "\n"
 
