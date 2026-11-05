@@ -8,7 +8,15 @@ from fastapi.testclient import TestClient
 
 from app.config import load_settings
 from app.llm import LLMResult
-from app.main import app, get_llm, get_match_llm, get_route_llm, get_settings, get_sync_match_llm
+from app.main import (
+    app,
+    get_agent_llm,
+    get_llm,
+    get_match_llm,
+    get_route_llm,
+    get_settings,
+    get_sync_match_llm,
+)
 
 
 class FakeLLM:
@@ -32,6 +40,7 @@ def client_with():
         app.dependency_overrides[get_match_llm] = lambda: llm
         app.dependency_overrides[get_route_llm] = lambda: llm
         app.dependency_overrides[get_sync_match_llm] = lambda: llm
+        app.dependency_overrides[get_agent_llm] = lambda: llm
         app.dependency_overrides[get_settings] = lambda: replace(load_settings(), **settings)
         return TestClient(app)
 

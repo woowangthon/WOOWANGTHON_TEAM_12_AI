@@ -6,19 +6,22 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
+from app.agent import agent_lines, check_request
 from app.ask import ask
 from app.config import Settings, load_settings
 from app.draft import draft
 from app.errors import ApiError
 from app.extract import extract
 from app.link_suggest import suggest_links
-from app.llm import JsonLLM, build_llm
+from app.llm import JsonLLM, ToolLLM, build_llm
 from app.match import match
+from app.mcp_client import McpConnect, connect_mcp
 from app.parse_application import parse_application
 from app.route import route
 from app.schemas import (
+    AgentRequest,
     AskRequest,
     AskResponse,
     DraftRequest,
@@ -37,6 +40,8 @@ from app.schemas import (
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("app")
+# MCP SDK 의 httpx2 는 INFO 로 주소를 찍는다 — 주소에 차곡이 토큰이 들어 있다(계약 「로그에 남기지 않는다」)
+logging.getLogger("httpx2").setLevel(logging.WARNING)
 
 app = FastAPI(title="woowang-ai")
 
@@ -68,6 +73,16 @@ def get_sync_match_llm() -> JsonLLM:
     # /link-suggestions · /ask — 모델은 매칭과 같은 순서, 시간은 동기 호출(계약 — 50초 안에 답하거나 LLM_TIMEOUT)
     settings = get_settings()
     return build_llm(settings, settings.match_models, settings.llm_sync_call_timeout_seconds)
+
+
+@lru_cache
+def get_agent_llm() -> ToolLLM:
+    settings = get_settings()
+    return build_llm(settings, settings.agent_models)
+
+
+def get_mcp_connect() -> McpConnect:
+    return connect_mcp
 
 
 def _error(status: int, code: str, message: str) -> JSONResponse:
@@ -157,3 +172,17 @@ async def post_ask(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> AskResponse:
     return await ask(req, llm, settings)
+
+
+@app.post("/agent")
+async def post_agent(
+    req: AgentRequest,
+    llm: Annotated[ToolLLM, Depends(get_agent_llm)],
+    connect: Annotated[McpConnect, Depends(get_mcp_connect)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> StreamingResponse:
+    check_request(req, settings)
+    return StreamingResponse(
+        agent_lines(req, llm, connect, settings),
+        media_type="application/x-ndjson",
+    )

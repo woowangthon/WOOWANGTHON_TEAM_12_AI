@@ -44,6 +44,7 @@ docker build -t woowang-ai . && docker run --rm --env-file .env -p 8000:8000 woo
 - `POST /route` → `{"text": "앞 4000자", "totalLength": 12000}` — 홈 입력을 `SOURCE` · `APPLICATION` · `ASK` · `UNSURE` 로 가른다. 동기 호출이라 50초(`LLM_SYNC_TIMEOUT_SECONDS`) 안에 답하거나 `LLM_TIMEOUT`
 - `POST /parse-application` → `{"text": "문항 · 공고 글"}` — 지원처 · 종류 · 직무 · 글에 **적힌** 문항을 나눈다. 저장하지 않는다. 링크(`url`)는 아직 400(AI#39)
 - `POST /link-suggestions` → `{"from": 활동, "candidates": [활동…]}` — 계기가 이어져 보이는 후보 0 ~ 3개와 이유. 0개도 정상이다. 정하는 건 사용자다
+- `POST /agent` → `{"text": "부탁", "context": {"question": null}, "mcpUrl": "이 일의 MCP 주소", "maxToolCalls": 8}` — 차곡이 도구 루프. BE MCP 도구를 불러 가며 이벤트를 한 줄씩(NDJSON) 흘려 보내고, 쓰기는 부르지 않고 `confirm` 으로 끝낸다. 110초(`AGENT_TIMEOUT_SECONDS`). `mcpUrl` 에 토큰이 있으니 로그에 남기지 않는다
 
 진짜 LLM 으로 시험 자료를 돌려 결과를 눈으로 보기(파일마다 LLM 1회, 규칙 위반이면 1회 더):
 
@@ -71,6 +72,13 @@ uv run python scripts/eval_match.py --prompts tuned --models openai:gpt-6-luna,o
 
 ```bash
 uv run python scripts/eval_draft.py                        # MATCH_LLM_MODELS 첫 모델, 우리 · 범용 프롬프트
+```
+
+차곡이 도구 루프는 지어낸 부탁 18개(`samples/agent/`)로 — 부탁마다 LLM 1 ~ 5회, 도구는 가짜 MCP:
+
+```bash
+uv run python scripts/eval_agent.py                        # AGENT_LLM_MODELS 첫 모델
+uv run python scripts/eval_agent.py --runs 2 --models openai:gpt-6.1-terra,openai:gpt-6-luna
 ```
 
 홈 입력 가르기는 지어낸 입력 40개(`samples/route/`)로 — 기본 40 × 2 = LLM 80회:
@@ -111,6 +119,8 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest -q
 | `app/route.py` | 홈 입력 가르기 프롬프트 · 요청 검사(4000자) · 응답 만들기 |
 | `app/parse_application.py` | 지원 나누기 프롬프트 · 요청 검사 · 글에 적혀 있나 · 순서 · 중복 확인 |
 | `app/link_suggest.py` | 이어짐 제안 프롬프트 · 요청 검사 · 후보 안인가 · 중복 · 줄바꿈 확인 |
+| `app/agent.py` | 차곡이 도구 루프 — 프롬프트 · 모델 출력 검사 · NDJSON 이벤트 · 끊기 · 제한 시간 |
+| `app/mcp_client.py` | BE MCP 클라이언트 — `initialize` · `tools/list` · `tools/call`, 도구 오류 읽기 |
 | `app/citations.py` | 근거 대조(S-04) — 발췌문이 원본에 있나, 몇 번째 줄인가. 「있다」의 기준은 파일 머리말 |
 | `app/llm.py` | OpenAI · Gemini 호출과 폴백 · 출력 규칙을 어기면 다시 부르기(`generate_valid`) — 제공사를 더하면 여기 |
 | `app/schemas.py` | 요청 · 응답 · LLM 출력 모양과 규칙 |
@@ -120,4 +130,5 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest -q
 | `scripts/eval_match.py` | 매칭 · 되묻기 시험 자료 채점 — 숫자의 뜻은 파일 머리말 |
 | `scripts/eval_route.py` | 홈 입력 가르기 시험 입력 채점 — 숫자의 뜻은 파일 머리말 |
 | `scripts/eval_parse.py` | 지원 나누기 시험 글 채점 — 숫자의 뜻은 파일 머리말 |
+| `scripts/eval_agent.py` | 차곡이 시험 부탁 채점(가짜 MCP) — 숫자의 뜻은 파일 머리말 |
 | `scripts/eval_link.py` | 이어짐 제안 시험 자료 채점 — 숫자의 뜻은 파일 머리말 |

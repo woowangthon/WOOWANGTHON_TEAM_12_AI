@@ -1,0 +1,151 @@
+[
+  {
+    "name": "get_activity",
+    "description": "활동 하나의 경험 전부를 근거(원본 이름 · 발췌문) · 출처 상태 · 보완(사용자가 직접 답한 것)과 함께 돌려준다. activityId 는 list_activities 나 search_experiences 결과의 활동 id.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "activityId": {
+          "type": "integer",
+          "description": "활동 id"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "activityId"
+      ]
+    },
+    "readOnly": true
+  },
+  {
+    "name": "list_activities",
+    "description": "사용자의 활동(프로젝트 · 동아리 · 수업 · 대회 같은 묶음) 목록을 시작 시기 순서로 돌려준다. 활동마다 id · 이름 · 기간 · 경험 수. 경험 · 근거를 보려면 get_activity 에 id 를 넘긴다.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "readOnly": true
+  },
+  {
+    "name": "search_experiences",
+    "description": "사용자가 쌓은 경험을 낱말 · 역량 · 연도로 찾아 근거(원본 이름 · 발췌문) · 출처 상태 · 보완과 함께 돌려준다. 낱말 맞추기다(의미 검색이 아니다) — query 를 공백으로 나눈 낱말 중 하나라도 경험 본문 · 근거 발췌문 · 보완 질문과 답 · 활동 이름에 들어 있으면 맞는다(대소문자 무시, 부분 일치). 맞는 게 적으면 낱말을 바꿔(동의어 · 영어/한국어) 여러 번 부르거나, 조건 없이 불러 전부 읽고 골라라. 결과가 없다는 것은 「그런 경험이 없다」가 아니라 「쌓인 자료에서 찾지 못했다」이다.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "competencies": {
+          "description": "이 역량 중 하나라도 붙은 경험",
+          "type": "array",
+          "items": {
+            "enum": [
+              "IMPLEMENTATION",
+              "PROBLEM_SOLVING",
+              "PLANNING",
+              "ANALYSIS",
+              "OPERATION",
+              "COLLABORATION",
+              "COMMUNICATION",
+              "LEADERSHIP",
+              "INITIATIVE",
+              "RESPONSIBILITY",
+              "PERSEVERANCE",
+              "LEARNING",
+              "PRESENTATION"
+            ],
+            "type": "string"
+          }
+        },
+        "limit": {
+          "default": 20,
+          "minimum": 1,
+          "maximum": 50,
+          "description": "최대 몇 개",
+          "type": "integer"
+        },
+        "year": {
+          "pattern": "^\\d{4}$",
+          "type": "string",
+          "description": "YYYY — 활동 기간이 그해와 겹치는 경험(시작을 모르는 활동은 빠진다)"
+        },
+        "query": {
+          "type": "string",
+          "description": "공백으로 나눈 낱말 — 하나라도 들어 있는 경험. 비우면 낱말로 거르지 않는다"
+        }
+      },
+      "type": "object"
+    },
+    "readOnly": true
+  },
+  {
+    "name": "create_application",
+    "description": "지원처 하나와 문항 1 ~ 10개로 지원을 만든다. 사용자 확인 뒤 BE 가 실행한다 — 직접 부르지 말고 confirm 으로 요청하라. 문항은 사용자가 준 글 · 맥락 문항에 적힌 것만 싣는다. 문항을 지어내지 않는다.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "organization": {
+          "type": "string",
+          "description": "지원처 이름. 100자 이하"
+        },
+        "organizationType": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "지원처 종류. 모르면 null"
+        },
+        "jobRole": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "직무. 모르면 null"
+        },
+        "postingUrl": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "공고 원문 링크. 없으면 null"
+        },
+        "questions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "text"
+            ]
+          }
+        }
+      },
+      "required": [
+        "organization",
+        "questions"
+      ]
+    },
+    "readOnly": false
+  },
+  {
+    "name": "add_source",
+    "description": "사용자가 부탁에 붙여 넣은 글을 자료로 넣고 분석을 시작한다. 사용자 확인 뒤 BE 가 실행한다 — 직접 부르지 말고 confirm 으로 요청하라. text 는 사용자가 넣은 글 그대로다 — 요약하거나 고쳐 쓰지 않는다.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "사용자가 넣은 글 그대로. 50000자 이하"
+        }
+      },
+      "required": [
+        "text"
+      ]
+    },
+    "readOnly": false
+  }
+]
