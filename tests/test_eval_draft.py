@@ -299,3 +299,58 @@ def test_score_kind_broken():
     assert score(pair, _exps(pair), many).kind_broken == ["tech-a: OPINION 4개"]
     number = _out(("제가 해결했습니다.", [("CITATION", 201)]), ("3년 안에 살피겠습니다.", []))
     assert "숫자" in score(pair, _exps(pair), number).kind_broken[0]
+
+
+def test_hinted_pairs_make_valid_requests():
+    """hints 는 고른 경험의 것이고, 실어 보낸 요청이 /draft 의 400 검사를 통과한다."""
+    from app.config import load_settings
+    from app.draft import check_request
+    from app.schemas import DraftRequest
+    from scripts.eval_draft import question
+
+    hinted = [p for p in PAIRS if p.get("hints") or p.get("jobRole")]
+    assert hinted
+    for pair in hinted:
+        assert {int(i) for i in pair.get("hints", {})} <= set(pair["experienceIds"]), pair["id"]
+        req = DraftRequest.model_validate(
+            {"question": question(pair), "experiences": picked(pair, EXPERIENCES)}
+        )
+        _, exps = check_request(req, load_settings())
+        assert any(e.emphasis for e in exps) == bool(pair.get("hints")), pair["id"]
+
+
+def test_hint_only_facts_are_not_backed():
+    """강조점에만 있는 숫자 · 말을 missing 에 적은 쌍 — 그게 근거에 없어야 채점이 맞다(위 시험이 본다)."""
+    assert "90" in PAIR["emph-number"]["hints"]["151"]["emphasis"]
+    assert any(m["pattern"].startswith("90") for m in PAIR["emph-number"]["missing"])
+
+
+def test_score_lead_and_stale_gap():
+    pair = PAIR["emph-judgment"]
+    early = _out(
+        ("크롤러가 밤마다 멈춰 문의가 왔습니다.", [("CITATION", 251)]),
+        ("통째로 바꾸지 않고 실패한 학과만 다시 긁기로 했습니다.", [("CITATION", 253)]),
+    )
+    late = _out(
+        ("크롤러가 밤마다 멈춰 문의가 왔습니다.", [("CITATION", 251)]),
+        ("사이트가 503 을 주면 크롤러가 죽었습니다.", [("CITATION", 252)]),
+        ("통째로 바꾸지 않고 실패한 학과만 다시 긁기로 했습니다.", [("CITATION", 253)]),
+    )
+    assert (score(pair, _exps(pair), early).lead_hit, score(pair, _exps(pair), late).lead_hit) == (
+        1,
+        0,
+    )
+    invented = _out(("백엔드 개발자로 일하며 크롤러를 고쳤습니다.", [("CITATION", 254)]))
+    assert score(pair, _exps(pair), invented).hinted_invented
+
+    stale = PAIR["emph-unbacked"]
+    s = score(
+        stale,
+        _exps(stale),
+        _out(
+            ("제가 폴링을 WebSocket 으로 바꿔 해결했습니다.", [("CITATION", 201)]),
+            omitted=[_gap("직접 고친 범위", "직접 고친 부분은 어디였나요?", 101)],
+        ),
+    )
+    assert len(s.stale_reasked) == 1
+    assert not score(PAIR["tech-a"], _exps(PAIR["tech-a"]), early).lead_chances

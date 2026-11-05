@@ -6,8 +6,10 @@
 import pytest
 
 from app.citations import numbers, unsupported_numbers
-from app.draft import check_output
-from app.schemas import LLMDraftOutput, MatchExperience
+from app.config import load_settings
+from app.draft import backings, build_draft_message, check_output, check_request
+from app.match import build_user_message, experience_chars
+from app.schemas import DraftRequest, LLMDraftOutput, MatchExperience
 from tests.conftest import FakeLLM
 
 
@@ -324,3 +326,114 @@ def test_prompt_gets_only_picked_experiences(client_with):
     client_with(Spy(GOOD)).post("/draft", json=BODY)
     assert "근거 201" in seen["user"] and "보완 301" in seen["user"]
     assert seen["user"].count("[경험 ") == 1
+
+
+# ---- 매칭 결과 · 직무(ETC#141) — 선택 칸이고 근거가 아니다 ----
+
+HINTED_101 = {
+    **EXP_101,
+    "reason": "채팅 지연이라는 기술 문제를 직접 해결한 사례라 문항과 맞는다",
+    "emphasis": "폴링의 한계를 보고 WebSocket 으로 바꿔 지연을 40% 줄인 판단",
+    "gaps": ["직접 고친 범위가 자료에 없다", "고친 뒤 확인한 방법이 자료에 없다"],
+}
+HINTED = {
+    "question": {
+        **QUESTION,
+        "jobRole": "BACKEND",
+        "requirements": [
+            {"text": "기술 문제의 원인을 찾아 해결한 경험", "status": "SUPPORTED"},
+            {"text": "Java · Spring 사용 경험", "status": "NOT_FOUND"},
+        ],
+    },
+    "experiences": [HINTED_101],
+}
+
+
+def _spy():
+    seen = {}
+
+    class Spy(FakeLLM):
+        async def generate_json(self, system, user, schema, deadline):
+            seen["user"] = user
+            return await super().generate_json(system, user, schema, deadline)
+
+    return Spy, seen
+
+
+def test_hints_go_to_prompt_as_clues(client_with):
+    Spy, seen = _spy()
+    r = client_with(Spy(GOOD)).post("/draft", json=HINTED)
+    assert r.status_code == 200
+    user = seen["user"]
+    assert "<매칭 단서>" in user and "지원 직무: BACKEND" in user
+    assert "Java · Spring 사용 경험 — 자료에 없음" in user
+    assert "강조점: 폴링의 한계" in user and "부족한 점: 직접 고친 범위" in user
+    # 단서는 경험 목록 뒤에 따로 — 근거 · 보완 줄에 섞이지 않는다
+    assert user.index("</경험 목록>") < user.index("<매칭 단서>")
+
+
+def test_without_hints_prompt_is_unchanged(client_with):
+    Spy, seen = _spy()
+    client_with(Spy(GOOD)).post("/draft", json=BODY)
+    question, exps = check_request(DraftRequest.model_validate(BODY), load_settings())
+    assert seen["user"] == build_user_message(question, exps)
+    assert "<매칭 단서>" not in seen["user"]
+
+
+def test_null_job_role_and_empty_hints_are_unchanged():
+    body = {
+        "question": {**QUESTION, "jobRole": None, "requirements": []},
+        "experiences": [{**EXP_101, "gaps": []}],
+    }
+    question, exps = check_request(DraftRequest.model_validate(body), load_settings())
+    assert build_draft_message(question, exps) == build_user_message(question, exps)
+
+
+def test_hints_do_not_back_numbers():
+    # 강조점에만 있는 40 은 FACT 에 못 쓴다 — 숫자 대조의 받치는 글에 넣지 않는다
+    exps = DraftRequest.model_validate(HINTED).experiences
+    bad = LLMDraftOutput.model_validate(
+        _with({**FIRST, "text": "제가 폴링을 WebSocket 으로 바꿔 지연을 40% 줄였습니다."})
+    )
+    with pytest.raises(ValueError, match="없는 숫자"):
+        check_output(bad, exps)
+    assert all("40" not in b.text for b in backings(exps).values())
+
+
+def test_hint_number_in_fact_retries_then_fails(client_with):
+    bad = _with({**FIRST, "text": "제가 폴링을 WebSocket 으로 바꿔 지연을 40% 줄였습니다."})
+    llm = FakeLLM(bad, bad)
+    r = client_with(llm, max_attempts=2).post("/draft", json=HINTED)
+    assert r.status_code == 502
+    assert r.json()["error"]["code"] == "LLM_INVALID_OUTPUT"
+
+
+@pytest.mark.parametrize(
+    "question, experience",
+    [
+        pytest.param({"jobRole": "CHEF"}, {}, id="jobRole 목록 밖"),
+        pytest.param({"requirements": [{"text": "x", "status": "DONE"}]}, {}, id="status 목록 밖"),
+        pytest.param(
+            {"requirements": [{"text": " ", "status": "SUPPORTED"}]}, {}, id="빈 요구사항"
+        ),
+        pytest.param({}, {"gaps": "직접 고친 범위"}, id="gaps 문자열"),
+        pytest.param({}, {"emphasis": " "}, id="빈 강조점"),
+    ],
+)
+def test_bad_hints(client_with, question, experience):
+    llm = FakeLLM()
+    body = {"question": {**QUESTION, **question}, "experiences": [{**EXP_101, **experience}]}
+    r = client_with(llm).post("/draft", json=body)
+    assert r.status_code == 400
+    assert r.json()["error"]["code"] == "INVALID_REQUEST"
+    assert llm.calls == 0
+
+
+def test_hints_count_toward_text_limit(client_with):
+    limit = len(QUESTION["text"]) + experience_chars(DraftRequest.model_validate(BODY).experiences)
+    assert (
+        client_with(FakeLLM(GOOD), max_match_chars=limit).post("/draft", json=BODY).status_code
+        == 200
+    )
+    r = client_with(FakeLLM(GOOD), max_match_chars=limit).post("/draft", json=HINTED)
+    assert r.status_code == 413
