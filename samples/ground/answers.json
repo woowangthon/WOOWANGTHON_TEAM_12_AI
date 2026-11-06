@@ -91,5 +91,21 @@
     {"text": "구글에서 인턴으로 일했습니다.", "want": "UNSUPPORTED", "kind": "none"},
     {"text": "전국 해커톤에서 대상을 받았습니다.", "want": "UNSUPPORTED", "kind": "none"},
     {"text": "이 경험을 바탕으로 귀사의 서비스 안정성에 기여하고 싶습니다.", "want": "OPINION"}
+  ]},
+  {"id": "list-dot", "sentences": [
+    {"mark": "1. ", "text": "저는 「바꿔요」 프로젝트에서 채팅 메시지가 늦게 도착하는 문제를 WebSocket 으로 바꿔 해결했습니다.", "want": "SOURCE", "evidence": [["CITATION", 201]]},
+    {"mark": "2. ", "text": "서버에 STOMP 엔드포인트를 만들고 앱의 폴링 코드를 구독 방식으로 바꿨습니다.", "want": "USER_INPUT", "evidence": [["SUPPLEMENT", 301]]},
+    {"mark": "3. ", "text": "그 결과 응답 속도가 80% 빨라졌습니다.", "want": "UNSUPPORTED", "kind": "number"},
+    {"mark": "4. ", "text": "이 경험으로 문제의 원인을 끝까지 찾는 개발자가 되고 싶습니다.", "want": "OPINION"}
+  ]},
+  {"id": "list-paren", "sentences": [
+    {"mark": "1) ", "text": "카페 아르바이트에서 매주 일요일 마감 뒤 재고를 엑셀 표로 정리했습니다.", "want": "SOURCE", "evidence": [["CITATION", 221]]},
+    {"mark": "2) ", "text": "표에는 품목별로 남은 양과 지난 4주 판매량을 나란히 적었습니다.", "want": "USER_INPUT", "evidence": [["SUPPLEMENT", 321]]},
+    {"mark": "3) ", "text": "사장님께 우수 직원으로 칭찬을 받았습니다.", "want": "UNSUPPORTED", "kind": "none"}
+  ]},
+  {"id": "list-circle", "sentences": [
+    {"mark": "① ", "text": "팀은 매주 금요일 스프린트 회고를 했습니다.", "want": "SOURCE", "evidence": [["CITATION", 202]]},
+    {"mark": "② ", "text": "팀원이 맡아 서비스를 AWS 에 올렸습니다.", "want": "SOURCE", "evidence": [["CITATION", 203]]},
+    {"mark": "③ ", "text": "함께 일할 때는 서로의 상황을 먼저 나누는 것이 중요하다고 생각합니다.", "want": "OPINION"}
   ]}
 ]

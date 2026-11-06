@@ -118,8 +118,41 @@ def test_split_sentences(text, want):
     assert split_sentences(text) == want
 
 
+@pytest.mark.parametrize(
+    "text, want",
+    [
+        ("1. 첫째입니다.\n2. 둘째입니다.", ["첫째입니다.", "둘째입니다."]),
+        ("1) 첫째\r\n(2) 둘째\n① 셋째\n⑳ 넷째", ["첫째", "둘째", "셋째", "넷째"]),
+        ("1.붙여 썼다\n  12. 들여 썼다", ["붙여 썼다", "들여 썼다"]),
+        ("1.\n번호만 있는 줄", ["번호만 있는 줄"]),
+    ],
+)
+def test_split_drops_list_markers(text, want):
+    assert split_sentences(text) == want
+
+
+@pytest.mark.parametrize(
+    "text, want",
+    [
+        ("3.5배 늘었다", ["3.5배 늘었다"]),
+        ("2025. 3월에 시작했다", ["2025.", "3월에 시작했다"]),
+        ("순위는 2. 번째였다", ["순위는 2.", "번째였다"]),
+        ("3명이 왔다", ["3명이 왔다"]),
+        ("1. 80% 올렸다", ["80% 올렸다"]),
+    ],
+)
+def test_split_keeps_numbers_that_are_not_markers(text, want):
+    assert split_sentences(text) == want
+
+
+def test_list_marker_is_not_checked_as_number(client_with):
+    body = {"text": "1. 스터디원 6명의 풀이를 리뷰했습니다.", "experiences": [EXP_106]}
+    out = {"verdicts": [_v(1, "USER_INPUT", ("EXPERIENCE", 106))]}
+    assert _post(client_with, out, body).json()["sentences"][0]["status"] == "USER_INPUT"
+
+
 def test_split_keeps_text_as_continuous_parts():
-    text = "  첫 문장입니다.  둘째는 3.5 예요!\n\n셋째 "
+    text = "  첫 문장입니다.  둘째는 3.5 예요!\n\n 1. 셋째 "
     at = 0
     for sentence in split_sentences(text):
         at = text.index(sentence, at) + len(sentence)

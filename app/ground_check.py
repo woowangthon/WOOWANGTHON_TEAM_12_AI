@@ -113,13 +113,22 @@ LLM_JSON_SCHEMA: dict[str, Any] = {
     "required": ["verdicts"],
 }
 
-# 끝 부호 뒤 공백 · 줄바꿈, 또는 줄바꿈 — 글 끝은 어차피 끊긴다. 「3.5」 「v2.1」 은 뒤에 공백이 없어 끊지 않는다
-_BOUNDARY = re.compile(r"(?<=[.?!…。])\s+|[\r\n]+")
+# 끝 부호 뒤 공백 — 글 끝은 어차피 끊긴다. 「3.5」 「v2.1」 은 뒤에 공백이 없어 끊지 않는다
+_SENTENCE_END = re.compile(r"(?<=[.?!…。])\s+")
+_LINE_BREAK = re.compile(r"[\r\n]+")
+# 줄 맨 앞 번호 표시 — 「1.」 「1)」 「(1)」 「①」. 「3.5배」는 번호가 아니다
+_LIST_MARKER = re.compile(r"^\s*(?:\d{1,2}(?:\.(?!\d)|\))|\(\d{1,2}\)|[①-⑳])")
 
 
 def split_sentences(text: str) -> list[str]:
-    """계약 「문장 나누기」. 글자는 바꾸지 않는다 — 조각마다 앞뒤 공백만 걷고 빈 조각은 버린다."""
-    return [s for s in (p.strip() for p in _BOUNDARY.split(text)) if s]
+    """계약 「문장 나누기」. 글자는 바꾸지 않는다 — 번호 표시 · 앞뒤 공백만 걷고 빈 조각은 버린다.
+
+    번호를 문장에 남기면 근거에 없는 숫자로 잡혀 그 문장이 통째로 근거 없음이 된다(AI#60).
+    """
+    pieces = []
+    for line in _LINE_BREAK.split(text):
+        pieces += _SENTENCE_END.split(_LIST_MARKER.sub("", line, count=1))
+    return [s for s in map(str.strip, pieces) if s]
 
 
 def check_request(
