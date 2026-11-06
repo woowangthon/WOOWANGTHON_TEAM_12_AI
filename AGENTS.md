@@ -87,7 +87,7 @@ SPEC 항목 → plan-feature 로 이슈 → implement-issue: 읽기 → (모르�
 
 ## 라벨 · 브랜치 · 커밋
 
-- 라벨: 종류 `feat` `fix` `refactor` `docs` `chore` · 우선순위 `P0`(데모 코어) `P1` `P2` · ETC 부모 이슈 `epic`
+- 라벨: 종류 `feat` `fix` `refactor` `docs` `chore` · 우선순위 `P0`(데모 코어) `P1` `P2` `P3`(P2 보다 뒤 · 당분간 안 함) · ETC 부모 이슈 `epic`
 - 브랜치: `<종류>/<이슈번호>-<짧은-이름>` — 예 `feat/12-text-input`, `fix/27-json-validation`
 - 커밋: `<종류>(<범위>): <무엇을 왜>` — 예 `feat(card): 인계 카드 화면 그리기`. `wip` · `fix` 한 단어는 남기지 않는다.
 
