@@ -4,7 +4,7 @@
     uv run python scripts/eval_ground.py --models openai:gpt-6-luna --runs 2
     uv run python scripts/eval_ground.py --rescore eval-runs/ground-<시각>   # 저장한 응답만 다시 채점(LLM 안 부름)
 
-LLM 호출 수 = 답 수 × 모델 수 × 회 수 — 기본 9회(규칙 위반이면 답마다 최대 LLM_MAX_ATTEMPTS 번).
+LLM 호출 수 = 답 수 × 모델 수 × 회 수 — 기본 15회(규칙 위반이면 답마다 최대 LLM_MAX_ATTEMPTS 번).
 응답은 --out 폴더(기본 eval-runs/ground-<시각>, 커밋하지 않음)에 저장한다. 모델 폴백 없이 고른 모델만 부른다.
 키는 --env 파일(기본 레포의 .env)에서 읽고 화면에 찍지 않는다.
 
@@ -119,7 +119,11 @@ def load_answers(only: list[str] | None = None) -> list[dict]:
 
 
 def answer_text(answer: dict) -> str:
-    return " ".join(s["text"] for s in answer["sentences"])
+    """번호 목록 답(문장에 mark 가 있다)은 줄마다 번호를 붙이고, 그 밖엔 공백으로 잇는다."""
+    sentences = answer["sentences"]
+    if "mark" in sentences[0]:
+        return "\n".join(f"{s['mark']}{s['text']}" for s in sentences)
+    return " ".join(s["text"] for s in sentences)
 
 
 # ---- 실행 ----
