@@ -14,15 +14,15 @@ from app.errors import LLMError, LLMTimeout
 from app.llm import ToolCall, ToolTurn
 from app.main import get_mcp_connect
 from app.mcp_client import McpOutcome, McpToolInfo, McpUnavailable, read_outcome
-from app.schemas import AgentRequest
+from app.schemas import JOB_ROLES, ORGANIZATION_TYPES, AgentRequest
 
 OBJECT = {"type": "object", "properties": {"query": {"type": "string"}}}
 APPLICATION_SCHEMA = {
     "type": "object",
     "properties": {
         "organization": {"type": "string"},
-        "organizationType": {"type": ["string", "null"]},
-        "jobRole": {"type": ["string", "null"]},
+        "organizationType": {"type": ["string", "null"], "enum": [*ORGANIZATION_TYPES, None]},
+        "jobRole": {"type": ["string", "null"], "enum": [*JOB_ROLES, None]},
         "questions": {
             "type": "array",
             "minItems": 1,
@@ -242,8 +242,16 @@ def test_모델에게_add_source_는_처음_끝_구절로_보인다():
     "arguments",
     [
         {"organization": "OO", "questions": [{"text": "지어낸 문항"}]},
-        {"organization": "OO", "organizationType": "COMPANY", "questions": [{"text": "협업 경험"}]},
-        {"organization": "OO", "jobRole": "개발", "questions": [{"text": "협업 경험"}]},
+        {
+            "organization": "OO",
+            "organizationType": "COMPANY",
+            "questions": [{"text": "협업 경험"}],
+        },  # 스키마 — 값 목록 밖
+        {
+            "organization": "OO",
+            "jobRole": "개발",
+            "questions": [{"text": "협업 경험"}],
+        },  # 스키마 — 값 목록 밖
         {"questions": [{"text": "협업 경험"}]},  # 스키마 — organization 없음
         {"organization": "OO", "questions": []},  # 스키마 — 문항 1개 이상
     ],

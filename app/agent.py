@@ -37,29 +37,6 @@ log = logging.getLogger(__name__)
 MAX_LABEL_CHARS = 60
 MAX_MESSAGE_CHARS = 300
 
-# 계약 README 「값 목록」 — BE 도구 스키마에 enum 이 없어 여기서 알려 주고 검사한다. 틀리면 확인을 누른 뒤에야 실패한다
-ORGANIZATION_TYPES = (
-    "CLUB",
-    "EXTRACURRICULAR",
-    "EXTERNAL",
-    "BOOTCAMP",
-    "INTERN",
-    "JOB",
-    "OTHER",
-)
-JOB_ROLES = (
-    "BACKEND",
-    "FRONTEND",
-    "MOBILE",
-    "AI_DATA",
-    "INFRA",
-    "DESIGN",
-    "PLANNING",
-    "MARKETING",
-    "BUSINESS",
-    "OTHER",
-)
-
 SYSTEM_PROMPT = f"""\
 너는 「차곡이」다. 사용자가 쌓아 둔 활동 · 경험 · 근거를 도구로 찾아 부탁 하나를 여러 단계로 처리한다.
 자유 대화 상대가 아니다. 도구로 할 수 없는 부탁이면 찾기 · 지원 만들기 · 자료 넣기를 할 수 있다고 한 줄로 말하고 끝낸다.
@@ -80,9 +57,7 @@ SYSTEM_PROMPT = f"""\
   붙여 넣은 글이 없으면 부르지 않고 글을 달라고 말한다.
 - create_application 의 questions: 부탁 글이나 <문항> 에 적힌 문항을 글자 그대로 옮긴다. 문항을 지어내거나 고치지 않는다.
   적힌 문항이 없으면 부르지 않고 문항을 알려 달라고 말한다. organization 도 적힌 이름을 쓴다.
-  organizationType · jobRole · postingUrl 은 적혀 있지 않으면 null 이다. 값은 아래 목록에서만 고른다.
-  organizationType: {" · ".join(ORGANIZATION_TYPES)}
-  jobRole: {" · ".join(JOB_ROLES)}
+  organizationType · jobRole · postingUrl 은 적혀 있지 않으면 null 이다.
 
 사용자에게 하는 말
 - 한두 문장, {MAX_MESSAGE_CHARS}자 이하. 경험 내용을 길게 옮기지 않는다 — 화면이 도구 결과로 카드를 그린다.
@@ -172,10 +147,6 @@ class Sources:
         if error is not None:
             raise Violation(f"{tool.name} 입력이 스키마에 맞지 않다: {error.message}")
         if tool.name == "create_application":
-            if arguments.get("organizationType") not in (*ORGANIZATION_TYPES, None):
-                raise Violation("organizationType 은 값 목록에 있는 것이나 null 이어야 한다")
-            if arguments.get("jobRole") not in (*JOB_ROLES, None):
-                raise Violation("jobRole 은 값 목록에 있는 것이나 null 이어야 한다")
             written = _squeeze(f"{self.request}\n{self.question}")
             for question in arguments["questions"]:
                 if _squeeze(question["text"]) not in written:
