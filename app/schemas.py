@@ -78,6 +78,8 @@ class ExtractRequest(BaseModel):
     text: str | None = None
     # 빼면 [] 와 같다(S-44 전 BE 와 맞물리게)
     existingActivities: list[ExistingActivity] = []
+    # 「자료 더하기」로 사용자가 고른 활동(S-60) — existingActivities 의 id 또는 null
+    targetActivityId: int | None = None
 
 
 # ---- 기간 (요청 · 응답 공통) ----

@@ -8,7 +8,9 @@ from fastapi.testclient import TestClient
 
 from app.config import load_settings
 from app.errors import LLMError, LLMTimeout
+from app.extract import SYSTEM_PROMPT, TARGET_RULE, build_user_message
 from app.main import app
+from app.schemas import ExistingActivity
 from tests.conftest import FakeLLM
 
 GOOD = {
@@ -234,7 +236,7 @@ class SpyLLM(FakeLLM):
     """받은 사용자 메시지 · 스키마를 남긴다."""
 
     async def generate_json(self, system, user, schema, deadline):
-        self.user, self.schema = user, schema
+        self.system, self.user, self.schema = system, user, schema
         return await super().generate_json(system, user, schema, deadline)
 
 
@@ -364,3 +366,48 @@ def test_category_meanings_match_contract_list():
     assert all(w in meanings["PROJECT"] for w in ("공모전", "대회", "아르바이트"))
     assert all(w in meanings["STUDY"] for w in ("자격증", "어학"))
     assert all(w in meanings["CLUB"] for w in ("봉사", "멘토링"))
+
+
+# ---- 활동에 자료 더하기 targetActivityId (S-60) ----
+
+
+@pytest.mark.parametrize(
+    ("existing", "target"),
+    [
+        (EXISTING, 99),  # 목록 밖
+        ([], 7),  # 목록이 비었는데 대상
+    ],
+)
+def test_target_outside_existing_is_400_without_calling_llm(client_with, existing, target):
+    llm = FakeLLM()
+    res = client_with(llm).post(
+        "/extract", json={**BODY, "existingActivities": existing, "targetActivityId": target}
+    )
+    assert res.status_code == 400
+    assert res.json()["error"]["code"] == "INVALID_REQUEST"
+    assert llm.calls == 0
+
+
+def test_target_reaches_prompt_and_id_comes_back(client_with):
+    out = _bad(lambda d: d["activities"][0].update(sameAsActivityId=7))
+    llm = SpyLLM(out)
+    res = client_with(llm).post(
+        "/extract", json={**BODY, "existingActivities": EXISTING, "targetActivityId": 7}
+    )
+    assert res.status_code == 200
+    assert [a["sameAsActivityId"] for a in res.json()["activities"]] == [7, None]
+    line = "[ID 7] 바꿔요 — 캠퍼스 중고거래 앱 (2025-03 ~ 2025-06)"
+    assert f"<대상 활동>\n{line}\n</대상 활동>" in llm.user
+    assert TARGET_RULE in llm.system
+
+
+@pytest.mark.parametrize("body", [{}, {"targetActivityId": None}], ids=["빼기", "null"])
+def test_no_target_keeps_prompt_exactly(client_with, body):
+    # 대상이 없으면 S-44 채점이 그대로 유효하다 — 시스템 · 사용자 메시지가 지금과 한 글자도 같다
+    llm = SpyLLM(GOOD)
+    res = client_with(llm).post("/extract", json={**BODY, "existingActivities": EXISTING, **body})
+    assert res.status_code == 200
+    assert llm.system == SYSTEM_PROMPT
+    existing = [ExistingActivity.model_validate(a) for a in EXISTING]
+    assert llm.user == build_user_message(BODY["sourceName"], BODY["text"], existing)
+    assert "대상 활동" not in llm.user

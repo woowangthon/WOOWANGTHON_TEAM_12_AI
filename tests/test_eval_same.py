@@ -33,7 +33,9 @@ def test_inputs_obey_the_request_rules(item):
     for want in item["answers"]:
         assert {want["same"], *want.get("maybe", [])} - {None} <= set(existing)
         # 정답 활동의 이름 조각이 원본에 있어야 LLM 활동 이름으로 찾을 수 있다
-        assert any(k in req["text"] for k in want["keys"]), want["keys"]
+        assert want.get("whole") or any(k in req["text"] for k in want["keys"]), want["keys"]
+    # 대상은 목록에 있어야 한다(없으면 400)
+    assert item.get("target") in {None, *existing}
 
 
 def _act(name, same):
@@ -73,3 +75,61 @@ def test_score_maybe_and_empty_list():
     s = Score()
     score_item(s, empty, {"activities": [_act("아무 활동", 7)]})
     assert len(s.id_on_empty) == 1 and len(s.wrong) == 1
+
+
+def _item(item_id):
+    return next(i for i in INPUTS if i["id"] == item_id)
+
+
+def test_target_inputs_cover_the_issue():
+    # 이슈 완료 조건 — 대상을 찾아야 함 · 활동 여럿인 이력서 · 이름 없는 README · 대상이 자료에 없음
+    targets = [i for i in INPUTS if "target" in i]
+    assert len(targets) >= 10
+    assert all(build_request(i)["targetActivityId"] == i["target"] for i in targets)
+    assert len(_item("target-resume-many")["answers"]) == 4
+    absent = _item("target-resume-absent")
+    assert all(a["same"] != absent["target"] for a in absent["answers"])
+    assert _item("target-readme-no-name")["answers"][0]["whole"]
+
+
+def test_score_target_caught_and_leaned():
+    s = Score()
+    score_item(
+        s,
+        _item("target-resume-many"),
+        {
+            "activities": [
+                _act("데이터분석 학회 DASH", 14),  # 대상 찾음
+                _act("길동무", 14),  # 대상 쪽으로 쏠림
+                _act("카페 아르바이트", 13),
+                _act("고등학교 방송부", None),
+            ]
+        },
+    )
+    assert (s.target_caught, s.target_expected, len(s.target_missed)) == (1, 1, 0)
+    assert len(s.target_wrong) == 1 and "길동무" in s.target_wrong[0]
+
+
+def test_score_target_missed_and_whole():
+    item = _item("target-readme-no-name")
+    s = Score()
+    score_item(s, item, {"activities": [_act("여행 앱", 15)]})  # 이름과 상관없이 잡는다
+    assert (s.target_caught, len(s.target_missed), s.not_found) == (1, 0, [])
+    s = Score()
+    score_item(s, item, {"activities": [_act("여행 앱", None)]})
+    assert (s.target_caught, len(s.target_missed)) == (0, 1)
+    s = Score()
+    score_item(s, item, {"activities": []})  # 활동을 못 뽑아도 대상 놓침이다
+    assert (s.target_caught, len(s.target_missed), len(s.not_found)) == (0, 1, 1)
+
+
+def test_score_target_maybe_null_is_not_missed():
+    s = Score()
+    score_item(s, _item("target-no-clue"), {"activities": [_act("회의록", None)]})
+    assert (s.target_caught, s.target_missed, s.wrong) == (0, [], [])
+
+
+def test_score_target_on_other_activity_counts_as_leaning():
+    s = Score()
+    score_item(s, _item("target-wrong-file"), {"activities": [_act("하루가계", 13)]})
+    assert len(s.target_wrong) == 1 and len(s.wrong) == 1
