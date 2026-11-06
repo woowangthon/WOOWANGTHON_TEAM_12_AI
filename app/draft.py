@@ -208,31 +208,30 @@ LLM_JSON_SCHEMA: dict[str, Any] = {
 
 @dataclass(frozen=True)
 class Backing:
-    """문장을 받칠 수 있는 글 하나. context 는 숫자 대조에만 더 보는 활동 이름 · 기간."""
+    """문장을 받칠 수 있는 글 하나."""
 
     experience: MatchExperience
     text: str
-    context: str
 
 
 def backings(experiences: list[MatchExperience]) -> dict[tuple[str, int], Backing]:
     """(type, id) → 받치는 글. 계약 「받칠 것」 — EXPERIENCE 는 USER_ENTERED 경험의 본문만."""
     found: dict[tuple[str, int], Backing] = {}
     for exp in experiences:
-        p = exp.period
-        context = " ".join(x for x in (exp.activityName, p and p.start, p and p.end) if x)
         for c in exp.citations:
-            found["CITATION", c.id] = Backing(exp, c.quote, context)
+            found["CITATION", c.id] = Backing(exp, c.quote)
         for s in exp.supplements:
-            found["SUPPLEMENT", s.id] = Backing(exp, s.answer, context)
+            found["SUPPLEMENT", s.id] = Backing(exp, s.answer)
         if exp.sourceStatus == "USER_ENTERED":
-            found["EXPERIENCE", exp.id] = Backing(exp, exp.content, context)
+            found["EXPERIENCE", exp.id] = Backing(exp, exp.content)
     return found
 
 
 def missing_numbers(text: str, cited: list[Backing]) -> list[str]:
-    """문장 속 숫자 중 그 문장이 붙인 글 · 그 경험의 활동 이름 · 기간에 없는 것."""
-    return unsupported_numbers(text, " ".join(f"{b.text} {b.context}" for b in cited))
+    """문장 속 숫자 중 그 문장이 붙인 글 · 그 경험의 활동 이름에 없고, 기간의 날짜도 아닌 것."""
+    source = " ".join(f"{b.text} {b.experience.activityName}" for b in cited)
+    periods = [b.experience.period for b in cited if b.experience.period]
+    return unsupported_numbers(text, source, [x for p in periods for x in (p.start, p.end) if x])
 
 
 _STATUS = {"SUPPORTED": "자료가 받침", "PARTIAL": "일부만", "NOT_FOUND": "자료에 없음"}

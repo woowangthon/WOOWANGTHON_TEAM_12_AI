@@ -251,19 +251,17 @@ def test_number_may_come_from_activity_and_period():
 
 
 def test_number_in_other_evidence_does_not_back():
-    """보완 301 의 「3초」는 근거 201 만 붙인 문장을 받치지 못한다(기간 2025-03 의 3 과 겹치지 않게 기간을 뺀다)."""
-    exp = {**EXP_101, "period": None}
+    """보완 301 의 「3초」는 근거 201 만 붙인 문장을 받치지 못한다 — 기간 2025-03 의 3 도 못 받친다."""
     out = _with(
         {"kind": "FACT", "text": "앱의 3초 폴링 코드를 바꿨습니다.", "evidence": FIRST["evidence"]}
     )
     with pytest.raises(ValueError, match="숫자"):
-        check_output(LLMDraftOutput.model_validate(out), [MatchExperience.model_validate(exp)])
+        check_output(LLMDraftOutput.model_validate(out), [MatchExperience.model_validate(EXP_101)])
 
 
 def test_supplement_question_does_not_back_numbers():
     """보완의 질문은 사실이 아니다 — 답에 있는 숫자만 받친다."""
     exp = _exp(101, "본문", "ME", supplements=[(301, "3초 폴링을 어떻게 바꿨나요?", "구독으로")])
-    exp["period"] = None
     out = _with(
         {
             "kind": "FACT",
@@ -283,15 +281,60 @@ def test_supplement_question_does_not_back_numbers():
         ("２０２５-03", {"2025", "3"}),
         ("3,4주차", {"3", "4"}),
         ("숫자 없음.", set()),
+        ("세 번 · 두 달간 · 열두 명이서 · 스무 살", {"3", "2", "12", "20"}),
+        ("세번 고쳤고 다섯 곳에 두 배로", {"3", "5", "2"}),
     ],
 )
 def test_numbers(text, want):
     assert numbers(text) == want
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "한 번 더 도전하고 싶습니다.",
+        "한 달 동안 한 명씩 만났습니다.",
+        "두 번째로 배운 점은 소통입니다.",
+        "세 가지를 배웠습니다.",
+        "두세 번 고쳤습니다.",
+        "네다섯 명이 모였습니다.",
+        "한두 달 걸렸습니다.",
+        "두 개발자가 세 번역본을 맡았습니다.",
+        "네, 맞습니다. 둘 다 좋습니다.",
+        "세상을 바꾸고 두려움을 이겼습니다.",
+    ],
+)
+def test_words_that_are_not_numbers(text):
+    assert numbers(text) == set()
+
+
 def test_unsupported_numbers():
     assert unsupported_numbers("1200명 중 3명", "1,200명이 왔다") == ["3"]
-    assert unsupported_numbers("세 번", "") == []  # 한글 수사는 못 잡는다 — 채점으로
+    assert unsupported_numbers("세 번", "") == ["3"]
+    assert unsupported_numbers("세 번 고쳤다", "3번 고쳤다") == []
+    assert unsupported_numbers("3번 고쳤다", "세 번 고쳤다") == []
+
+
+@pytest.mark.parametrize(
+    ("text", "want"),
+    [
+        ("2025년 3월부터 6월까지", []),
+        ("2025.03 ~ 2025-06", []),
+        ("3초로 줄였습니다", ["3"]),
+        ("3명이 3개월 동안", ["3"]),
+        ("3년 동안", ["3"]),
+        ("3월에 3초로 줄였습니다", ["3"]),
+        ("4월에 시작했습니다", ["4"]),
+        ("2024년에 시작했습니다", ["2024"]),
+        ("세 번 고쳤습니다", ["3"]),
+    ],
+)
+def test_period_backs_only_dates(text, want):
+    assert unsupported_numbers(text, "", ["2025-03", "2025-06"]) == want
+
+
+def test_year_only_period_backs_year():
+    assert unsupported_numbers("2025년 3월", "", ["2025"]) == ["3"]
 
 
 @pytest.mark.parametrize(
@@ -546,3 +589,10 @@ def test_guidelines_count_toward_text_limit(client_with):
     limit = len(QUESTION["text"]) + experience_chars(DraftRequest.model_validate(BODY).experiences)
     r = client_with(FakeLLM(GOOD), max_match_chars=limit).post("/draft", json=GUIDED)
     assert r.status_code == 413
+
+
+def test_korean_number_in_opinion_fails():
+    """한글 수사도 숫자다 — 생각 문장에 쓰면 아라비아 숫자와 같이 막는다."""
+    out = _with(FIRST, {"kind": "OPINION", "text": "세 번 더 도전하겠습니다.", "evidence": []})
+    with pytest.raises(ValueError, match="숫자"):
+        check_output(LLMDraftOutput.model_validate(out), [MatchExperience.model_validate(EXP_101)])
