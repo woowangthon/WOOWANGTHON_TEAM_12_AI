@@ -91,12 +91,35 @@
             "string",
             "null"
           ],
+          "enum": [
+            "CLUB",
+            "EXTRACURRICULAR",
+            "EXTERNAL",
+            "BOOTCAMP",
+            "INTERN",
+            "JOB",
+            "OTHER",
+            null
+          ],
           "description": "지원처 종류. 모르면 null"
         },
         "jobRole": {
           "type": [
             "string",
             "null"
+          ],
+          "enum": [
+            "BACKEND",
+            "FRONTEND",
+            "MOBILE",
+            "AI_DATA",
+            "INFRA",
+            "DESIGN",
+            "PLANNING",
+            "MARKETING",
+            "BUSINESS",
+            "OTHER",
+            null
           ],
           "description": "직무. 모르면 null"
         },
@@ -105,7 +128,7 @@
             "string",
             "null"
           ],
-          "description": "공고 원문 링크. 없으면 null"
+          "description": "공고 원문 링크 — 사용자가 준 http(s) 링크만. 없으면 null"
         },
         "questions": {
           "type": "array",

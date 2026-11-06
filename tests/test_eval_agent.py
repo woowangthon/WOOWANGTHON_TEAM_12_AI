@@ -5,6 +5,7 @@ import json
 
 import pytest
 
+from app.schemas import JOB_ROLES, ORGANIZATION_TYPES
 from scripts.eval_agent import (
     EXPERIENCES,
     EvalMcp,
@@ -21,6 +22,14 @@ REQUESTS = load_requests()
 TOOLS = load_tools()
 EXPERIENCE_LIST = json.loads(EXPERIENCES.read_text(encoding="utf-8"))
 IDS = {e["id"] for e in EXPERIENCE_LIST}
+
+
+def test_도구_사본의_값_목록은_지원_읽기_목록과_같다():
+    # 차곡이는 BE 스키마의 enum 으로, 지원 읽기는 app/schemas.py 로 거른다 — 계약 「값 목록」
+    tool = next(t for t in TOOLS if t.name == "create_application")
+    properties = tool.input_schema["properties"]
+    assert properties["organizationType"]["enum"] == [*ORGANIZATION_TYPES, None]
+    assert properties["jobRole"]["enum"] == [*JOB_ROLES, None]
 
 
 def test_requests_cover_every_shape():
