@@ -18,7 +18,7 @@ body:
     id: read
     attributes:
       label: 읽을 것
-      description: 시작 전에 읽을 문서 · 코드. 문서는 파일 이름만 적지 말고 절까지 — 파일 이름만 있으면 전문을 읽게 된다
+      description: 시작 전에 읽을 문서 · 코드. 문서는 파일 이름만 적지 말고 절까지 — 파일 이름만 있으면 전문을 읽게 된다. FE 화면이 바뀌면 ETC docs/design/chagok/ 의 그 화면과 docs/design/DESIGN.md 「시안과 일부러 다른 곳」도 적는다
       placeholder: "- docs/SPEC.md §0 제품 원칙 · R-01 F-03\n- docs/contracts/experience.md 「활동 조회」"
   - type: textarea
     id: done
