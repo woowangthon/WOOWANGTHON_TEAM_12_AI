@@ -287,7 +287,7 @@ class AskResponse(LLMAskOutput):
 
 DraftEvidenceType = Literal["CITATION", "SUPPLEMENT", "EXPERIENCE"]
 # 값 목록은 ETC docs/contracts/README.md 「값 목록」 draftSentenceKind
-DraftSentenceKind = Literal["FACT", "OPINION"]
+DraftSentenceKind = Literal["FACT", "OPINION", "ELABORATED"]
 # 구성 틀 — README 「값 목록」 draftFrame(S-50). NONE 이나 없으면 기본 순서(AI#46)
 DraftFrame = Literal["STAR", "CARL", "PREP", "NONE"]
 
@@ -310,6 +310,8 @@ class DraftQuestion(MatchQuestion):
     jobRole: "JobRole | None" = None
     requirements: list[DraftRequirement] | None = None
     frame: DraftFrame | None = None
+    # 목표 글자 수(S-77). 목표의 80 ~ 100% 를 노리되 못 채워도 실패가 아니다
+    targetLength: Annotated[int, Field(ge=100, le=5000)] | None = None
 
 
 class DraftExperience(MatchExperience):
@@ -329,6 +331,8 @@ class DraftRequest(MatchRequest):
     # 모양은 /match 와 같고 고른 경험만 싣는다. 개수는 app/draft.py check_request 가 본다(400)
     question: DraftQuestion | None = None
     experiences: list[DraftExperience] | None = None
+    # 같은 활동의 나머지 경험 — 뒷받침 재료(S-75). 개수 · id 겹침은 app/draft.py check_request 가 본다(400)
+    contextExperiences: list[MatchExperience] | None = None
     guidelines: list[DraftGuideline] | None = None
 
 
@@ -338,10 +342,12 @@ class DraftEvidence(BaseModel):
 
 
 class DraftSentence(BaseModel):
-    # kind 마다 근거 · 숫자 규칙이 달라 app/draft.py check_output 이 본다
+    # kind 마다 근거 · 숫자 · note 규칙이 달라 app/draft.py check_output 이 본다
     kind: DraftSentenceKind
     text: Annotated[NonBlank, AfterValidator(_one_line)]
     evidence: list[DraftEvidence]
+    # ELABORATED 만 — 왜 확인이 필요한지 한 줄(S-78)
+    note: Annotated[NonBlank, AfterValidator(_one_line), Field(max_length=60)] | None = None
 
 
 class DraftOmitted(BaseModel):
@@ -350,6 +356,9 @@ class DraftOmitted(BaseModel):
     text: NonBlank
     question: NonBlank | None
     experienceId: int | None
+    # 문장 속 빈칸(S-78) — 둘 다 있거나 둘 다 null. 모양 · 문장 안 짝은 app/draft.py check_output 이 본다
+    placeholder: str | None = None
+    sentenceIndex: int | None = None
 
 
 class DraftGuidelineResult(BaseModel):
