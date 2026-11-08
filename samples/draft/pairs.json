@@ -464,5 +464,70 @@
         ]
       }
     ]
+  },
+  {
+    "id": "ctx-tech",
+    "organization": "OO 백엔드 부트캠프",
+    "text": "개발하면서 마주친 기술적 문제와, 그 문제를 어떻게 해결했는지 적어 주세요.",
+    "targetLength": 600,
+    "experienceIds": [101],
+    "contextExperienceIds": [106, 107, 104, 102, 103],
+    "missing": [
+      {"fact": "바꾼 뒤 지연이 얼마나 줄었는지", "pattern": "초 ?만에|[0-9]+ ?%|절반|크게 줄|대폭|빨라졌", "omitPattern": "줄|빨라|지연|얼마나|결과", "mustOmit": true},
+      {"fact": "WebSocket 을 고른 이유", "pattern": "WebSocket.{0,30}(골랐|선택|택했|낫다고|적합)", "omitPattern": "이유|고른|선택|왜"}
+    ],
+    "expect": [{"pattern": "STOMP|구독", "evidence": [["SUPPLEMENT", 301]]}]
+  },
+  {
+    "id": "ctx-collab",
+    "organization": null,
+    "text": "팀에서 의견이 갈렸을 때 어떻게 조율했는지 적어 주세요.",
+    "targetLength": 500,
+    "experienceIds": [107],
+    "contextExperienceIds": [106, 101, 104, 102, 103],
+    "missing": [
+      {"fact": "정한 뒤 결과(후기 참여 · 반응)", "pattern": "참여|늘었|반응|만족|좋아졌", "omitPattern": "결과|반응|어떻게 됐|이후", "mustOmit": true},
+      {"fact": "상대를 설득한 말 · 마음", "pattern": "설득|공감|배려|존중", "omitPattern": "설득|어떻게"}
+    ],
+    "expect": [{"pattern": "표로|장단점", "evidence": [["CITATION", 208]]}]
+  },
+  {
+    "id": "ctx-unknown",
+    "organization": null,
+    "text": "개발하면서 마주친 기술적 문제와, 그 문제를 어떻게 해결했는지 적어 주세요.",
+    "targetLength": 500,
+    "experienceIds": [114],
+    "contextExperienceIds": [113, 116, 111, 112, 115],
+    "missing": [
+      {"fact": "고친 뒤 서버가 안정됐는지", "pattern": "안정|다시 죽지|더는 죽지|줄었", "omitPattern": "뒤|이후|결과|안정", "mustOmit": true}
+    ],
+    "expect": [{"pattern": "커넥션", "evidence": [["CITATION", 214]]}]
+  },
+  {
+    "id": "ctx-two",
+    "organization": null,
+    "text": "스스로 문제를 찾아 개선한 경험을 적어 주세요.",
+    "targetLength": 700,
+    "experienceIds": [101, 108],
+    "contextExperienceIds": [106, 107, 104, 102, 103, 105],
+    "missing": [
+      {"fact": "개선 뒤 결과(지연 · 참여 변화)", "pattern": "[0-9]+ ?%|크게|대폭|두 배|늘었|줄었", "omitPattern": "결과|어떻게 됐|얼마나|변화", "mustOmit": true}
+    ],
+    "expect": [
+      {"pattern": "STOMP|구독", "evidence": [["SUPPLEMENT", 301]]},
+      {"pattern": "시트", "evidence": [["CITATION", 209]]}
+    ]
+  },
+  {
+    "id": "target-thin",
+    "organization": null,
+    "text": "개인 프로젝트를 만들며 배운 점을 적어 주세요.",
+    "targetLength": 1000,
+    "experienceIds": [141],
+    "missing": [
+      {"fact": "만들며 배운 점", "pattern": "배웠|깨달|알게 됐", "omitPattern": "배운|느낀", "mustOmit": true},
+      {"fact": "친구들의 반응 · 피드백", "pattern": "반응|피드백|좋아|불편|만족", "omitPattern": "반응|피드백|의견"}
+    ],
+    "expect": [{"pattern": "5명|5 명", "evidence": [["EXPERIENCE", 141]]}]
   }
 ]

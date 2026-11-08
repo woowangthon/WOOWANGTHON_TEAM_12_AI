@@ -51,6 +51,18 @@ jobRole · requirements · hints 가 있는 쌍은 매칭 결과 · 직무를 �
 - 강조 쌍 지어냄(후보): hints 가 있는 쌍의 지어냄 + 없는 사실 — 강조점 · 직무 때문에 없는 사실이 늘었나(강조점에만 있는 판단 ·
   숫자 · 직무 경력을 missing 에 적어 둔다)
 - 지난 빈칸 또 물음(후보): 매칭 때 gaps 에 있었지만 지금 보완이 채운 사실(staleGaps)을 omitted 에 다시 적은 수
+
+글 짜임 · AI 보탬 · 빈칸 · 목표 글자 수(S-75 · S-77 · S-78, AI#81) — contextExperienceIds · targetLength 가 있는 쌍은 같이 싣는다:
+- 나열: 문장(FACT · ELABORATED)을 받은 경험이 둘 이상인데 경험마다 한 문장씩뿐인 쌍 수 / 경험(고른 것 + 보조 재료)이 둘 이상인 쌍 수
+- 대표 깊이: 첫째로 고른 경험을 받친 문장이 둘 이상인 쌍 수 / 받칠 것이 있는 쌍 수
+- 첫 문장: 쌍마다 첫 문장을 찍는다 — 주제문인지 사람이 읽는다
+- AI 보탬: ELABORATED 수. 보탬 > 사실: ELABORATED 가 FACT 보다 많은 쌍 수
+- 보탬 지어냄(후보): 그 문항의 자료에 없는 사실(missing)을 ELABORATED 가 쓴 것 같은 수(지어냄(후보)에도 들어 있다 — 따로 본다)
+- 보탬 판단 · 감정(후보): ELABORATED 에 「보았 · 생각했 · 판단했 · 마음먹 …」 같은 사용자의 판단 · 생각이나 감정 · 칭찬 낱말이 있는 수
+- 모름에 「제가」: 근거가 전부 UNKNOWN 경험인데 「제가」로 쓴 문장 — ELABORATED 면 허용(규칙 5), FACT 면 팀 일을 내 일로(후보)에 센다
+- 빈칸: 문장 속 자리 표시 수
+- 목표 맞음: 글자 수가 목표의 80 ~ 100% 인 쌍 수 / targetLength 가 있는 쌍 수. 넘음 · 모자람은 비율을 찍는다
+- 보조 재료 씀: 보조 재료 경험을 받친 문장이 있는 쌍 수 / 보조 재료가 있는 쌍 수. 보조가 뼈대: 보조 재료만 받친 문장이 고른 경험을 받친 문장보다 많은 쌍 수
 """
 
 import argparse
@@ -100,6 +112,10 @@ FLATTERY = re.compile(
     r"뿌듯|기뻤|보람|즐거|즐겁|감동|설레|행복|벅차|느꼈"
     r"|훌륭|뛰어난|뛰어납|탁월|적임|최고|값진|소중한|밑거름|증명|큰 의미|성장할 수 있었"
 )
+# AI 보탬이 사용자의 판단 · 생각 · 동기를 만들어 넣었나(후보 — 사람이 본다)
+JUDGED = re.compile(r"보았|봤습|생각했|판단했|마음먹|결심|다짐|깨달|느꼈|여겼|싶었")
+# 문장 속 빈칸 자리 표시
+MARK = re.compile(r"\[[^\[\]]*\]")
 
 
 @dataclass
@@ -154,6 +170,24 @@ class Score:
     lead_miss: list[str] = field(default_factory=list)
     hinted_invented: list[str] = field(default_factory=list)
     stale_reasked: list[str] = field(default_factory=list)
+    listed: list[str] = field(default_factory=list)
+    list_chances: int = 0
+    deep_hit: int = 0
+    deep_chances: int = 0
+    shallow: list[str] = field(default_factory=list)
+    firsts: list[str] = field(default_factory=list)
+    elaborated: list[str] = field(default_factory=list)
+    elab_heavy: list[str] = field(default_factory=list)
+    elab_invented: list[str] = field(default_factory=list)
+    elab_judged: list[str] = field(default_factory=list)
+    unknown_mine: list[str] = field(default_factory=list)
+    marks: list[str] = field(default_factory=list)
+    target_hit: int = 0
+    target_chances: int = 0
+    target_miss: list[str] = field(default_factory=list)
+    context_used: int = 0
+    context_chances: int = 0
+    context_heavy: list[str] = field(default_factory=list)
 
     def add(self, other: "Score") -> None:
         for name, value in vars(other).items():
@@ -271,9 +305,9 @@ def score_opinions(pair: dict, data: LLMDraftOutput) -> Score:
     s = Score()
     opinions = [x for x in data.sentences if x.kind == "OPINION"]
     s.kind_broken = [
-        f"{pid}: FACT 근거 0개 「{x.text}」"
+        f"{pid}: {x.kind} 근거 0개 「{x.text}」"
         for x in data.sentences
-        if x.kind == "FACT" and not x.evidence
+        if x.kind != "OPINION" and not x.evidence
     ]
     if len(opinions) > MAX_OPINIONS:
         s.kind_broken.append(f"{pid}: OPINION {len(opinions)}개")
@@ -298,16 +332,93 @@ def score_opinions(pair: dict, data: LLMDraftOutput) -> Score:
     return s
 
 
+def score_essay(
+    pair: dict,
+    experiences: list[MatchExperience],
+    context: list[MatchExperience],
+    data: LLMDraftOutput,
+) -> Score:
+    """글 짜임 · AI 보탬 · 빈칸 · 목표 글자 수 · 보조 재료(S-75 · S-77 · S-78)."""
+    pid = pair["id"]
+    s = Score()
+    known = backings([*experiences, *context])
+    chosen = {e.id for e in experiences}
+    written = [x for x in data.sentences if x.kind != "OPINION"]
+    per: dict[int, int] = {}
+    from_context = from_chosen = 0
+    for x in written:
+        owners = {known[e.type, e.id].experience.id for e in x.evidence if (e.type, e.id) in known}
+        for owner in owners:
+            per[owner] = per.get(owner, 0) + 1
+        if owners & chosen:
+            from_chosen += 1
+        elif owners:
+            from_context += 1
+    if len(experiences) + len(context) > 1:
+        s.list_chances = 1
+        if len(per) > 1 and max(per.values()) == 1:
+            s.listed.append(f"{pid}: 경험마다 한 문장 {sorted(per)}")
+    if backings(experiences[:1]):
+        s.deep_chances = 1
+        if per.get(experiences[0].id, 0) >= 2:
+            s.deep_hit = 1
+        else:
+            s.shallow.append(
+                f"{pid}: 경험 {experiences[0].id} 문장 {per.get(experiences[0].id, 0)}개"
+            )
+    if data.sentences:
+        s.firsts.append(f"{pid}: [{data.sentences[0].kind}] 「{data.sentences[0].text}」")
+    elaborated = [x for x in data.sentences if x.kind == "ELABORATED"]
+    facts = [x for x in data.sentences if x.kind == "FACT"]
+    if len(elaborated) > len(facts):
+        s.elab_heavy.append(f"{pid}: ELABORATED {len(elaborated)} > FACT {len(facts)}")
+    for x in elaborated:
+        line = f"{pid}: 「{x.text}」 — note 「{x.note}」"
+        s.elaborated.append(line)
+        s.elab_invented += [
+            f"{pid}: {m['fact']} — {line}"
+            for m in pair["missing"]
+            if re.search(m["pattern"], x.text)
+        ]
+        if JUDGED.search(x.text) or FLATTERY.search(x.text):
+            s.elab_judged.append(line)
+    for x in written:
+        actors = {
+            known[e.type, e.id].experience.actor for e in x.evidence if (e.type, e.id) in known
+        }
+        if actors == {"UNKNOWN"} and MINE_WORDS.search(x.text):
+            s.unknown_mine.append(f"{pid}: [{x.kind}] 「{x.text}」 — note 「{x.note}」")
+    for i, x in enumerate(data.sentences):
+        s.marks += [f"{pid}: [{i}] {mark} 「{x.text}」" for mark in MARK.findall(x.text)]
+    target = pair.get("targetLength")
+    if target:
+        s.target_chances = 1
+        ratio = sum(len(x.text) for x in data.sentences) / target
+        if 0.8 <= ratio <= 1.0:
+            s.target_hit = 1
+        else:
+            s.target_miss.append(f"{pid}: 목표 {target}자의 {ratio:.0%}")
+    if context:
+        s.context_chances = 1
+        s.context_used = int(from_context > 0 or any(per.get(e.id) for e in context))
+        if from_context > from_chosen:
+            s.context_heavy.append(f"{pid}: 보조만 {from_context} > 고른 경험 {from_chosen}")
+    return s
+
+
 def score(
     pair: dict,
     experiences: list[MatchExperience],
     data: LLMDraftOutput,
     facts: list[dict] = (),
+    context: list[MatchExperience] = (),
 ) -> Score:
     pid = pair["id"]
-    s = score_omitted(pair, experiences, data, list(facts))
+    context = list(context)
+    s = score_omitted(pair, [*experiences, *context], data, list(facts))
     s.add(score_opinions(pair, data))
-    known = backings(experiences)
+    s.add(score_essay(pair, experiences, context, data))
+    known = backings([*experiences, *context])
     used = {
         known[e.type, e.id].experience.id
         for sent in data.sentences
@@ -342,11 +453,14 @@ def score(
             for p in pairs
             if p in known
         }
-        if actors and "ME" not in actors:
+        allowed = sent.kind == "ELABORATED" and actors == {
+            "UNKNOWN"
+        }  # 규칙 5 — 확인 필요로 「제가」
+        if actors and "ME" not in actors and not allowed:
             words = MINE_WORDS.findall(text)
             if words or ("TEAM" in actors and not TEAM_SUBJECT.search(text)):
                 s.team_as_mine.append(f"{pid}: {words or '주어 없음'} {line}")
-        if actors == {"UNKNOWN"} and (WHO.search(text) or ACTED.search(text)):
+        if actors == {"UNKNOWN"} and not allowed and (WHO.search(text) or ACTED.search(text)):
             s.unknown_actor.append(line)
         for want in pair["expect"]:
             if re.search(want["pattern"], text):
@@ -405,7 +519,7 @@ def load_facts() -> list[dict]:
 
 def question(pair: dict) -> dict:
     """/draft 요청의 question — jobRole · requirements · frame 은 있는 쌍만."""
-    keys = ("organization", "text", "jobRole", "requirements", "frame")
+    keys = ("organization", "text", "jobRole", "requirements", "frame", "targetLength")
     return {k: pair[k] for k in keys if k in pair}
 
 
@@ -435,6 +549,12 @@ def picked(pair: dict, experiences: list[dict]) -> list[dict]:
         return {**exp, **hint, "supplements": [*exp.get("supplements", []), *more]}
 
     return [with_added(by_id[i]) for i in pair["experienceIds"]]
+
+
+def context_of(pair: dict, experiences: list[dict]) -> list[dict]:
+    """/draft 요청의 contextExperiences — 쌍에 적은 순서대로. 없으면 [](S-75)."""
+    by_id = {e["id"]: e for e in experiences}
+    return [by_id[i] for i in pair.get("contextExperienceIds", [])]
 
 
 # ---- 실행 ----
@@ -470,14 +590,16 @@ async def run(
             {
                 "question": question(pair),
                 "experiences": picked(pair, experiences),
+                "contextExperiences": context_of(pair, experiences),
                 "guidelines": guidelines(pair),
             }
         )
         q, exps, gs = check_request(req, settings)
+        ctx = req.contextExperiences or []
 
         def parse(text: str) -> LLMDraftOutput:
             output = LLMDraftOutput.model_validate_json(text)
-            return check_output(output, exps, gs) if prompt == "tuned" else output
+            return check_output(output, exps, gs, ctx) if prompt == "tuned" else output
 
         async with gate:
             started = time.monotonic()
@@ -485,7 +607,7 @@ async def run(
                 got = await generate_valid(
                     llm,
                     PROMPTS[prompt],
-                    build_draft_message(q, exps, gs),
+                    build_draft_message(q, exps, gs, ctx),
                     schema_for(gs),
                     parse,
                     settings,
@@ -506,7 +628,7 @@ async def run(
 
 def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
     facts = load_facts()
-    rows, details, question_rows, opinion_rows, hint_rows = [], [], [], [], []
+    rows, details, question_rows, opinion_rows, hint_rows, essay_rows = [], [], [], [], [], []
     for model_dir in sorted(p for p in out.iterdir() if p.is_dir()):
         for prompt_dir in sorted(p for p in model_dir.iterdir() if p.is_dir()):
             t = Score()
@@ -522,7 +644,9 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
                     continue
                 t.retried += record.get("attempt", 1) > 1
                 exps = [MatchExperience.model_validate(e) for e in picked(pair, experiences)]
-                t.add(score(pair, exps, LLMDraftOutput.model_validate(record["response"]), facts))
+                ctx = [MatchExperience.model_validate(e) for e in context_of(pair, experiences)]
+                data = LLMDraftOutput.model_validate(record["response"])
+                t.add(score(pair, exps, data, facts, ctx))
             if not t.pairs:
                 continue
             name = f"{model_dir.name} · {prompt_dir.name}"
@@ -551,8 +675,26 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
                 f"| {name} | {t.lead_hit}/{t.lead_chances} | {len(t.hinted_invented)} "
                 f"| {len(t.stale_reasked)} |"
             )
+            essay_rows.append(
+                f"| {name} | {len(t.listed)}/{t.list_chances} | {t.deep_hit}/{t.deep_chances} "
+                f"| {len(t.elaborated)} | {len(t.elab_heavy)} | {len(t.elab_invented)} "
+                f"| {len(t.elab_judged)} | {len(t.unknown_mine)} | {len(t.marks)} "
+                f"| {t.target_hit}/{t.target_chances} | {t.context_used}/{t.context_chances} "
+                f"| {len(t.context_heavy)} |"
+            )
             lines = [
                 *(f"- 오류 {x}" for x in t.errors),
+                *(f"- 나열 {x}" for x in t.listed),
+                *(f"- 대표 얕음 {x}" for x in t.shallow),
+                *(f"- 보탬 > 사실 {x}" for x in t.elab_heavy),
+                *(f"- 보탬 지어냄(후보) {x}" for x in t.elab_invented),
+                *(f"- 보탬 판단 · 감정(후보) {x}" for x in t.elab_judged),
+                *(f"- 모름에 「제가」 {x}" for x in t.unknown_mine),
+                *(f"- 목표 어긋남 {x}" for x in t.target_miss),
+                *(f"- 보조가 뼈대 {x}" for x in t.context_heavy),
+                *(f"- 첫 문장 {x}" for x in t.firsts),
+                *(f"- AI 보탬 {x}" for x in t.elaborated),
+                *(f"- 빈칸 {x}" for x in t.marks),
                 *(f"- 강조 뒤로 {x}" for x in t.lead_miss),
                 *(f"- 강조 쌍 지어냄(후보) {x}" for x in t.hinted_invented),
                 *(f"- 지난 빈칸 또 물음(후보) {x}" for x in t.stale_reasked),
@@ -603,6 +745,11 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
         "| 모델 · 프롬프트 | 강조 앞 | 강조 쌍 지어냄(후보) | 지난 빈칸 또 물음(후보) |\n"
         "| --- | --- | --- | --- |"
     )
+    essay_head = (
+        "| 모델 · 프롬프트 | 나열 | 대표 깊이 | AI 보탬 | 보탬 > 사실 | 보탬 지어냄(후보) "
+        "| 보탬 판단 · 감정(후보) | 모름에 「제가」 | 빈칸 | 목표 맞음 | 보조 재료 씀 | 보조가 뼈대 |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+    )
     tables = "\n\n".join(
         "\n".join(part)
         for part in (
@@ -610,6 +757,7 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
             [question_head, *question_rows],
             [opinion_head, *opinion_rows],
             [hint_head, *hint_rows],
+            [essay_head, *essay_rows],
         )
     )
     return tables + "\n" + "".join(details) + "\n"

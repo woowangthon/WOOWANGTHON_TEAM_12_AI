@@ -15,7 +15,7 @@ from app.draft import (
     check_request,
     schema_for,
 )
-from app.match import build_user_message, experience_chars
+from app.match import build_user_message, experience_chars, experience_lines
 from app.schemas import DraftRequest, LLMDraftOutput, MatchExperience
 from tests.conftest import FakeLLM
 
@@ -105,7 +105,13 @@ def test_contract_example(client_with):
     llm = FakeLLM(GOOD)
     r = client_with(llm).post("/draft", json=BODY)
     assert r.status_code == 200
-    assert r.json() == {**GOOD, "guidelines": [], "model": "fake-model"}
+    # note · placeholder · sentenceIndex 는 쓰지 않았어도 null 로 온다(S-78)
+    assert r.json() == {
+        "sentences": [{**s, "note": None} for s in GOOD["sentences"]],
+        "omitted": [{**o, "placeholder": None, "sentenceIndex": None} for o in GOOD["omitted"]],
+        "guidelines": [],
+        "model": "fake-model",
+    }
     assert llm.calls == 1
 
 
@@ -596,3 +602,316 @@ def test_korean_number_in_opinion_fails():
     out = _with(FIRST, {"kind": "OPINION", "text": "세 번 더 도전하겠습니다.", "evidence": []})
     with pytest.raises(ValueError, match="숫자"):
         check_output(LLMDraftOutput.model_validate(out), [MatchExperience.model_validate(EXP_101)])
+
+
+# ---- AI 보탬 · 보조 재료 · 빈칸 · 목표 글자 수 (S-75 · S-77 · S-78) ----
+
+CTX_103 = _exp(
+    103,
+    "관리자 페이지를 만들어 운영 시간을 줄였다",
+    "ME",
+    [(203, "관리자 페이지를 직접 만들어 운영 부담을 덜었다.")],
+    [(303, "관리자 페이지에서 무엇을 만들었나요?", "신고 목록과 차단 버튼을 만들었다")],
+)
+CTX_143 = _exp(143, "혼자 배포 스크립트를 짰다", "ME", status="USER_ENTERED")
+WITH_CTX = {**BODY, "contextExperiences": [CTX_103]}
+ELAB = {
+    "kind": "ELABORATED",
+    "text": "당시 채팅이 늦어지면 사용자가 불편했을 것이라 이 문제를 먼저 풀어야 했습니다.",
+    "evidence": [{"type": "CITATION", "id": 201}],
+    "note": "문제의 영향은 자료에 없어 풀어 쓴 문장입니다",
+}
+CTX_FACT = {
+    "kind": "FACT",
+    "text": "신고 목록과 차단 버튼을 만들었습니다.",
+    "evidence": [{"type": "SUPPLEMENT", "id": 303}],
+}
+MARKED = {
+    "kind": "FACT",
+    "text": "폴링을 WebSocket 으로 바꿔 지연을 [줄인 정도]만큼 줄였습니다.",
+    "evidence": [{"type": "CITATION", "id": 201}],
+}
+BLANK = {
+    "text": "바꾼 뒤 줄어든 지연",
+    "question": None,
+    "experienceId": None,
+    "placeholder": "[줄인 정도]",
+    "sentenceIndex": 0,
+}
+
+
+def _models(*exps):
+    return [MatchExperience.model_validate(e) for e in exps]
+
+
+def _check(out, exps=(EXP_101,), context=()):
+    return check_output(LLMDraftOutput.model_validate(out), _models(*exps), (), _models(*context))
+
+
+def test_elaborated_context_placeholder_end_to_end(client_with):
+    out = _with(
+        FIRST,
+        ELAB,
+        CTX_FACT,
+        MARKED,
+        omitted=[{**BLANK, "sentenceIndex": 3}, {**ASKED, "experienceId": 103}],
+    )
+    body = {**WITH_CTX, "question": {**QUESTION, "targetLength": 600}}
+    llm = FakeLLM(out)
+    r = client_with(llm).post("/draft", json=body)
+    assert r.status_code == 200
+    got = r.json()
+    assert [s["kind"] for s in got["sentences"]] == ["FACT", "ELABORATED", "FACT", "FACT"]
+    assert got["sentences"][1]["note"] == ELAB["note"]
+    assert got["sentences"][0]["note"] is None
+    assert got["sentences"][2]["evidence"] == [{"type": "SUPPLEMENT", "id": 303}]
+    assert got["omitted"][0]["placeholder"] == "[줄인 정도]"
+    assert got["omitted"][0]["sentenceIndex"] == 3
+    assert got["omitted"][1]["placeholder"] is None
+    assert got["omitted"][1]["experienceId"] == 103
+    assert llm.calls == 1
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        pytest.param(_with(FIRST, {**ELAB, "evidence": []}), id="ELABORATED 근거 0개"),
+        pytest.param(_with(FIRST, {**ELAB, "note": None}), id="ELABORATED note 없음"),
+        pytest.param(_with(FIRST, {**ELAB, "note": " "}), id="ELABORATED note 공백"),
+        pytest.param(_with(FIRST, {**ELAB, "note": "가" * 61}), id="note 60자 넘음"),
+        pytest.param(_with(FIRST, {**ELAB, "note": "가\n나"}), id="note 줄바꿈"),
+        pytest.param(_with({**FIRST, "note": "왜 확인이 필요한지"}), id="FACT 에 note"),
+        pytest.param(_with(FIRST, {**OPINION, "note": "생각"}), id="OPINION 에 note"),
+        pytest.param(
+            _with(FIRST, {**ELAB, "text": "지연을 30% 줄여야 했습니다."}), id="ELABORATED 없는 숫자"
+        ),
+        pytest.param(
+            _with(FIRST, {**ELAB, "evidence": [{"type": "CITATION", "id": 999}]}),
+            id="ELABORATED 없는 근거",
+        ),
+    ],
+)
+def test_elaborated_rules_retry_then_fail(client_with, bad):
+    llm = FakeLLM(bad, bad)
+    r = client_with(llm, max_attempts=2).post("/draft", json=BODY)
+    assert r.status_code == 502
+    assert r.json()["error"]["code"] == "LLM_INVALID_OUTPUT"
+    assert llm.calls == 2
+
+
+def test_elaborated_note_60_chars_ok():
+    _check(_with(FIRST, {**ELAB, "note": "가" * 60}))
+
+
+def test_elaborated_counts_as_written_sentence():
+    """FACT 없이 ELABORATED + OPINION 은 통과, OPINION 만은 막힌다."""
+    _check(_with(ELAB, OPINION))
+    with pytest.raises(ValueError, match="생각 문장만"):
+        _check(_with(OPINION))
+
+
+def test_elaborated_number_backed_like_fact():
+    text = "앱의 3초 폴링을 바꿔야 했습니다."
+    _check(_with(FIRST, {**ELAB, "text": text, "evidence": [{"type": "SUPPLEMENT", "id": 301}]}))
+    # 보완 301 의 3초 는 근거 201 만 붙인 ELABORATED 를 받치지 못한다
+    with pytest.raises(ValueError, match="숫자"):
+        _check(_with(FIRST, {**ELAB, "text": text}))
+
+
+def test_context_evidence_allowed():
+    _check(_with(FIRST, CTX_FACT), context=[CTX_103])
+    cite = {
+        **CTX_FACT,
+        "text": "관리자 페이지를 직접 만들었습니다.",
+        "evidence": [{"type": "CITATION", "id": 203}],
+    }
+    _check(_with(FIRST, cite), context=[CTX_103])
+
+
+def test_context_user_entered_body_is_evidence():
+    out = _with(
+        FIRST,
+        {
+            "kind": "FACT",
+            "text": "혼자 배포 스크립트를 짰습니다.",
+            "evidence": [{"type": "EXPERIENCE", "id": 143}],
+        },
+    )
+    _check(out, context=[CTX_143])
+
+
+def test_context_evidence_without_context_is_foreign():
+    with pytest.raises(ValueError, match="근거"):
+        _check(_with(FIRST, CTX_FACT))
+
+
+def test_context_number_needs_backing():
+    bad = {**CTX_FACT, "text": "신고 목록과 차단 버튼 2개를 만들었습니다."}
+    with pytest.raises(ValueError, match="숫자"):
+        _check(_with(FIRST, bad), context=[CTX_103])
+
+
+def test_omitted_may_point_to_context_experience():
+    out = _with(FIRST, omitted=[{**ASKED, "experienceId": 103}])
+    _check(out, context=[CTX_103])
+    with pytest.raises(ValueError, match="경험 ID"):
+        _check(out)
+    with pytest.raises(ValueError, match="경험 ID"):
+        _check(_with(FIRST, omitted=[{**ASKED, "experienceId": 999}]), context=[CTX_103])
+
+
+def test_zero_sentences_judged_by_chosen_backing_only():
+    bare = _exp(105, "매주 풀 문제를 고른다", "ME", status="NEEDS_REVIEW")
+    # 보조 재료에만 받칠 것이 있어도 고른 경험에 없으면 0개가 맞다
+    _check(_with(omitted=[LOOSE]), exps=[bare], context=[CTX_103])
+    with pytest.raises(ValueError, match="0개"):
+        _check(_with(omitted=[LOOSE]), exps=[EXP_101], context=[CTX_103])
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        pytest.param(99, id="99"),
+        pytest.param(5001, id="5001"),
+        pytest.param(0, id="0"),
+        pytest.param("많이", id="문자열"),
+    ],
+)
+def test_bad_target_length(client_with, target):
+    llm = FakeLLM()
+    body = {"question": {**QUESTION, "targetLength": target}, "experiences": [EXP_101]}
+    r = client_with(llm).post("/draft", json=body)
+    assert r.status_code == 400
+    assert r.json()["error"]["code"] == "INVALID_REQUEST"
+    assert llm.calls == 0
+
+
+@pytest.mark.parametrize("target", [100, 5000])
+def test_target_length_bounds_ok(client_with, target):
+    body = {"question": {**QUESTION, "targetLength": target}, "experiences": [EXP_101]}
+    assert client_with(FakeLLM(GOOD)).post("/draft", json=body).status_code == 200
+
+
+@pytest.mark.parametrize(
+    "context",
+    [
+        pytest.param([_exp(300 + i, "본문", "ME") for i in range(13)], id="13개"),
+        pytest.param([CTX_103, CTX_103], id="중복"),
+        pytest.param([EXP_101], id="고른 경험과 겹침"),
+        pytest.param("없음", id="배열 아님"),
+    ],
+)
+def test_bad_context(client_with, context):
+    llm = FakeLLM()
+    r = client_with(llm).post("/draft", json={**BODY, "contextExperiences": context})
+    assert r.status_code == 400
+    assert r.json()["error"]["code"] == "INVALID_REQUEST"
+    assert llm.calls == 0
+
+
+def test_context_12_ok_and_empty_ok(client_with):
+    twelve = [_exp(300 + i, "본문", "ME") for i in range(12)]
+    ok = client_with(FakeLLM(GOOD)).post("/draft", json={**BODY, "contextExperiences": twelve})
+    assert ok.status_code == 200
+    empty = client_with(FakeLLM(GOOD)).post("/draft", json={**BODY, "contextExperiences": []})
+    assert empty.status_code == 200
+
+
+def test_context_counts_toward_text_limit(client_with):
+    base = len(QUESTION["text"]) + experience_chars(DraftRequest.model_validate(BODY).experiences)
+    r = client_with(FakeLLM(GOOD), max_match_chars=base).post("/draft", json=WITH_CTX)
+    assert r.status_code == 413
+    assert r.json()["error"]["code"] == "TEXT_TOO_LONG"
+    full = base + experience_chars(DraftRequest.model_validate(WITH_CTX).contextExperiences)
+    r = client_with(FakeLLM(GOOD), max_match_chars=full).post("/draft", json=WITH_CTX)
+    assert r.status_code == 200
+
+
+def test_context_and_target_go_to_prompt(client_with):
+    Spy, seen = _spy()
+    body = {**WITH_CTX, "question": {**QUESTION, "targetLength": 600}}
+    assert client_with(Spy(GOOD)).post("/draft", json=body).status_code == 200
+    user = seen["user"]
+    assert "<보조 재료>" in user and "근거 203" in user and "보완 303" in user
+    assert "<목표 글자 수>\n600자" in user
+    assert user.index("</경험 목록>") < user.index("<보조 재료>")
+    assert user.count("[경험 ") == 2
+
+
+def test_context_alone_and_target_alone_blocks(client_with):
+    Spy, seen = _spy()
+    client_with(Spy(GOOD)).post("/draft", json=WITH_CTX)
+    assert "<보조 재료>" in seen["user"] and "<목표 글자 수>" not in seen["user"]
+    Spy, seen = _spy()
+    body = {"question": {**QUESTION, "targetLength": 300}, "experiences": [EXP_101]}
+    client_with(Spy(GOOD)).post("/draft", json=body)
+    assert "<목표 글자 수>" in seen["user"] and "<보조 재료>" not in seen["user"]
+
+
+def test_neither_context_nor_target_message_unchanged():
+    body = {**BODY, "contextExperiences": [], "question": {**QUESTION, "targetLength": None}}
+    question, exps, gs = check_request(DraftRequest.model_validate(body), load_settings())
+    assert build_draft_message(question, exps, gs, []) == build_user_message(question, exps)
+
+
+def test_context_lines_same_as_experience_lines():
+    req = DraftRequest.model_validate(WITH_CTX)
+    question, exps, gs = check_request(req, load_settings())
+    msg = build_draft_message(question, exps, gs, req.contextExperiences)
+    for line in experience_lines(req.contextExperiences)[1:-1]:
+        assert line in msg
+
+
+@pytest.mark.parametrize(
+    "omitted",
+    [
+        pytest.param([{**BLANK, "sentenceIndex": None}], id="sentenceIndex 만 없음"),
+        pytest.param([{**BLANK, "placeholder": None}], id="placeholder 만 없음"),
+        pytest.param([{**BLANK, "placeholder": "줄인 정도"}], id="대괄호 없음"),
+        pytest.param([{**BLANK, "placeholder": "[ ]"}], id="속이 공백"),
+        pytest.param([{**BLANK, "placeholder": "[]"}], id="속이 없음"),
+        pytest.param([{**BLANK, "placeholder": "[가나다라마바사아자차카]"}], id="13자"),
+        pytest.param([{**BLANK, "placeholder": "[[줄인 정도]]"}], id="중첩"),
+        pytest.param([{**BLANK, "sentenceIndex": 1}], id="범위 밖"),
+        pytest.param([{**BLANK, "sentenceIndex": -1}], id="음수 인덱스"),
+        pytest.param([{**BLANK, "placeholder": "[다른 값]"}], id="문장에 없음"),
+        pytest.param([], id="문장 속 빈칸에 짝 없음"),
+        pytest.param([BLANK, BLANK], id="같은 짝 중복"),
+    ],
+)
+def test_broken_placeholder_retries_then_fails(client_with, omitted):
+    bad = _with(MARKED, omitted=omitted)
+    llm = FakeLLM(bad, bad)
+    r = client_with(llm, max_attempts=2).post("/draft", json=BODY)
+    assert r.status_code == 502
+    assert r.json()["error"]["code"] == "LLM_INVALID_OUTPUT"
+    assert llm.calls == 2
+
+
+def test_placeholder_12_chars_ok_and_twice_in_sentence_fails():
+    mark = "[가나다라마바사아자차]"
+    assert len(mark) == 12
+    blank = {**BLANK, "placeholder": mark}
+    _check(_with({**FIRST, "text": f"지연을 {mark}만큼 줄였습니다."}, omitted=[blank]))
+    with pytest.raises(ValueError, match="한 번"):
+        _check(_with({**FIRST, "text": f"{mark}와 {mark}"}, omitted=[blank]))
+
+
+def test_placeholder_pairs_by_sentence_index():
+    second = {
+        **SECOND,
+        "text": "앱의 3초 폴링을 [바꾼 범위]까지 바꿨습니다.",
+    }
+    other = {**BLANK, "placeholder": "[바꾼 범위]", "sentenceIndex": 1}
+    _check(_with(MARKED, second, omitted=[BLANK, other]))
+    # 같은 글자라도 다른 문장이면 다른 짝이다
+    with pytest.raises(ValueError):
+        _check(_with(MARKED, second, omitted=[BLANK, {**other, "sentenceIndex": 0}]))
+
+
+def test_placeholder_recovers_on_retry(client_with):
+    llm = FakeLLM(_with(MARKED), _with(MARKED, omitted=[BLANK]))
+    r = client_with(llm, max_attempts=2).post("/draft", json=BODY)
+    assert r.status_code == 200
+    assert r.json()["omitted"][0]["placeholder"] == "[줄인 정도]"
+    assert llm.calls == 2
