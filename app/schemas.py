@@ -288,8 +288,19 @@ class AskResponse(LLMAskOutput):
 DraftEvidenceType = Literal["CITATION", "SUPPLEMENT", "EXPERIENCE"]
 # 값 목록은 ETC docs/contracts/README.md 「값 목록」 draftSentenceKind
 DraftSentenceKind = Literal["FACT", "OPINION", "ELABORATED"]
-# 구성 틀 — README 「값 목록」 draftFrame(S-50). NONE 이나 없으면 기본 순서(AI#46)
-DraftFrame = Literal["STAR", "CARL", "PREP", "NONE"]
+# 구성 틀 — README 「값 목록」 draftFrame(S-50 · 구조 카드 S-82). NONE 이나 없으면 기본 순서(AI#46)
+DraftFrame = Literal[
+    "STAR",
+    "CARL",
+    "PREP",
+    "MOTIVE_LINK",
+    "CAUSE_FIX",
+    "ALIGN",
+    "CHANGE",
+    "SKILL_STEPS",
+    "ORIGIN",
+    "NONE",
+]
 
 
 def _one_line(value: str) -> str:
