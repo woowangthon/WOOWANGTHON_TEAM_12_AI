@@ -6,6 +6,7 @@
     uv run python scripts/eval_match.py --variants with    # 보완을 뺀 자료 · 유형만 보는 문항은 돌리지 않음
     uv run python scripts/eval_match.py --variants types   # 문항 유형(S-41)만 — 자주 나오는 꼴 문항
     uv run python scripts/eval_match.py --rescore eval-runs/match-<시각>   # 저장한 응답만 다시 채점(LLM 안 부름)
+    uv run python scripts/eval_match.py --env ../다른-클론/.env         # 키를 다른 .env 에서(worktree)
 
 LLM 호출 수 = (문항 수 + 보완 없음 문항 수 + 유형 문항 수) × 모델 수 × 프롬프트 수
 (규칙 위반이면 문항마다 최대 LLM_MAX_ATTEMPTS 번) — 기본 (10 + 3 + 15) × 1 × 2 = 56회. 「보완 없음」은 보완이 실린 경험이 정답(good · ok)인 문항만, 경험에서 보완을 모두 빼고
@@ -46,6 +47,9 @@ samples/match/questions.json(문항마다 손으로 적은 정답). 정답 칸:
 - 막연한 질문: 「더 자세히 알려 주세요」「구체적으로 설명해 주세요」 꼴인 수
 - 한 질문에 여러 개: 물음표가 둘 이상인 질문 수 — 「최대 3개」를 한 질문에 몰아 넘는다
 - 내 몫 물음: asksMyRole 문항에서 TEAM · UNKNOWN 경험을 추천했을 때 그 경험에 내 몫(맡은 · 직접 · 역할 …)을 물은 수(S-20)
+- 질문 갈래(후보, AI#99): 질문마다 낱말로 한 갈래 — 내 몫(맡은 · 직접 · 어떤 부분 …) → 판단 · 원인 · 입장(왜 · 이유 · 기준 · 원인 · 중요하게 · 걱정 …) →
+  확인 · 결과(확인 · 검증 · 달라 · 결과 …) → 그 밖(배경 · 상황 · 무엇을 했나) 순으로 먼저 걸린 것. 평가자가 보는 순서
+  (내 몫 → 판단 이유 → 확인 · 전후 변화)를 따르면 「그 밖」이 줄고 판단 · 확인이 는다
 """
 
 import argparse
@@ -77,6 +81,17 @@ PROMPTS = {"tuned": SYSTEM_PROMPT, "generic": GENERIC_PROMPT}
 MINE_WORDS = re.compile(r"(?<![가-힣])(?:내가|제가|나는|저는|본인)|직접|주도|이끌")
 
 # 되묻기 — 확인만 받는 어미 · 막연한 질문 · 내 몫을 묻는 낱말(후보 — 사람이 본다)
+# 되묻기 갈래(후보 — 사람이 읽는다, AI#99). 앞의 것부터 먼저 걸린 갈래 하나
+ASK_KINDS = (
+    ("내 몫", re.compile(r"맡|직접|본인|내 몫|담당|역할|(어느|어떤) 부분")),
+    (
+        "판단 · 원인 · 입장",
+        re.compile(
+            r"왜|이유|골랐|고른|선택|대신|견주|견줬|비교|결정|기준|원인|파악|중요하게|원했|걱정|우려"
+        ),
+    ),
+    ("확인 · 결과", re.compile(r"확인|검증|테스트|달라|결과|줄었|늘었|효과|반응|변화|어떻게 됐")),
+)
 LEADING = re.compile(r"(죠|지요|맞나요|맞으신가요|맞습니까|아니었나요|않았나요|않으셨나요)\s*\?")
 VAGUE = re.compile(
     r"(자세히|자세하게|구체적으로|좀 더|더|추가로)\s*(알려|설명|말씀|이야기|적어|들려|공유)"
@@ -122,10 +137,19 @@ class Score:
     activity_count: int = 0
     unlabeled: list[str] = field(default_factory=list)
     whole_activity: list[str] = field(default_factory=list)
+    ask_mine: int = 0
+    ask_why: int = 0
+    ask_check: int = 0
+    ask_other: list[str] = field(default_factory=list)
 
     def add(self, other: "Score") -> None:
         for name, value in vars(other).items():
             setattr(self, name, getattr(self, name) + value)
+
+
+def ask_kind(question: str) -> str:
+    """되묻기 갈래 — ASK_KINDS 중 먼저 걸린 것, 없으면 「그 밖」."""
+    return next((name for name, pattern in ASK_KINDS if pattern.search(question)), "그 밖")
 
 
 def _ints(text: str) -> set[int]:
@@ -238,6 +262,15 @@ def score(
             s.vague.append(line)
         if c.question.count("?") > 1:
             s.compound.append(line)
+        kind = ask_kind(c.question)
+        if kind == "내 몫":
+            s.ask_mine += 1
+        elif kind == "판단 · 원인 · 입장":
+            s.ask_why += 1
+        elif kind == "확인 · 결과":
+            s.ask_check += 1
+        else:
+            s.ask_other.append(line)
     for fact in known:
         if fact["experienceId"] not in ids:
             continue
@@ -413,6 +446,7 @@ def report(
                 f"| {len(t.repeats)}/{t.repeat_chances} | {gap} "
                 f"| {len(t.leading)} | {len(t.vague)} | {len(t.compound)} "
                 f"| {t.share_asked}/{t.share_chances} "
+                f"| {t.ask_mine} · {t.ask_why} · {t.ask_check} · {len(t.ask_other)} "
                 f"| {len(t.errors)}/{t.questions} |"
             )
             rows.append(
@@ -438,6 +472,7 @@ def report(
                 *(f"- 이미 있는 사실 다시 물음(후보) {x}" for x in t.repeats),
                 *(f"- 수치 · 답 유도(후보) {x}" for x in t.leading),
                 *(f"- 막연한 질문(후보) {x}" for x in t.vague),
+                *(f"- 갈래 그 밖(후보) {x}" for x in t.ask_other),
                 *(f"- 고른 것 {x}" for x in t.picks),
                 *(f"- 되묻기 {x}" for x in t.clarifications),
             ]
@@ -450,8 +485,9 @@ def report(
     clar_head = (
         "| 모델 · 프롬프트 | 되묻기 수(0개 문항/답한 문항) | 이미 있는 사실 다시 물음(후보) "
         "| 보완 없을 때 그 빈칸 물음 | 수치 · 답 유도(후보) | 막연한 질문(후보) "
-        "| 한 질문에 여러 개 | 팀 · 모름 경험에 내 몫 물음 | 오류 |\n"
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+        "| 한 질문에 여러 개 | 팀 · 모름 경험에 내 몫 물음 "
+        "| 갈래 내 몫 · 판단/원인/입장 · 확인/결과 · 그 밖(후보) | 오류 |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
     )
     type_head = "| 모델 · 프롬프트 | 문항 유형 정답 | 허용 포함 | 오류 |\n| --- | --- | --- | --- |"
     count_head = (
@@ -483,6 +519,7 @@ def main() -> None:
     parser.add_argument("--questions", help="쉼표로 문항 id(유형 문항 포함) — 기본은 전부")
     parser.add_argument("--out", type=Path, help="응답 저장 폴더")
     parser.add_argument("--rescore", type=Path, help="저장한 응답만 다시 채점(LLM 안 부름)")
+    parser.add_argument("--env", type=Path, default=ROOT / ".env", help="키를 읽을 .env")
     args = parser.parse_args()
 
     only = args.questions.split(",") if args.questions else None
@@ -491,6 +528,9 @@ def main() -> None:
     if args.rescore:
         out = args.rescore
     else:
+        from dotenv import load_dotenv
+
+        load_dotenv(args.env)  # 이미 읽은 값이 이긴다 — 아래 ROOT/.env 는 덮지 않는다
         if args.models:
             models = [m.strip() for m in args.models.split(",") if m.strip()]
         else:
