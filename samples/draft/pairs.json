@@ -529,5 +529,31 @@
       {"fact": "친구들의 반응 · 피드백", "pattern": "반응|피드백|좋아|불편|만족", "omitPattern": "반응|피드백|의견"}
     ],
     "expect": [{"pattern": "5명|5 명", "evidence": [["EXPERIENCE", 141]]}]
+    },
+  {
+    "id": "study-lines",
+    "organization": "OO 소프트",
+    "text": "함께 공부하거나 일하며 다른 사람에게 도움이 된 경험을 적어 주세요.",
+    "targetLength": 700,
+    "experienceIds": [161],
+    "contextExperienceIds": [162, 163, 164, 165],
+    "missing": [
+      {"fact": "발표를 어떻게 준비했는지", "pattern": "준비|연습|예제를 만들", "omitPattern": "준비|어떻게"},
+      {"fact": "발표가 동료에게 어떤 도움이 됐는지", "pattern": "도움이 됐|이해했|고맙|반응", "omitPattern": "도움|반응|이해", "mustOmit": true}
+    ],
+    "expect": [{"pattern": "시큐리티", "evidence": [["CITATION", 261]]}]
+  },
+  {
+    "id": "study-lines-all",
+    "organization": "OO 소프트",
+    "text": "팀 안에서 맡은 역할과 기여를 적어 주세요.",
+    "targetLength": 600,
+    "experienceIds": [161, 165, 163],
+    "contextExperienceIds": [162, 164],
+    "missing": [
+      {"fact": "회의록을 누가 정리했는지", "pattern": "제가 회의록|회의록을 맡", "omitPattern": "회의록"},
+      {"fact": "역할이 팀에 어떤 차이를 만들었는지", "pattern": "덕분|도움이 됐|줄었|늘었", "omitPattern": "차이|도움|결과|변화"}
+    ],
+    "expect": [{"pattern": "시큐리티", "evidence": [["CITATION", 261]]}]
   }
 ]
