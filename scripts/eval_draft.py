@@ -63,6 +63,16 @@ jobRole · requirements · hints 가 있는 쌍은 매칭 결과 · 직무를 �
 - 빈칸: 문장 속 자리 표시 수
 - 목표 맞음: 글자 수가 목표의 80 ~ 100% 인 쌍 수 / targetLength 가 있는 쌍 수. 넘음 · 모자람은 비율을 찍는다
 - 보조 재료 씀: 보조 재료 경험을 받친 문장이 있는 쌍 수 / 보조 재료가 있는 쌍 수. 보조가 뼈대: 보조 재료만 받친 문장이 고른 경험을 받친 문장보다 많은 쌍 수
+
+AI 가정(SUPPOSED · ADR-014, AI#84) — 가정 문장은 근거 규칙(지어냄 · 없는 숫자 · 맞는 근거)에서 빼고 따로 센다.
+나열 · 대표 깊이에서 가정 문장은 근거 · 짝 omitted 의 경험에 속한다:
+- 수동형(후보): FACT · ELABORATED · SUPPOSED 중 「…됐습니다 · 되었습니다 · 졌습니다」로 사람을 감춘 문장 수(근거가 전부 UNKNOWN 이면 뺀다)
+- 가정: SUPPOSED 수(specific 수). 가정 > 사실: SUPPOSED 가 FACT · ELABORATED 보다 많은 쌍 수(위반 아님 — 얼마나 지어 썼나)
+- specific 누락(후보): specific false 인 가정에 숫자 · 수량(코드와 같은 기준) · 수상 · 직책 · 기관 낱말이 있는 수
+- 가정 짝 위반: 가정 문장마다 짝 omitted 가 정확히 하나가 아닌 수(코드 검사와 같은 기준 — 우리 쪽은 0)
+- 가정이 사실 덮음(후보): 자료가 받치는 사실(expect)을 SUPPOSED 로 쓴 수 — FACT 로 썼어야 한다
+- 가정 팀 「제가」(후보): 근거 · 짝 경험이 전부 TEAM 인 가정에 「제가 · 직접 · 주도 …」가 있는 수
+- 지원처 가정(후보): 가정에 지원처 이름이나 「귀사 · 지원처 · 회사의」가 있는 수
 """
 
 import argparse
@@ -116,6 +126,14 @@ FLATTERY = re.compile(
 JUDGED = re.compile(r"보았|봤습|생각했|판단했|마음먹|결심|다짐|깨달|느꼈|여겼|싶었")
 # 문장 속 빈칸 자리 표시
 MARK = re.compile(r"\[[^\[\]]*\]")
+# 사람을 감춘 수동형(후보 — 사람이 본다). 「…하게 됐습니다」도 걸리니 문장을 읽는다
+PASSIVE = re.compile(r"(?:됐|되었|졌)습니다")
+# specific 이어야 할 낱말(후보) — 숫자는 app.citations.numbers 가 본다
+SPECIFIC_WORDS = re.compile(
+    r"수상|대상|최우수|우수상|장려상|입상|팀장|회장|부회장|리더|대표|총무|기관|공사|재단|주식회사|㈜"
+)
+# 지원처 정보를 가정했나(후보) — 지원처 이름은 쌍마다 더한다
+EMPLOYER = re.compile(r"귀사|지원처|회사의|기업의")
 
 
 @dataclass
@@ -188,6 +206,15 @@ class Score:
     context_used: int = 0
     context_chances: int = 0
     context_heavy: list[str] = field(default_factory=list)
+    passive: list[str] = field(default_factory=list)
+    supposed: list[str] = field(default_factory=list)
+    specific: int = 0
+    guess_heavy: list[str] = field(default_factory=list)
+    specific_miss: list[str] = field(default_factory=list)
+    guess_unpaired: list[str] = field(default_factory=list)
+    guess_over_fact: list[str] = field(default_factory=list)
+    guess_mine: list[str] = field(default_factory=list)
+    guess_employer: list[str] = field(default_factory=list)
 
     def add(self, other: "Score") -> None:
         for name, value in vars(other).items():
@@ -225,7 +252,10 @@ def score_omitted(
         line = f"{pid}: 경험 {exp.id}({exp.actor}) 「{x.question}」"
         s.asked.append(line)
         allowed = _ints(_experience_text(exp)) | _ints(pair["text"])
-        if (_ints(x.question) | _ints(x.text)) - allowed or LEADING.search(x.question):
+        # 가정의 짝은 그 문장의 값을 확인하는 질문이라 숫자를 묻는 건 유도가 아니다 — 「…죠?」만 센다
+        guess_pair = x.placeholder is None and x.sentenceIndex is not None
+        invented = (_ints(x.question) | _ints(x.text)) - allowed
+        if (invented and not guess_pair) or LEADING.search(x.question):
             s.leading.append(line)
         if VAGUE.search(x.question):
             s.vague.append(line)
@@ -307,7 +337,7 @@ def score_opinions(pair: dict, data: LLMDraftOutput) -> Score:
     s.kind_broken = [
         f"{pid}: {x.kind} 근거 0개 「{x.text}」"
         for x in data.sentences
-        if x.kind != "OPINION" and not x.evidence
+        if x.kind in ("FACT", "ELABORATED") and not x.evidence
     ]
     if len(opinions) > MAX_OPINIONS:
         s.kind_broken.append(f"{pid}: OPINION {len(opinions)}개")
@@ -343,11 +373,14 @@ def score_essay(
     s = Score()
     known = backings([*experiences, *context])
     chosen = {e.id for e in experiences}
+    owners_by = sentence_owners(data, known)
     written = [x for x in data.sentences if x.kind != "OPINION"]
     per: dict[int, int] = {}
     from_context = from_chosen = 0
-    for x in written:
-        owners = {known[e.type, e.id].experience.id for e in x.evidence if (e.type, e.id) in known}
+    for i, x in enumerate(data.sentences):
+        if x.kind == "OPINION":
+            continue
+        owners = owners_by[i]
         for owner in owners:
             per[owner] = per.get(owner, 0) + 1
         if owners & chosen:
@@ -403,6 +436,68 @@ def score_essay(
         s.context_used = int(from_context > 0 or any(per.get(e.id) for e in context))
         if from_context > from_chosen:
             s.context_heavy.append(f"{pid}: 보조만 {from_context} > 고른 경험 {from_chosen}")
+    s.add(score_supposed(pair, [*experiences, *context], data, owners_by))
+    return s
+
+
+def sentence_owners(data: LLMDraftOutput, known: dict) -> list[set[int]]:
+    """문장마다 속한 경험 ID — 근거의 경험, 가정(SUPPOSED)이면 짝 omitted 의 경험도."""
+    owners = [
+        {known[e.type, e.id].experience.id for e in x.evidence if (e.type, e.id) in known}
+        for x in data.sentences
+    ]
+    for o in data.omitted:
+        if (
+            o.placeholder is None
+            and o.sentenceIndex is not None
+            and 0 <= o.sentenceIndex < len(owners)
+            and data.sentences[o.sentenceIndex].kind == "SUPPOSED"
+            and o.experienceId is not None
+        ):
+            owners[o.sentenceIndex].add(o.experienceId)
+    return owners
+
+
+def score_supposed(
+    pair: dict,
+    experiences: list[MatchExperience],
+    data: LLMDraftOutput,
+    owners_by: list[set[int]],
+) -> Score:
+    """수동형 · AI 가정(ADR-014) — 지어 쓴 문장이 근거 문장과 섞이지 않나."""
+    pid = pair["id"]
+    s = Score()
+    by_id = {e.id: e for e in experiences}
+    actors_by = [{by_id[o].actor for o in owners if o in by_id} for owners in owners_by]
+    for i, x in enumerate(data.sentences):
+        if x.kind != "OPINION" and PASSIVE.search(x.text) and actors_by[i] != {"UNKNOWN"}:
+            s.passive.append(f"{pid}: [{x.kind}] 「{x.text}」")
+    guesses = [(i, x) for i, x in enumerate(data.sentences) if x.kind == "SUPPOSED"]
+    written = sum(x.kind in ("FACT", "ELABORATED") for x in data.sentences)
+    if len(guesses) > written:
+        s.guess_heavy.append(f"{pid}: SUPPOSED {len(guesses)} > FACT · ELABORATED {written}")
+    org = (pair.get("organization") or "").split()
+    employer = re.compile(
+        "|".join([EMPLOYER.pattern, *(re.escape(w) for w in org[:1] if len(w) > 1)])
+    )
+    for i, x in guesses:
+        line = f"{pid}: [{i}] 「{x.text}」 specific={x.specific}"
+        s.supposed.append(line)
+        s.specific += bool(x.specific)
+        if not x.specific and (numbers(x.text) or SPECIFIC_WORDS.search(x.text)):
+            s.specific_miss.append(line)
+        mates = [o for o in data.omitted if o.placeholder is None and o.sentenceIndex == i]
+        if len(mates) != 1:
+            s.guess_unpaired.append(f"{line} — 짝 {len(mates)}개")
+        s.guess_over_fact += [
+            f"{line} — 받치는 사실 {want['evidence']}"
+            for want in pair["expect"]
+            if re.search(want["pattern"], x.text)
+        ]
+        if actors_by[i] == {"TEAM"} and MINE_WORDS.search(x.text):
+            s.guess_mine.append(line)
+        if employer.search(x.text):
+            s.guess_employer.append(line)
     return s
 
 
@@ -428,7 +523,8 @@ def score(
     s.picked_total = len(experiences)
     s.unused = [f"{pid}: 경험 {e.id}" for e in experiences if e.id not in used]
     for sent in data.sentences:
-        if sent.kind == "OPINION":  # 근거 규칙 밖 — score_opinions 가 따로 본다
+        # 근거 규칙 밖 — OPINION 은 score_opinions, SUPPOSED 는 score_supposed 가 따로 본다
+        if sent.kind in ("OPINION", "SUPPOSED"):
             continue
         text = sent.text
         pairs = [(e.type, e.id) for e in sent.evidence]
@@ -629,6 +725,7 @@ async def run(
 def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
     facts = load_facts()
     rows, details, question_rows, opinion_rows, hint_rows, essay_rows = [], [], [], [], [], []
+    guess_rows = []
     for model_dir in sorted(p for p in out.iterdir() if p.is_dir()):
         for prompt_dir in sorted(p for p in model_dir.iterdir() if p.is_dir()):
             t = Score()
@@ -682,8 +779,21 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
                 f"| {t.target_hit}/{t.target_chances} | {t.context_used}/{t.context_chances} "
                 f"| {len(t.context_heavy)} |"
             )
+            guess_rows.append(
+                f"| {name} | {len(t.passive)} | {len(t.supposed)}({t.specific}) "
+                f"| {len(t.guess_heavy)} | {len(t.specific_miss)} | {len(t.guess_unpaired)} "
+                f"| {len(t.guess_over_fact)} | {len(t.guess_mine)} | {len(t.guess_employer)} |"
+            )
             lines = [
                 *(f"- 오류 {x}" for x in t.errors),
+                *(f"- 수동형(후보) {x}" for x in t.passive),
+                *(f"- specific 누락(후보) {x}" for x in t.specific_miss),
+                *(f"- 가정 짝 위반 {x}" for x in t.guess_unpaired),
+                *(f"- 가정이 사실 덮음(후보) {x}" for x in t.guess_over_fact),
+                *(f"- 가정 팀 「제가」(후보) {x}" for x in t.guess_mine),
+                *(f"- 지원처 가정(후보) {x}" for x in t.guess_employer),
+                *(f"- 가정 > 사실 {x}" for x in t.guess_heavy),
+                *(f"- AI 가정 {x}" for x in t.supposed),
                 *(f"- 나열 {x}" for x in t.listed),
                 *(f"- 대표 얕음 {x}" for x in t.shallow),
                 *(f"- 보탬 > 사실 {x}" for x in t.elab_heavy),
@@ -750,6 +860,11 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
         "| 보탬 판단 · 감정(후보) | 모름에 「제가」 | 빈칸 | 목표 맞음 | 보조 재료 씀 | 보조가 뼈대 |\n"
         "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
     )
+    guess_head = (
+        "| 모델 · 프롬프트 | 수동형(후보) | 가정(specific) | 가정 > 사실 | specific 누락(후보) "
+        "| 가정 짝 위반 | 가정이 사실 덮음(후보) | 가정 팀 「제가」(후보) | 지원처 가정(후보) |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+    )
     tables = "\n\n".join(
         "\n".join(part)
         for part in (
@@ -758,6 +873,7 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
             [opinion_head, *opinion_rows],
             [hint_head, *hint_rows],
             [essay_head, *essay_rows],
+            [guess_head, *guess_rows],
         )
     )
     return tables + "\n" + "".join(details) + "\n"
@@ -770,6 +886,7 @@ def main() -> None:
     parser.add_argument("--pairs", help="쉼표로 쌍 id — 기본은 전부")
     parser.add_argument("--out", type=Path, help="응답 저장 폴더")
     parser.add_argument("--rescore", type=Path, help="저장한 응답만 다시 채점(LLM 안 부름)")
+    parser.add_argument("--env", type=Path, default=ROOT / ".env", help="키를 읽을 .env")
     args = parser.parse_args()
 
     experiences = load_experiences()
@@ -784,7 +901,7 @@ def main() -> None:
 
             from app.config import load_settings
 
-            load_dotenv(ROOT / ".env")
+            load_dotenv(args.env)
             p, m = load_settings().match_models[0]
             models = [f"{p}:{m}"]
         prompts = [p.strip() for p in args.prompts.split(",") if p.strip()]
@@ -794,7 +911,7 @@ def main() -> None:
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         out = args.out or ROOT / "eval-runs" / f"draft-{stamp}"
         print(f"LLM 호출 {len(pairs) * len(models) * len(prompts)}회(규칙 위반 시 더) → {out}")
-        asyncio.run(run(models, prompts, experiences, pairs, out))
+        asyncio.run(run(models, prompts, experiences, pairs, out, args.env))
 
     text = report(out, experiences, pairs)
     (out / "summary.md").write_text(text, encoding="utf-8")

@@ -287,7 +287,7 @@ class AskResponse(LLMAskOutput):
 
 DraftEvidenceType = Literal["CITATION", "SUPPLEMENT", "EXPERIENCE"]
 # 값 목록은 ETC docs/contracts/README.md 「값 목록」 draftSentenceKind
-DraftSentenceKind = Literal["FACT", "OPINION", "ELABORATED"]
+DraftSentenceKind = Literal["FACT", "OPINION", "ELABORATED", "SUPPOSED"]
 # 구성 틀 — README 「값 목록」 draftFrame(S-50 · 구조 카드 S-82). NONE 이나 없으면 기본 순서(AI#46)
 DraftFrame = Literal[
     "STAR",
@@ -359,6 +359,8 @@ class DraftSentence(BaseModel):
     evidence: list[DraftEvidence]
     # ELABORATED 만 — 왜 확인이 필요한지 한 줄(S-78)
     note: Annotated[NonBlank, AfterValidator(_one_line), Field(max_length=60)] | None = None
+    # SUPPOSED 만 불리언 — 수치 · 수상 · 직책 · 고유명사가 들어가면 true(ADR-014). 나머지는 null
+    specific: bool | None = None
 
 
 class DraftOmitted(BaseModel):
@@ -367,7 +369,8 @@ class DraftOmitted(BaseModel):
     text: NonBlank
     question: NonBlank | None
     experienceId: int | None
-    # 문장 속 빈칸(S-78) — 둘 다 있거나 둘 다 null. 모양 · 문장 안 짝은 app/draft.py check_output 이 본다
+    # 문장 속 빈칸(S-78)이면 둘 다 있다. SUPPOSED 의 짝이면 placeholder null · sentenceIndex 만(ADR-014).
+    # 모양 · 문장 안 짝은 app/draft.py check_output 이 본다
     placeholder: str | None = None
     sentenceIndex: int | None = None
 
@@ -381,7 +384,8 @@ class DraftGuidelineResult(BaseModel):
 
 class LLMDraftOutput(BaseModel):
     sentences: list[DraftSentence] = Field(max_length=15)
-    omitted: list[DraftOmitted] = Field(max_length=5)
+    # SUPPOSED 짝 포함 0 ~ 10(ADR-014 — 전에는 5)
+    omitted: list[DraftOmitted] = Field(max_length=10)
     # 요청에 지침이 없으면 LLM 에 묻지 않는다 — 빠지면 [](계약)
     guidelines: list[DraftGuidelineResult] = []
 

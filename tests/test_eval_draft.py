@@ -626,3 +626,108 @@ def test_kind_broken_counts_elaborated_without_evidence():
     pair = PAIR["tech-a"]
     data = _mix(("ELABORATED", "문제를 풀어야 했습니다.", [], "풀어 씀"))
     assert any("ELABORATED 근거 0개" in x for x in score(pair, _exps(pair), data).kind_broken)
+
+
+# ---- AI 가정(SUPPOSED · ADR-014, AI#84) ----
+
+
+def _guess(text, specific=False, evidence=()):
+    return {
+        "kind": "SUPPOSED",
+        "text": text,
+        "evidence": [{"type": k, "id": i} for k, i in evidence],
+        "specific": specific,
+    }
+
+
+def _mate(index, exp_id=101):
+    return {
+        "text": "가정한 장면",
+        "question": "이런 일이 있었나요?",
+        "experienceId": exp_id,
+        "placeholder": None,
+        "sentenceIndex": index,
+    }
+
+
+def _raw(*sentences, omitted=()):
+    return LLMDraftOutput.model_validate({"sentences": list(sentences), "omitted": list(omitted)})
+
+
+FACT_201 = {
+    "kind": "FACT",
+    "text": "채팅 메시지가 늦게 도착해 제가 폴링을 WebSocket 으로 바꿨습니다.",
+    "evidence": [{"type": "CITATION", "id": 201}],
+}
+
+
+def test_supposed_is_out_of_fact_rules_but_counted():
+    """가정의 숫자 · 없는 사실은 근거 규칙(없는 숫자 · 지어냄)에 들지 않고 가정 칸에 센다."""
+    pair = PAIR["tech-a"]
+    data = _raw(
+        FACT_201,
+        _guess("바꾼 뒤 지연이 3초에서 1초로 줄었습니다.", specific=True),
+        omitted=[_mate(1)],
+    )
+    s = score(pair, _exps(pair), data, load_facts())
+    assert (s.bad_numbers, s.invented, s.kind_broken) == ([], [], [])
+    assert (len(s.supposed), s.specific) == (1, 1)
+    assert (s.specific_miss, s.guess_unpaired) == ([], [])
+
+
+def test_supposed_specific_miss_and_unpaired():
+    pair = PAIR["tech-a"]
+    data = _raw(FACT_201, _guess("팀장으로서 두 번 회의를 열었습니다."))
+    s = score(pair, _exps(pair), data, load_facts())
+    assert len(s.specific_miss) == 1
+    assert len(s.guess_unpaired) == 1
+
+
+def test_supposed_over_backed_fact():
+    """자료가 받치는 사실(expect — STOMP · 구독)을 가정으로 쓰면 센다."""
+    pair = PAIR["tech-a"]
+    data = _raw(FACT_201, _guess("서버를 구독 방식으로 바꿨습니다."), omitted=[_mate(1)])
+    s = score(pair, _exps(pair), data, load_facts())
+    assert len(s.guess_over_fact) == 1
+
+
+def test_supposed_team_mine_and_employer():
+    """TEAM 경험(102)에 붙은 가정의 「제가」, 지원처 이름이 든 가정."""
+    pair = PAIR["team-way"]
+    data = _raw(
+        FACT_201,
+        _guess("회고에서 제가 안건을 정리했습니다."),
+        _guess("OO 의 서비스처럼 사용자를 먼저 봤습니다."),
+        omitted=[_mate(1, 102), _mate(2, 101)],
+    )
+    s = score(pair, _exps(pair), data, load_facts())
+    assert len(s.guess_mine) == 1
+    # 지원처 이름(「OO 연합 동아리」의 첫 낱말)이 든 가정
+    assert len(s.guess_employer) == 1
+
+
+def test_passive_counts_hidden_actor():
+    pair = PAIR["tech-a"]
+    data = _raw(
+        FACT_201,
+        {**FACT_201, "text": "발표가 두 차례 진행됐습니다."},
+        _guess("회의록이 팀원에게 전달되었습니다."),
+        omitted=[_mate(2)],
+    )
+    s = score(pair, _exps(pair), data, load_facts())
+    assert len(s.passive) == 2
+
+
+def test_supposed_owner_from_pair_makes_deep():
+    """근거 없는 가정도 짝의 경험으로 대표 경험을 깊게 한다."""
+    data = _raw(FACT_201, _guess("원인을 찾으려 로그를 먼저 봤습니다."), omitted=[_mate(1)])
+    s = _essay("tech-a", data)
+    assert s.deep_hit == 1
+
+
+def test_guess_pair_question_with_number_is_not_leading():
+    pair = PAIR["tech-a"]
+    mate = {**_mate(1), "question": "지연이 1초 안으로 줄었나요?"}
+    data = _raw(FACT_201, _guess("지연이 1초 안으로 줄었습니다.", specific=True), omitted=[mate])
+    s = score(pair, _exps(pair), data, load_facts())
+    assert s.leading == []

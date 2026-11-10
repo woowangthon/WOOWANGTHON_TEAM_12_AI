@@ -105,9 +105,9 @@ def test_contract_example(client_with):
     llm = FakeLLM(GOOD)
     r = client_with(llm).post("/draft", json=BODY)
     assert r.status_code == 200
-    # note · placeholder · sentenceIndex 는 쓰지 않았어도 null 로 온다(S-78)
+    # note · specific · placeholder · sentenceIndex 는 쓰지 않았어도 null 로 온다(S-78 · ADR-014)
     assert r.json() == {
-        "sentences": [{**s, "note": None} for s in GOOD["sentences"]],
+        "sentences": [{**s, "note": None, "specific": None} for s in GOOD["sentences"]],
         "omitted": [{**o, "placeholder": None, "sentenceIndex": None} for o in GOOD["omitted"]],
         "guidelines": [],
         "model": "fake-model",
@@ -217,7 +217,7 @@ def test_no_backing_rejects_opinion_only(client_with):
             _with({**SECOND, "text": "앱의 30초 폴링 코드를 바꿨습니다."}),
             id="숫자가 다른 숫자의 일부로만 있음",
         ),
-        pytest.param(_with(SECOND, omitted=[LOOSE] * 6), id="omitted 6개"),
+        pytest.param(_with(SECOND, omitted=[LOOSE] * 11), id="omitted 11개"),
         pytest.param(_with(SECOND, omitted=["확인한 방법"]), id="옛 문자열 omitted"),
         pytest.param(_with(SECOND, omitted=[{"text": "확인한 방법"}]), id="omitted 칸 빠짐"),
         pytest.param(_with(SECOND, omitted=[{**LOOSE, "text": " "}]), id="빈 omitted"),
@@ -726,7 +726,7 @@ def test_elaborated_note_60_chars_ok():
 def test_elaborated_counts_as_written_sentence():
     """FACT 없이 ELABORATED + OPINION 은 통과, OPINION 만은 막힌다."""
     _check(_with(ELAB, OPINION))
-    with pytest.raises(ValueError, match="생각 문장만"):
+    with pytest.raises(ValueError, match="생각 · 가정 문장만"):
         _check(_with(OPINION))
 
 
@@ -935,3 +935,124 @@ def test_placeholder_recovers_on_retry(client_with):
     assert r.status_code == 200
     assert r.json()["omitted"][0]["placeholder"] == "[줄인 정도]"
     assert llm.calls == 2
+
+
+# ---- AI 가정(SUPPOSED · ADR-014) ----
+
+GUESS = {
+    "kind": "SUPPOSED",
+    "text": "바꾼 뒤 직접 메시지를 주고받으며 지연이 사라졌는지 확인했습니다.",
+    "evidence": [{"type": "CITATION", "id": 201}],
+    "specific": False,
+}
+GUESS_NUM = {
+    "kind": "SUPPOSED",
+    "text": "바꾼 뒤 메시지가 오기까지 걸리는 시간이 1초 안으로 줄었습니다.",
+    "evidence": [],
+    "specific": True,
+}
+PAIR = {
+    "text": "바꾼 뒤 지연이 사라졌는지 확인한 방법",
+    "question": "바꾼 뒤 메시지를 주고받으며 지연이 사라졌는지 확인했나요?",
+    "experienceId": 101,
+    "placeholder": None,
+    "sentenceIndex": 1,
+}
+
+
+def test_supposed_end_to_end(client_with):
+    out = _with(FIRST, GUESS, GUESS_NUM, omitted=[PAIR, {**PAIR, "sentenceIndex": 2}, LOOSE])
+    r = client_with(FakeLLM(out)).post("/draft", json=BODY)
+    assert r.status_code == 200
+    got = r.json()
+    assert [s["kind"] for s in got["sentences"]] == ["FACT", "SUPPOSED", "SUPPOSED"]
+    assert [s["specific"] for s in got["sentences"]] == [None, False, True]
+    assert [o["sentenceIndex"] for o in got["omitted"]] == [1, 2, None]
+    assert all(o["placeholder"] is None for o in got["omitted"])
+
+
+def test_supposed_may_outnumber_facts_and_skips_number_check():
+    """가정은 FACT 보다 많아도 되고, 근거에 없는 숫자도 specific 이면 통과한다."""
+    guesses = [{**GUESS_NUM, "text": f"{n}번째 시도에서 원인을 찾았습니다."} for n in (2, 3, 4)]
+    pairs = [{**PAIR, "sentenceIndex": i} for i in (1, 2, 3)]
+    _check(_with(FIRST, *guesses, omitted=pairs))
+
+
+def test_supposed_pair_without_experience_ok():
+    _check(_with(FIRST, GUESS, omitted=[{**PAIR, "question": None, "experienceId": None}]))
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        pytest.param(_with(FIRST, GUESS), id="짝 없음"),
+        pytest.param(_with(FIRST, GUESS, omitted=[PAIR, PAIR]), id="짝 둘"),
+        pytest.param(
+            _with(FIRST, GUESS, omitted=[PAIR, {**PAIR, "sentenceIndex": 0}]),
+            id="FACT 에 가정 짝",
+        ),
+        pytest.param(_with(FIRST, GUESS, omitted=[{**PAIR, "sentenceIndex": 5}]), id="범위 밖 짝"),
+        pytest.param(
+            _with(FIRST, {k: v for k, v in GUESS.items() if k != "specific"}, omitted=[PAIR]),
+            id="specific 없음",
+        ),
+        pytest.param(
+            _with(FIRST, {**GUESS_NUM, "specific": False}, omitted=[PAIR]),
+            id="숫자 있는데 specific false",
+        ),
+        pytest.param(_with({**FIRST, "specific": False}), id="FACT 에 specific"),
+        pytest.param(_with(FIRST, {**OPINION, "specific": False}), id="OPINION 에 specific"),
+        pytest.param(
+            _with(FIRST, {**GUESS, "note": "확인해 주세요"}, omitted=[PAIR]), id="가정에 note"
+        ),
+        pytest.param(
+            _with(FIRST, {**GUESS, "evidence": [{"type": "CITATION", "id": 999}]}, omitted=[PAIR]),
+            id="가정의 없는 근거",
+        ),
+        pytest.param(
+            _with(FIRST, {**GUESS, "evidence": GUESS["evidence"] * 2}, omitted=[PAIR]),
+            id="가정의 근거 중복",
+        ),
+        pytest.param(
+            _with({**GUESS, "evidence": []}, omitted=[{**PAIR, "sentenceIndex": 0}]),
+            id="받칠 것이 있는데 가정만",
+        ),
+        pytest.param(
+            _with(
+                {**GUESS, "evidence": []},
+                OPINION,
+                omitted=[{**PAIR, "sentenceIndex": 0}],
+            ),
+            id="가정 · 생각만",
+        ),
+        pytest.param(
+            _with(FIRST, GUESS, omitted=[{**PAIR, "placeholder": "[결과]", "sentenceIndex": None}]),
+            id="placeholder 만 있음",
+        ),
+    ],
+)
+def test_supposed_rules_retry_then_fail(client_with, bad):
+    llm = FakeLLM(bad, bad)
+    r = client_with(llm, max_attempts=2).post("/draft", json=BODY)
+    assert r.status_code == 502
+    assert r.json()["error"]["code"] == "LLM_INVALID_OUTPUT"
+    assert llm.calls == 2
+
+
+def test_supposed_korean_count_needs_specific():
+    """「두 번」 같은 한글 수량도 숫자 대조와 같은 기준으로 숫자다 — specific 이 true 여야 한다."""
+    text = "발표 전에 팀원 앞에서 두 번 미리 해 봤습니다."
+    with pytest.raises(ValueError, match="specific"):
+        _check(_with(FIRST, {**GUESS, "text": text}, omitted=[PAIR]))
+    _check(_with(FIRST, {**GUESS, "text": text, "specific": True}, omitted=[PAIR]))
+
+
+def test_prompt_and_schema_know_supposed():
+    from app.draft import LLM_JSON_SCHEMA, SYSTEM_PROMPT
+
+    item = LLM_JSON_SCHEMA["properties"]["sentences"]["items"]
+    assert "SUPPOSED" in item["properties"]["kind"]["enum"]
+    assert "specific" in item["required"]
+    assert LLM_JSON_SCHEMA["properties"]["omitted"]["maxItems"] == 10
+    for must in ("SUPPOSED", "specific", "지원처", "주제문", "또한"):
+        assert must in SYSTEM_PROMPT
