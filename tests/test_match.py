@@ -286,10 +286,10 @@ def test_zero_recommendations_ok(client_with):
 
 
 def test_question_type_in_llm_schema():
-    # Structured Outputs 스키마에 enum 으로 — 목록은 계약 README 「값 목록」 questionType 11개
+    # Structured Outputs 스키마에 enum 으로 — 목록은 계약 README 「값 목록」 questionType 12개(S-85 JOB_SKILL)
     from app.match import LLM_JSON_SCHEMA
     from app.schemas import QUESTION_TYPES
 
     assert "questionType" in LLM_JSON_SCHEMA["required"]
     assert LLM_JSON_SCHEMA["properties"]["questionType"]["enum"] == list(QUESTION_TYPES)
-    assert len(QUESTION_TYPES) == 11 and "OTHER" in QUESTION_TYPES
+    assert len(QUESTION_TYPES) == 12 and {"OTHER", "JOB_SKILL"} <= set(QUESTION_TYPES)

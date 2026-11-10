@@ -8,7 +8,7 @@
     uv run python scripts/eval_match.py --rescore eval-runs/match-<시각>   # 저장한 응답만 다시 채점(LLM 안 부름)
 
 LLM 호출 수 = (문항 수 + 보완 없음 문항 수 + 유형 문항 수) × 모델 수 × 프롬프트 수
-(규칙 위반이면 문항마다 최대 LLM_MAX_ATTEMPTS 번) — 기본 (10 + 3 + 12) × 1 × 2 = 50회. 「보완 없음」은 보완이 실린 경험이 정답(good · ok)인 문항만, 경험에서 보완을 모두 빼고
+(규칙 위반이면 문항마다 최대 LLM_MAX_ATTEMPTS 번) — 기본 (10 + 3 + 15) × 1 × 2 = 56회. 「보완 없음」은 보완이 실린 경험이 정답(good · ok)인 문항만, 경험에서 보완을 모두 빼고
 한 번 더 돌린다 — 문항 A 에서 답하기 전(데모 4)과 답한 뒤(데모 6 · S-25)를 견준다. 폴더 이름 끝 -nosupp.
 「유형 문항」은 samples/match/question-types.json — 「자주 나오는 문항」(FE src/lib/common-questions.ts) 꼴을 본떠
 지어낸 문항이다. 같은 경험으로 /match 를 그대로 부르되 문항 유형만 채점한다. 폴더 이름 끝 -types.

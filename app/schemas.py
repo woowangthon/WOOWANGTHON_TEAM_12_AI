@@ -177,6 +177,7 @@ QuestionType = Literal[
     "FAILURE",
     "GROWTH",
     "IDEA",
+    "JOB_SKILL",
     "OTHER",
 ]
 QUESTION_TYPES: tuple[str, ...] = get_args(QuestionType)
@@ -382,7 +383,14 @@ class DraftGuidelineResult(BaseModel):
     note: Annotated[NonBlank, AfterValidator(_one_line), Field(max_length=80)] | None
 
 
+# 첫 줄 소제목(S-86) 글자 수 상한
+TITLE_MAX = 40
+
+
 class LLMDraftOutput(BaseModel):
+    # 첫 줄 소제목(S-86). 문장이 있으면 필수 · 0개면 null · 숫자 금지는 app/draft.py check_output 이 본다.
+    # 기본값 None 은 S-86 전에 저장한 채점 응답을 다시 읽으려고
+    title: Annotated[NonBlank, AfterValidator(_one_line), Field(max_length=TITLE_MAX)] | None = None
     sentences: list[DraftSentence] = Field(max_length=15)
     # SUPPOSED 짝 포함 0 ~ 10(ADR-014 — 전에는 5)
     omitted: list[DraftOmitted] = Field(max_length=10)

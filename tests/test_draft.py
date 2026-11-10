@@ -72,7 +72,10 @@ SECOND = {
     "text": "서버에 STOMP 엔드포인트를 만들고, 앱의 3초 폴링 코드를 구독 방식으로 바꿨습니다.",
     "evidence": [{"type": "SUPPLEMENT", "id": 301}],
 }
+# 첫 줄 소제목(S-86) — 문장이 있으면 필수
+TITLE = "폴링을 구독으로 바꿔 푼 채팅 지연"
 GOOD = {
+    "title": TITLE,
     "sentences": [FIRST, SECOND],
     "omitted": [
         {
@@ -98,7 +101,11 @@ ASKED = {"text": "확인한 방법", "question": "어떻게 확인했나요?", "
 
 
 def _with(*sentences, omitted=()):
-    return {"sentences": list(sentences), "omitted": list(omitted)}
+    return {
+        "title": TITLE if sentences else None,
+        "sentences": list(sentences),
+        "omitted": list(omitted),
+    }
 
 
 def test_contract_example(client_with):
@@ -107,6 +114,7 @@ def test_contract_example(client_with):
     assert r.status_code == 200
     # note · specific · placeholder · sentenceIndex 는 쓰지 않았어도 null 로 온다(S-78 · ADR-014)
     assert r.json() == {
+        "title": TITLE,
         "sentences": [{**s, "note": None, "specific": None} for s in GOOD["sentences"]],
         "omitted": [{**o, "placeholder": None, "sentenceIndex": None} for o in GOOD["omitted"]],
         "guidelines": [],
@@ -1056,3 +1064,57 @@ def test_prompt_and_schema_know_supposed():
     assert LLM_JSON_SCHEMA["properties"]["omitted"]["maxItems"] == 10
     for must in ("SUPPOSED", "specific", "지원처", "주제문", "또한"):
         assert must in SYSTEM_PROMPT
+
+
+# ---- 첫 줄 소제목(S-86) ----
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        None,  # 문장이 있는데 없음
+        "   ",  # 공백뿐
+        "채팅 지연을\n푼 일",  # 줄바꿈
+        "가" * 41,  # 40자 넘음
+        "3초 폴링을 구독으로 바꾼 일",  # 숫자
+        "세 번 고친 채팅 지연",  # 한글 수사도 숫자
+    ],
+)
+def test_bad_title_retried_then_fails(client_with, title):
+    bad = {**GOOD, "title": title}
+    llm = FakeLLM(bad, bad)
+    r = client_with(llm, max_attempts=2).post("/draft", json=BODY)
+    assert r.status_code == 502
+    assert r.json()["error"]["code"] == "LLM_INVALID_OUTPUT"
+    assert llm.calls == 2
+
+
+def test_bad_title_retried_then_ok(client_with):
+    llm = FakeLLM({**GOOD, "title": None}, GOOD)
+    r = client_with(llm).post("/draft", json=BODY)
+    assert r.status_code == 200
+    assert r.json()["title"] == TITLE
+    assert llm.calls == 2
+
+
+def test_title_at_limit_ok(client_with):
+    r = client_with(FakeLLM({**GOOD, "title": "가" * 40})).post("/draft", json=BODY)
+    assert r.status_code == 200
+
+
+def test_title_must_be_null_without_sentences(client_with):
+    bare = _exp(105, "매주 풀 문제를 고른다", "ME", status="NEEDS_REVIEW")
+    body = {"question": QUESTION, "experiences": [bare]}
+    bad = {**_with(omitted=[LOOSE]), "title": "문제 고르기"}
+    r = client_with(FakeLLM(bad, bad), max_attempts=2).post("/draft", json=body)
+    assert r.status_code == 502
+    ok = client_with(FakeLLM(_with(omitted=[LOOSE]))).post("/draft", json=body)
+    assert ok.status_code == 200
+    assert ok.json()["title"] is None
+
+
+def test_title_in_llm_schema():
+    from app.draft import LLM_JSON_SCHEMA
+
+    assert "title" in LLM_JSON_SCHEMA["required"]
+    assert LLM_JSON_SCHEMA["properties"]["title"] == {"type": ["string", "null"]}

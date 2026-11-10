@@ -5,7 +5,7 @@
 
 모델 순서는 /match 와 같다 — 같은 경험 · 근거를 읽는 일이고, 따로 고를 채점이 아직 없다.
 ID · 개수 · 문장 속 숫자 · 문장 종류(FACT · ELABORATED 는 근거 1개 이상, ELABORATED 만 note, OPINION 은 근거 · 숫자 없이
-최대 3개, 생각만으로 채우지 않는다) · omitted 의 경험 ID 와 질문 짝 · 빈칸 자리 표시의 짝은 코드가 확인한다(check_output) —
+최대 3개, 생각만으로 채우지 않는다) · 첫 줄 소제목(문장이 있으면 필수 · 숫자 없이 — S-86) · omitted 의 경험 ID 와 질문 짝 · 빈칸 자리 표시의 짝은 코드가 확인한다(check_output) —
 어기면 다시 부르고, 끝까지 어기면
 LLM_INVALID_OUTPUT. 문장을 빼거나 근거를 바꿔서 돌려주지 않는다.
 매칭 결과(요구사항 · 이유 · 강조점 · 부족한 점) · 직무는 선택 칸이고 근거가 아니다(ETC#141) — 프롬프트에 <매칭 단서>로 따로
@@ -257,12 +257,19 @@ AI 가정, 사실을 문항에 잇는 생각 문장. 어느 것이 자료에 있
      숫자가 들어가는데 false 면 규칙 위반이다. 수치는 문장을 강하게 하지만 사용자가 확인할 값이 늘어난다 — 꼭 필요할 때만.
    - 짝: 가정 문장마다 omitted 에 짝 하나(규칙 6).
    - 수는 정해 두지 않는다 — FACT · ELABORATED 보다 많아도 된다. 다만 받칠 것이 있으면 FACT · ELABORATED 가 먼저 있어야 한다.
+15. 첫 줄 소제목 title — 답의 맨 위에 붙는 한 줄이다. 이 답이 보여 주는 것(무엇을 어떻게 했나 · 무엇이 드러나나)을 줄여 쓴다.
+   sentences 가 1개 이상이면 반드시 쓰고, sentences 가 [] 이면 null. 40자 이하, 줄바꿈 없이, 명사로 끝나는 구절로
+   (「폴링을 구독으로 바꿔 푼 채팅 지연」). 따옴표 · 대괄호로 감싸지 않는다.
+   생각 문장(규칙 4)과 같은 규칙이다 — 숫자를 쓰지 않는다(「세 번」 같은 말도). 위 문장들에 없는 일 · 결과 · 기술 이름을 쓰지 않는다.
+   칭찬(「뛰어난」 「완벽한」) · 의미 단정(「성장의 밑거름」) · 지어낸 감정을 쓰지 않는다. TEAM 일을 내 일로 쓰지 않는다.
+   SUPPOSED 문장에만 있는 장면을 소제목으로 앞세우지 않는다 — FACT · ELABORATED 가 보여 주는 것으로 쓴다.
 """
 
 # LLM 에 주는 출력 모양. 개수 · ID 는 받은 뒤 LLMDraftOutput · check_output 으로 다시 엄격하게 본다.
 LLM_JSON_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
+        "title": {"type": ["string", "null"]},
         "sentences": {
             "type": "array",
             "maxItems": 15,
@@ -310,7 +317,7 @@ LLM_JSON_SCHEMA: dict[str, Any] = {
             },
         },
     },
-    "required": ["sentences", "omitted"],
+    "required": ["title", "sentences", "omitted"],
 }
 
 
@@ -501,6 +508,16 @@ def check_guidelines(output: LLMDraftOutput, guidelines: list[DraftGuideline]) -
             raise ValueError(f"guidelines[{i}] 반영 못 했는데 이유가 없다")
 
 
+def check_title(output: LLMDraftOutput) -> None:
+    """첫 줄 소제목(S-86) — 문장이 있으면 필수 · 0개면 null · 숫자 금지. 공백뿐 · 줄바꿈 · 40자는 스키마가 본다."""
+    if output.sentences and output.title is None:
+        raise ValueError("문장이 있는데 소제목이 없다")
+    if not output.sentences and output.title is not None:
+        raise ValueError("문장이 0개인데 소제목이 있다")
+    if output.title is not None and numbers(output.title):
+        raise ValueError(f"소제목에 숫자 {sorted(numbers(output.title))}")
+
+
 def check_output(
     output: LLMDraftOutput,
     experiences: list[MatchExperience],
@@ -518,6 +535,7 @@ def check_output(
         raise ValueError("사실 문장 없이 생각 · 가정 문장만")
     if kinds.count("OPINION") > MAX_OPINIONS:
         raise ValueError(f"생각 문장 {kinds.count('OPINION')}개 — 최대 {MAX_OPINIONS}개")
+    check_title(output)
     for i, sentence in enumerate(output.sentences):
         if (sentence.kind == "ELABORATED") != (sentence.note is not None):
             raise ValueError(f"sentences[{i}] note 는 ELABORATED 만 있어야 한다")
@@ -627,7 +645,7 @@ async def draft(req: DraftRequest, llm: JsonLLM, settings: Settings) -> DraftRes
     log.info(
         "초안 완료 attempt=%d model=%s elapsed=%.1fs experiences=%s context=%d target=%s sentences=%d "
         "opinions=%d elaborated=%d supposed=%d specific=%d omitted=%d placeholders=%d chars=%d hints=%s "
-        "frame=%s guidelines=%s",
+        "frame=%s guidelines=%s title_chars=%s",
         got.attempt,
         got.model,
         got.seconds,
@@ -645,7 +663,12 @@ async def draft(req: DraftRequest, llm: JsonLLM, settings: Settings) -> DraftRes
         bool(hint_lines(question, experiences)),
         question.frame,
         [(g.id, g.applied) for g in out.guidelines],
+        len(out.title) if out.title is not None else None,
     )
     return DraftResponse(
-        sentences=out.sentences, omitted=out.omitted, guidelines=out.guidelines, model=got.model
+        title=out.title,
+        sentences=out.sentences,
+        omitted=out.omitted,
+        guidelines=out.guidelines,
+        model=got.model,
     )
