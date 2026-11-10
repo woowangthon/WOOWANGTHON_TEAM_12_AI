@@ -7,5 +7,7 @@
   {"id": "c-change-ctx", "base": "ctx-two", "frame": "CHANGE"},
   {"id": "c-origin", "base": "aspiration-team", "frame": "ORIGIN"},
   {"id": "c-skill", "base": "job-fit", "frame": "SKILL_STEPS"},
-  {"id": "c-skill-one", "base": "job-fit", "frame": "SKILL_STEPS", "experienceIds": [151], "expect": []}
+  {"id": "c-skill-one", "base": "job-fit", "frame": "SKILL_STEPS", "experienceIds": [151], "expect": []},
+  {"id": "c-skill-grow", "base": "job-fit", "frame": "SKILL_STEPS",
+   "text": "지원 직무의 역량을 키우기 위해 어떤 노력을 해 왔는지 경험을 바탕으로 적어 주세요."}
 ]
