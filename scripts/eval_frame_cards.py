@@ -2,13 +2,15 @@
 
     uv run python scripts/eval_frame_cards.py                 # MATCH_LLM_MODELS 첫 모델
     uv run python scripts/eval_frame_cards.py --runs 2        # 같은 요청을 두 번씩 — 흔들림을 본다
+    uv run python scripts/eval_frame_cards.py --only c-skill  # 그 쌍만
     uv run python scripts/eval_frame_cards.py --rescore eval-runs/cards-<시각>
 
-LLM 호출 수 = 카드 쌍 수 × 2(틀 없이 · 카드) × 모델 수 × runs — 기본 8 × 2 × 1 × 1 = 16회(규칙 위반이면 쌍마다 최대
+LLM 호출 수 = 카드 쌍 수 × 2(틀 없이 · 카드) × 모델 수 × runs — 기본 9 × 2 × 1 × 1 = 18회(규칙 위반이면 쌍마다 최대
 LLM_MAX_ATTEMPTS 번). 응답은 --out 폴더(기본 eval-runs/cards-<시각>, 커밋하지 않음)에 저장한다. 키는 --env 파일에서 읽는다.
 
 자료: samples/draft/cards.json — 기본 쌍(samples/draft/pairs.json 의 base)에 contracts README 「구성 틀」 제안 표의
-카드(frame)를 얹은 지어낸 요청. 「틀 없이」 줄은 같은 쌍에서 frame 만 뺀 것이다.
+카드(frame)를 얹은 지어낸 요청(카드에 experienceIds · expect 를 적으면 그것으로 덮는다). 「틀 없이」 줄은
+같은 쌍에서 frame 만 뺀 것이다.
 
 숫자의 뜻(활동 나열이 줄었나 — 「틀 없이」 줄과 「카드」 줄을 견준다. 경험 = 근거가 속한 경험, 보조 재료 포함):
 - 나열: 경험이 둘 이상 쓰였는데 경험마다 한 문장씩인 쌍 수(eval_draft 의 listed) / 경험이 둘 이상인 쌍 수
@@ -58,10 +60,10 @@ CONNECTIVE = re.compile(
 
 
 def load_cards() -> list[dict]:
-    """카드 쌍 — 기본 쌍에 id · frame 을 덮어쓴 것."""
+    """카드 쌍 — 기본 쌍에 카드의 칸(id · frame, 있으면 experienceIds · expect 등)을 덮어쓴 것."""
     base = {p["id"]: p for p in load_pairs()}
     cards = json.loads(CARDS.read_text(encoding="utf-8"))
-    return [{**base[c["base"]], "id": c["id"], "frame": c["frame"]} for c in cards]
+    return [{**base[c["base"]], **{k: v for k, v in c.items() if k != "base"}} for c in cards]
 
 
 def plain_of(card: dict) -> dict:
@@ -185,10 +187,14 @@ def main() -> None:
     parser.add_argument("--out", type=Path, help="응답 저장 폴더")
     parser.add_argument("--env", type=Path, default=ROOT / ".env", help="키를 읽을 .env")
     parser.add_argument("--rescore", type=Path, help="저장한 응답만 다시 채점(LLM 안 부름)")
+    parser.add_argument("--only", help="쉼표로 카드 쌍 id — 이것만(예: c-skill,c-skill-one)")
     args = parser.parse_args()
 
     experiences = load_experiences()
     cards = load_cards()
+    if args.only:
+        only = {x.strip() for x in args.only.split(",")}
+        cards = [c for c in cards if c["id"] in only]
     if args.rescore:
         out = args.rescore
     else:
