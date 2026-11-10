@@ -46,6 +46,10 @@ jobRole · requirements · hints 가 있는 쌍은 매칭 결과 · 직무를 �
 - 사실로 뺌(후보): OPINION 이 「~했습니다」처럼 일어난 일로 끝나는 수 — 받칠 수 있으면 FACT 로, 없으면 omitted 로 갔어야 한다
 - 없는 사실(후보): 그 문항의 자료에 없는 사실(missing)을 OPINION 이 쓴 것 같은 수 — 가장 큰 위험, 근거 규칙이 새는 곳
 - 감정 · 칭찬 · 단정(후보): OPINION 에 지어낸 감정 · 칭찬 · 의미 단정 낱말이 있는 수 — 낱말로 거른 것이라 문장을 읽는다
+- 소제목(S-86): 소제목이 있는 쌍 수. 쌍마다 찍는다 — 그 답이 보여 주는 것인지 사람이 읽는다
+- 소제목 위반: 문장이 있는데 없음 · 문장 0개인데 있음 · 40자 넘음 · 숫자(코드 검사와 같은 기준 — 우리 쪽은 0 이어야 한다)
+- 소제목 지어냄(후보): 그 문항의 자료에 없는 사실(missing)을 소제목이 쓴 것 같은 수
+- 소제목 칭찬(후보): 소제목에 감정 · 칭찬 · 의미 단정 낱말(생각 문장과 같은 목록)이 있는 수
 - 강조 앞: 강조점(hints)의 받칠 수 있는 사실(lead)이 FACT 앞 leadWithin(기본 2)문장 안에 나온 쌍 수 / lead 가 있는 쌍 수.
   같은 경험 151 을 다른 문항 · 강조점으로 부른 쌍(rich-problem · emph-*)의 문장을 나란히 읽어 앞세운 사실이 달라졌는지 본다
 - 강조 쌍 지어냄(후보): hints 가 있는 쌍의 지어냄 + 없는 사실 — 강조점 · 직무 때문에 없는 사실이 늘었나(강조점에만 있는 판단 ·
@@ -91,7 +95,7 @@ sys.path.insert(0, str(ROOT))
 
 from app.citations import numbers  # noqa: E402
 from app.draft import MAX_OPINIONS, SYSTEM_PROMPT, backings, missing_numbers  # noqa: E402
-from app.schemas import LLMDraftOutput, MatchExperience  # noqa: E402
+from app.schemas import TITLE_MAX, LLMDraftOutput, MatchExperience  # noqa: E402
 from scripts.eval_match import (  # noqa: E402
     LEADING,
     MINE_WORDS,
@@ -183,6 +187,10 @@ class Score:
     opinion_happened: list[str] = field(default_factory=list)
     opinion_invented: list[str] = field(default_factory=list)
     opinion_flattery: list[str] = field(default_factory=list)
+    titles: list[str] = field(default_factory=list)
+    title_broken: list[str] = field(default_factory=list)
+    title_invented: list[str] = field(default_factory=list)
+    title_flattery: list[str] = field(default_factory=list)
     lead_hit: int = 0
     lead_chances: int = 0
     lead_miss: list[str] = field(default_factory=list)
@@ -362,6 +370,29 @@ def score_opinions(pair: dict, data: LLMDraftOutput) -> Score:
     return s
 
 
+def score_title(pair: dict, data: LLMDraftOutput) -> Score:
+    """첫 줄 소제목(S-86) — 코드가 막는 규칙과, 생각 문장처럼 지어냄 · 칭찬이 새는지."""
+    pid = pair["id"]
+    s = Score()
+    title = data.title
+    if data.sentences and title is None:
+        s.title_broken.append(f"{pid}: 문장이 있는데 소제목 없음")
+    if not data.sentences and title is not None:
+        s.title_broken.append(f"{pid}: 문장 0개인데 소제목 「{title}」")
+    if title is None:
+        return s
+    line = f"{pid}: 「{title}」"
+    s.titles.append(line)
+    if len(title) > TITLE_MAX or numbers(title):
+        s.title_broken.append(f"{pid}: {len(title)}자 · 숫자 {sorted(numbers(title))} {line}")
+    if FLATTERY.search(title):
+        s.title_flattery.append(line)
+    s.title_invented += [
+        f"{pid}: {m['fact']} — {line}" for m in pair["missing"] if re.search(m["pattern"], title)
+    ]
+    return s
+
+
 def score_essay(
     pair: dict,
     experiences: list[MatchExperience],
@@ -512,6 +543,7 @@ def score(
     context = list(context)
     s = score_omitted(pair, [*experiences, *context], data, list(facts))
     s.add(score_opinions(pair, data))
+    s.add(score_title(pair, data))
     s.add(score_essay(pair, experiences, context, data))
     known = backings([*experiences, *context])
     used = {
@@ -766,7 +798,8 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
             opinion_rows.append(
                 f"| {name} | {len(t.opinions)} | {len(t.kind_broken)} "
                 f"| {len(t.opinion_happened)} | {len(t.opinion_invented)} "
-                f"| {len(t.opinion_flattery)} |"
+                f"| {len(t.opinion_flattery)} | {len(t.titles)} | {len(t.title_broken)} "
+                f"| {len(t.title_invented)} | {len(t.title_flattery)} |"
             )
             hint_rows.append(
                 f"| {name} | {t.lead_hit}/{t.lead_chances} | {len(t.hinted_invented)} "
@@ -812,6 +845,10 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
                 *(f"- 사실로 뺌(후보) {x}" for x in t.opinion_happened),
                 *(f"- 없는 사실(후보) {x}" for x in t.opinion_invented),
                 *(f"- 감정 · 칭찬 · 단정(후보) {x}" for x in t.opinion_flattery),
+                *(f"- 소제목 위반 {x}" for x in t.title_broken),
+                *(f"- 소제목 지어냄(후보) {x}" for x in t.title_invented),
+                *(f"- 소제목 칭찬(후보) {x}" for x in t.title_flattery),
+                *(f"- 소제목 {x}" for x in t.titles),
                 *(f"- 없는 ID {x}" for x in t.fake_ids),
                 *(f"- 없는 숫자 {x}" for x in t.bad_numbers),
                 *(f"- 지어냄(후보) {x}" for x in t.invented),
@@ -848,8 +885,8 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
     )
     opinion_head = (
         "| 모델 · 프롬프트 | 생각 문장 | 종류 위반 | 사실로 뺌(후보) | 없는 사실(후보) "
-        "| 감정 · 칭찬 · 단정(후보) |\n"
-        "| --- | --- | --- | --- | --- | --- |"
+        "| 감정 · 칭찬 · 단정(후보) | 소제목 | 소제목 위반 | 소제목 지어냄(후보) | 소제목 칭찬(후보) |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
     )
     hint_head = (
         "| 모델 · 프롬프트 | 강조 앞 | 강조 쌍 지어냄(후보) | 지난 빈칸 또 물음(후보) |\n"

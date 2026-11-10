@@ -59,8 +59,8 @@
     "id": "job-strength",
     "organization": "OO IT 기업",
     "text": "지원 직무와 관련해 강점으로 가진 역량과, 그 역량을 갖추려고 한 노력과 경험을 적어 주세요. (최대 1500자)",
-    "questionType": "STRENGTH_WEAKNESS",
-    "questionTypeOk": ["ACHIEVEMENT", "GROWTH"]
+    "questionType": "JOB_SKILL",
+    "questionTypeOk": ["STRENGTH_WEAKNESS", "ACHIEVEMENT", "GROWTH"]
   },
   {
     "id": "project-contribution",
@@ -81,6 +81,27 @@
     "organization": "OO 교내 IT 동아리",
     "text": "만들고 싶은 서비스나 지금 만들고 있는 서비스를 소개해 주세요.",
     "questionType": "IDEA",
+    "questionTypeOk": []
+  },
+  {
+    "id": "job-skill-build",
+    "organization": "OO IT 기업",
+    "text": "지원 직무를 수행하는 데 필요한 역량을 무엇이라 생각하는지, 그 역량을 쌓기 위해 어떤 노력을 했는지 적어 주세요. (700자)",
+    "questionType": "JOB_SKILL",
+    "questionTypeOk": ["GROWTH"]
+  },
+  {
+    "id": "job-fit",
+    "organization": "OO 핀테크 기업",
+    "text": "본인이 지원 직무에 적합한 이유를 경험을 바탕으로 서술해 주세요.",
+    "questionType": "JOB_SKILL",
+    "questionTypeOk": []
+  },
+  {
+    "id": "tech-stack",
+    "organization": "OO 백엔드 부트캠프",
+    "text": "다룰 수 있는 기술 스택과, 그 기술을 어느 수준까지 써 보았는지 프로젝트 경험과 함께 적어 주세요.",
+    "questionType": "JOB_SKILL",
     "questionTypeOk": []
   }
 ]

@@ -731,3 +731,24 @@ def test_guess_pair_question_with_number_is_not_leading():
     data = _raw(FACT_201, _guess("지연이 1초 안으로 줄었습니다.", specific=True), omitted=[mate])
     s = score(pair, _exps(pair), data, load_facts())
     assert s.leading == []
+
+
+def _titled(title, *sentences):
+    out = _out(*sentences)
+    return out.model_copy(update={"title": title})
+
+
+def test_score_title():
+    """소제목(S-86) — 찍고, 코드 규칙 위반 · 지어낸 사실 · 칭찬을 후보로 센다."""
+    pair = PAIR["tech-a"]
+    fact = ("제가 폴링을 WebSocket 으로 바꿔 해결했습니다.", [("CITATION", 201)])
+    good = score(pair, _exps(pair), _titled("폴링을 구독으로 바꿔 푼 채팅 지연", fact))
+    assert len(good.titles) == 1
+    assert (good.title_broken, good.title_invented, good.title_flattery) == ([], [], [])
+    missing = score(pair, _exps(pair), _titled(None, fact))
+    assert missing.title_broken == ["tech-a: 문장이 있는데 소제목 없음"]
+    bad = score(pair, _exps(pair), _titled("채팅 속도를 개선한 뛰어난 해결", fact))
+    assert len(bad.title_invented) >= 1
+    assert len(bad.title_flattery) == 1
+    number = score(pair, _exps(pair), _titled("3초 폴링을 구독으로", fact))
+    assert len(number.title_broken) == 1
