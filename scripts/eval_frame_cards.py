@@ -16,6 +16,8 @@ LLM_MAX_ATTEMPTS 번). 응답은 --out 폴더(기본 eval-runs/cards-<시각>, �
 - 경험 전환: FACT · ELABORATED · SUPPOSED 문장을 차례로 볼 때 앞 문장과 다른 경험으로 넘어간 횟수(쌍 평균 — 적을수록 한 경험을
   끌고 간다). 가정(SUPPOSED)은 첫 근거, 근거가 없으면 짝 omitted 의 경험에 속한다(AI#84)
 - 줄기 비중: 가장 많이 쓰인 경험이 그 문장들에서 차지하는 비율(쌍 평균 — 높을수록 한 경험이 줄기다)
+- 이음말: 둘째 문장부터 「그래서 · 그런데 · 그 뒤 · 이 …」처럼 앞 문장을 받는 말로 연 문장 비율(후보 — 이음말 없이도
+  잘 이어지는 문장이 있다). 카드가 단계 칸에 끼워 맞춘 뚝뚝 끊기는 글을 만들면 낮아진다(AI#90)
 - 지어냄(후보) · 없는 숫자 · 팀 일을 내 일로(후보) · 모름에 주체(후보) · 종류 위반 · 오류 — eval_draft 와 같다.
   카드를 켰다고 늘면 근거 규칙이 밀린 것이다
 """
@@ -23,6 +25,7 @@ LLM_MAX_ATTEMPTS 번). 응답은 --out 폴더(기본 eval-runs/cards-<시각>, �
 import argparse
 import asyncio
 import json
+import re
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -47,6 +50,12 @@ from scripts.eval_draft import (  # noqa: E402
 
 CARDS = ROOT / "samples" / "draft" / "cards.json"
 
+# 앞 문장을 받아 여는 말(후보 — 사람이 읽는다)
+CONNECTIVE = re.compile(
+    r"^(?:그래서|그런데|그러나|하지만|그러자|그리고|따라서|결국|덕분에|다만|또한|또|먼저|처음|이후|이어|당시|"
+    r"마지막|끝으로|그 ?뒤|그 ?후|그 ?결과|그때|그중|그런|그렇게|그 |이 |이런|이렇게|이처럼|이를|이에|이때|이로)"
+)
+
 
 def load_cards() -> list[dict]:
     """카드 쌍 — 기본 쌍에 id · frame 을 덮어쓴 것."""
@@ -68,12 +77,18 @@ class Trunk:
     switches: int = 0
     share: float = 0.0
     lines: list[str] = field(default_factory=list)
+    joins: int = 0  # 이음말로 연 문장 수(둘째 문장부터)
+    gaps: int = 0  # 둘째 문장부터의 문장 수
 
     def add(self, other: "Trunk") -> None:
-        self.pairs += other.pairs
-        self.switches += other.switches
-        self.share += other.share
-        self.lines += other.lines
+        for name, value in vars(other).items():
+            setattr(self, name, getattr(self, name) + value)
+
+
+def joins_of(data: LLMDraftOutput) -> tuple[int, int]:
+    """(이음말로 연 문장 수, 둘째 문장부터의 문장 수)."""
+    rest = [s.text for s in data.sentences[1:]]
+    return sum(bool(CONNECTIVE.match(t)) for t in rest), len(rest)
 
 
 def score_trunk(
@@ -82,6 +97,7 @@ def score_trunk(
     context: list[MatchExperience],
     data: LLMDraftOutput,
 ) -> Trunk:
+    joins, gaps = joins_of(data)
     known = backings([*chosen, *context])
     by_sentence = sentence_owners(data, known)
     owners: list[int] = []
@@ -94,11 +110,11 @@ def score_trunk(
         elif by_sentence[i]:
             owners.append(min(by_sentence[i]))  # 근거 없는 가정 — 짝 omitted 의 경험(AI#84)
     if not owners:
-        return Trunk()
+        return Trunk(joins=joins, gaps=gaps)
     switches = sum(a != b for a, b in zip(owners, owners[1:], strict=False))
     share = max(owners.count(o) for o in set(owners)) / len(owners)
     line = f"{pair['id']}: 경험 {owners} 전환 {switches} 줄기 {share:.0%}"
-    return Trunk(1, switches, share, [line])
+    return Trunk(1, switches, share, [line], joins, gaps)
 
 
 def _row(name: str, t: Score, k: Trunk, total: int) -> str:
@@ -106,7 +122,7 @@ def _row(name: str, t: Score, k: Trunk, total: int) -> str:
     return (
         f"| {name} | {total} | {len(t.errors)} | {len(t.sentences)} "
         f"| {len(t.listed)}/{t.list_chances} | {t.deep_hit}/{t.deep_chances} "
-        f"| {k.switches / n:.1f} | {k.share / n:.0%} "
+        f"| {k.switches / n:.1f} | {k.share / n:.0%} | {k.joins / max(k.gaps, 1):.0%} "
         f"| {len(t.invented)} | {len(t.bad_numbers)} | {len(t.team_as_mine)} "
         f"| {len(t.unknown_actor)} | {len(t.kind_broken)} |"
     )
@@ -155,9 +171,9 @@ def report(out: Path, experiences: list[dict], cards: list[dict]) -> str:
             details.append(f"\n### {name}\n\n" + "\n".join(lines))
     head = (
         "| 모델 · 회차 · 요청 | 쌍 | 오류 | FACT 문장 | 나열 | 대표 깊음 | 경험 전환(평균) "
-        "| 줄기 비중(평균) | 지어냄(후보) | 없는 숫자 | 팀 일을 내 일로(후보) "
+        "| 줄기 비중(평균) | 이음말 | 지어냄(후보) | 없는 숫자 | 팀 일을 내 일로(후보) "
         "| 모름에 주체(후보) | 종류 위반 |\n"
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
     )
     return "\n".join([head, *rows]) + "\n" + "".join(details) + "\n"
 

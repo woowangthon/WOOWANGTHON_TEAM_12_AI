@@ -50,3 +50,20 @@ def test_trunk_counts_switches_and_share():
     )
     t = score_trunk(pair, chosen, [], data)
     assert (t.pairs, t.switches, t.share) == (1, 2, 0.75)
+
+
+def test_joins_count_sentences_opened_by_connectives():
+    from scripts.eval_frame_cards import joins_of
+
+    data = LLMDraftOutput.model_validate(
+        {
+            "sentences": [
+                _sentence("서버가 느렸습니다.", 1),
+                _sentence("그래서 로그를 봤습니다.", 1),
+                _sentence("캐시를 붙였습니다.", 1),
+                _sentence("이 일로 측정부터 하게 됐습니다.", 1),
+            ],
+            "omitted": [],
+        }
+    )
+    assert joins_of(data) == (2, 3)
