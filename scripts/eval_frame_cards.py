@@ -5,7 +5,7 @@
     uv run python scripts/eval_frame_cards.py --only c-skill  # 그 쌍만
     uv run python scripts/eval_frame_cards.py --rescore eval-runs/cards-<시각>
 
-LLM 호출 수 = 카드 쌍 수 × 2(틀 없이 · 카드) × 모델 수 × runs — 기본 9 × 2 × 1 × 1 = 18회(규칙 위반이면 쌍마다 최대
+LLM 호출 수 = 카드 쌍 수 × 2(틀 없이 · 카드) × 모델 수 × runs — 기본 10 × 2 × 1 × 1 = 20회(규칙 위반이면 쌍마다 최대
 LLM_MAX_ATTEMPTS 번). 응답은 --out 폴더(기본 eval-runs/cards-<시각>, 커밋하지 않음)에 저장한다. 키는 --env 파일에서 읽는다.
 
 자료: samples/draft/cards.json — 기본 쌍(samples/draft/pairs.json 의 base)에 contracts README 「구성 틀」 제안 표의
@@ -20,7 +20,8 @@ LLM_MAX_ATTEMPTS 번). 응답은 --out 폴더(기본 eval-runs/cards-<시각>, �
 - 줄기 비중: 가장 많이 쓰인 경험이 그 문장들에서 차지하는 비율(쌍 평균 — 높을수록 한 경험이 줄기다)
 - 이음말: 둘째 문장부터 「그래서 · 그런데 · 그 뒤 · 이 …」처럼 앞 문장을 받는 말로 연 문장 비율(후보 — 이음말 없이도
   잘 이어지는 문장이 있다). 카드가 단계 칸에 끼워 맞춘 뚝뚝 끊기는 글을 만들면 낮아진다(AI#90)
-- 지어냄(후보) · 없는 숫자 · 팀 일을 내 일로(후보) · 모름에 주체(후보) · 종류 위반 · 오류 — eval_draft 와 같다.
+- 지어냄(후보) · 없는 숫자 · 팀 일을 내 일로(후보) · 모름에 주체(후보) · 종류 위반 · 오류 · 다짐 첫 문장 · 다짐 맺음 ·
+  분류명 소제목 — eval_draft 와 같다.
   카드를 켰다고 늘면 근거 규칙이 밀린 것이다
 """
 
@@ -126,7 +127,8 @@ def _row(name: str, t: Score, k: Trunk, total: int) -> str:
         f"| {len(t.listed)}/{t.list_chances} | {t.deep_hit}/{t.deep_chances} "
         f"| {k.switches / n:.1f} | {k.share / n:.0%} | {k.joins / max(k.gaps, 1):.0%} "
         f"| {len(t.invented)} | {len(t.bad_numbers)} | {len(t.team_as_mine)} "
-        f"| {len(t.unknown_actor)} | {len(t.kind_broken)} |"
+        f"| {len(t.unknown_actor)} | {len(t.kind_broken)} "
+        f"| {len(t.vow_open)} | {len(t.vow_end)} | {len(t.title_category)} |"
     )
 
 
@@ -168,14 +170,15 @@ def report(out: Path, experiences: list[dict], cards: list[dict]) -> str:
                     *(f"- {label} 모름에 주체(후보) {x}" for x in t.unknown_actor),
                     *(f"- {label} 종류 위반 {x}" for x in t.kind_broken),
                     *(f"- {label} 생각 {x}" for x in t.opinions),
+                    *(f"- {label} 소제목 {x}" for x in t.titles),
                     *(f"- {label} 문장 {x}" for x in t.sentences),
                 ]
             details.append(f"\n### {name}\n\n" + "\n".join(lines))
     head = (
         "| 모델 · 회차 · 요청 | 쌍 | 오류 | FACT 문장 | 나열 | 대표 깊음 | 경험 전환(평균) "
         "| 줄기 비중(평균) | 이음말 | 지어냄(후보) | 없는 숫자 | 팀 일을 내 일로(후보) "
-        "| 모름에 주체(후보) | 종류 위반 |\n"
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+        "| 모름에 주체(후보) | 종류 위반 | 다짐 첫 문장(후보) | 다짐 맺음(후보) | 분류명 소제목 |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
     )
     return "\n".join([head, *rows]) + "\n" + "".join(details) + "\n"
 

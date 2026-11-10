@@ -50,6 +50,9 @@ jobRole · requirements · hints 가 있는 쌍은 매칭 결과 · 직무를 �
 - 소제목 위반: 문장이 있는데 없음 · 문장 0개인데 있음 · 40자 넘음 · 숫자(코드 검사와 같은 기준 — 우리 쪽은 0 이어야 한다)
 - 소제목 지어냄(후보): 그 문항의 자료에 없는 사실(missing)을 소제목이 쓴 것 같은 수
 - 소제목 칭찬(후보): 소제목에 감정 · 칭찬 · 의미 단정 낱말(생각 문장과 같은 목록)이 있는 수
+- 다짐 첫 문장 · 다짐 맺음(후보, AI#97): 첫 문장 · 끝 문장이 생각 문장이고 「기여하 · 이어가겠 · 살피겠 …」 다짐 낱말이 든 쌍 수.
+  평가자는 무슨 역량인지 안 보이는 다짐으로 열고 닫는 글을 형식적으로 본다. 지원 동기 · 포부 문항이면 자연스러울 수 있다
+- 분류명 소제목: 「~ 경험」으로 끝나는 소제목 수(「기능 구현과 장애 대응 경험」 — 이 답의 문제 · 변화가 안 보인다, AI#97)
 - 강조 앞: 강조점(hints)의 받칠 수 있는 사실(lead)이 FACT 앞 leadWithin(기본 2)문장 안에 나온 쌍 수 / lead 가 있는 쌍 수.
   같은 경험 151 을 다른 문항 · 강조점으로 부른 쌍(rich-problem · emph-*)의 문장을 나란히 읽어 앞세운 사실이 달라졌는지 본다
 - 강조 쌍 지어냄(후보): hints 가 있는 쌍의 지어냄 + 없는 사실 — 강조점 · 직무 때문에 없는 사실이 늘었나(강조점에만 있는 판단 ·
@@ -126,6 +129,10 @@ FLATTERY = re.compile(
     r"뿌듯|기뻤|보람|즐거|즐겁|감동|설레|행복|벅차|느꼈"
     r"|훌륭|뛰어난|뛰어납|탁월|적임|최고|값진|소중한|밑거름|증명|큰 의미|성장할 수 있었"
 )
+# 아무 지원자에게나 붙는 다짐(후보 — AI#97). 지원 동기 · 포부 문항에선 자연스러울 수 있으니 사람이 본다
+VOW = re.compile(
+    r"기여하|이바지|보탬이 되|활용하고 싶|발휘하고 싶|이어가겠|이어 가겠|살피겠|노력하겠|성장하겠|되겠습니다"
+)
 # AI 보탬이 사용자의 판단 · 생각 · 동기를 만들어 넣었나(후보 — 사람이 본다)
 JUDGED = re.compile(r"보았|봤습|생각했|판단했|마음먹|결심|다짐|깨달|느꼈|여겼|싶었")
 # 문장 속 빈칸 자리 표시
@@ -191,6 +198,9 @@ class Score:
     title_broken: list[str] = field(default_factory=list)
     title_invented: list[str] = field(default_factory=list)
     title_flattery: list[str] = field(default_factory=list)
+    title_category: list[str] = field(default_factory=list)
+    vow_open: list[str] = field(default_factory=list)
+    vow_end: list[str] = field(default_factory=list)
     lead_hit: int = 0
     lead_chances: int = 0
     lead_miss: list[str] = field(default_factory=list)
@@ -367,6 +377,12 @@ def score_opinions(pair: dict, data: LLMDraftOutput) -> Score:
             for m in pair["missing"]
             if re.search(m["pattern"], x.text)
         ]
+    if data.sentences:
+        first, last = data.sentences[0], data.sentences[-1]
+        if first.kind == "OPINION" and VOW.search(first.text):
+            s.vow_open.append(f"{pid}: 「{first.text}」")
+        if len(data.sentences) > 1 and last.kind == "OPINION" and VOW.search(last.text):
+            s.vow_end.append(f"{pid}: 「{last.text}」")
     return s
 
 
@@ -387,6 +403,8 @@ def score_title(pair: dict, data: LLMDraftOutput) -> Score:
         s.title_broken.append(f"{pid}: {len(title)}자 · 숫자 {sorted(numbers(title))} {line}")
     if FLATTERY.search(title):
         s.title_flattery.append(line)
+    if title.rstrip().endswith("경험"):
+        s.title_category.append(line)
     s.title_invented += [
         f"{pid}: {m['fact']} — {line}" for m in pair["missing"] if re.search(m["pattern"], title)
     ]
@@ -799,7 +817,8 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
                 f"| {name} | {len(t.opinions)} | {len(t.kind_broken)} "
                 f"| {len(t.opinion_happened)} | {len(t.opinion_invented)} "
                 f"| {len(t.opinion_flattery)} | {len(t.titles)} | {len(t.title_broken)} "
-                f"| {len(t.title_invented)} | {len(t.title_flattery)} |"
+                f"| {len(t.title_invented)} | {len(t.title_flattery)} | {len(t.title_category)} "
+                f"| {len(t.vow_open)} | {len(t.vow_end)} |"
             )
             hint_rows.append(
                 f"| {name} | {t.lead_hit}/{t.lead_chances} | {len(t.hinted_invented)} "
@@ -848,6 +867,9 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
                 *(f"- 소제목 위반 {x}" for x in t.title_broken),
                 *(f"- 소제목 지어냄(후보) {x}" for x in t.title_invented),
                 *(f"- 소제목 칭찬(후보) {x}" for x in t.title_flattery),
+                *(f"- 분류명 소제목 {x}" for x in t.title_category),
+                *(f"- 다짐 첫 문장(후보) {x}" for x in t.vow_open),
+                *(f"- 다짐 맺음(후보) {x}" for x in t.vow_end),
                 *(f"- 소제목 {x}" for x in t.titles),
                 *(f"- 없는 ID {x}" for x in t.fake_ids),
                 *(f"- 없는 숫자 {x}" for x in t.bad_numbers),
@@ -885,8 +907,9 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
     )
     opinion_head = (
         "| 모델 · 프롬프트 | 생각 문장 | 종류 위반 | 사실로 뺌(후보) | 없는 사실(후보) "
-        "| 감정 · 칭찬 · 단정(후보) | 소제목 | 소제목 위반 | 소제목 지어냄(후보) | 소제목 칭찬(후보) |\n"
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+        "| 감정 · 칭찬 · 단정(후보) | 소제목 | 소제목 위반 | 소제목 지어냄(후보) | 소제목 칭찬(후보) "
+        "| 분류명 소제목 | 다짐 첫 문장(후보) | 다짐 맺음(후보) |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
     )
     hint_head = (
         "| 모델 · 프롬프트 | 강조 앞 | 강조 쌍 지어냄(후보) | 지난 빈칸 또 물음(후보) |\n"

@@ -67,3 +67,31 @@ def test_joins_count_sentences_opened_by_connectives():
         }
     )
     assert joins_of(data) == (2, 3)
+
+
+def test_vow_open_end_and_category_title_are_counted():
+    # 다짐으로 열고 닫는 글 · 「~ 경험」 소제목(AI#97) — 평가자가 형식적으로 보는 꼴
+    from scripts.eval_draft import score_opinions, score_title
+
+    pair = next(c for c in CARDS if c["id"] == "c-skill")
+    data = LLMDraftOutput.model_validate(
+        {
+            "title": "기능 구현과 장애 대응 경험",
+            "sentences": [
+                {
+                    "kind": "OPINION",
+                    "text": "이 경험을 바탕으로 기여하고 싶습니다.",
+                    "evidence": [],
+                },
+                _sentence("크롤러를 고쳤습니다.", 251),
+                {"kind": "OPINION", "text": "앞으로도 실패를 살피겠습니다.", "evidence": []},
+            ],
+            "omitted": [],
+        }
+    )
+    o, t = score_opinions(pair, data), score_title(pair, data)
+    assert (len(o.vow_open), len(o.vow_end), len(t.title_category)) == (1, 1, 1)
+    data.title = "새벽 점검에도 멈추지 않게 고친 공지 크롤러"
+    data.sentences = data.sentences[1:2]
+    o, t = score_opinions(pair, data), score_title(pair, data)
+    assert (len(o.vow_open), len(o.vow_end), len(t.title_category)) == (0, 0, 0)
