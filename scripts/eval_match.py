@@ -32,6 +32,9 @@ samples/match/questions.json(문항마다 손으로 적은 정답). 정답 칸:
 - 보완 씀: 보완이 실린 경험을 추천했을 때 evidence 에 보완을 넣은 수 / 그런 추천 수(S-25)
 - 오류: 다시 시도 뒤에도 규칙(ID 가 요청에 있나 등)을 어겨 LLM_INVALID_OUTPUT 등으로 끝난 문항 수
 - 문항 유형 정답: questionType 과 같은 수 · 허용 포함: questionTypeOk 까지 맞다고 친 수(S-41)
+- 추천 수 · 활동 수(S-84 — 0 ~ 8개 · 활동 5개까지): 답한 문항의 추천 경험 수 합 · 서로 다른 활동 수 합
+- 정답 밖(후보): good · ok 에도 bad 에도 없는 경험을 추천한 수 — 상한이 늘어 억지로 채웠나 사람이 읽는다
+- 활동 통째(후보): 경험이 3개 이상인 활동의 경험을 전부 추천한 수 — 「문항에 쓸 만한 줄만」을 어겼나 본다
 
 되묻기(S-22 · S-25) — samples/match/clarify.json 의 「경험에 이미 있는 사실」과 그걸 묻는 정규식으로 센다.
 정규식 · 낱말로 거른 것은 전부 후보다 — 목록을 사람이 읽고 판단한다(질문 전체도 찍는다):
@@ -115,6 +118,10 @@ class Score:
     type_right: int = 0
     type_ok: int = 0
     type_wrong: list[str] = field(default_factory=list)
+    rec_count: int = 0
+    activity_count: int = 0
+    unlabeled: list[str] = field(default_factory=list)
+    whole_activity: list[str] = field(default_factory=list)
 
     def add(self, other: "Score") -> None:
         for name, value in vars(other).items():
@@ -190,6 +197,18 @@ def score(
         s.req_wrong.append(
             f"{qid}({kind}): " + " · ".join(f"{r.text}={r.status}" for r in data.requirements)
         )
+
+    # ---- 개수(S-84) ----
+    s.rec_count += len(ids)
+    s.activity_count += len({by_id[i].activityId for i in ids})
+    labeled = {*question["good"], *question.get("ok", ()), *question["bad"]}
+    s.unlabeled += [f"{qid}: {i} 「{by_id[i].content}」" for i in ids if i not in labeled]
+    members: dict[int | None, set[int]] = {}
+    for e in experiences:
+        members.setdefault(e.activityId, set()).add(e.id)
+    for aid, group in members.items():
+        if aid is not None and len(group) >= 3 and group <= set(ids):
+            s.whole_activity.append(f"{qid}: 활동 {aid} 경험 {sorted(group)}")
 
     known_ints = _ints(question["text"]) | set(by_id)
     for rec in recs:
@@ -347,7 +366,7 @@ def report(
     out: Path, experiences: list[dict], questions: list[dict], type_questions: list[dict]
 ) -> str:
     known = load_known()
-    rows, clar_rows, type_rows, details = [], [], [], []
+    rows, clar_rows, type_rows, count_rows, details = [], [], [], [], []
     for model_dir in sorted(p for p in out.iterdir() if p.is_dir()):
         for prompt_dir in sorted(p for p in model_dir.iterdir() if p.is_dir()):
             stripped = prompt_dir.name.endswith(NOSUPP)
@@ -402,7 +421,13 @@ def report(
                 f"| {len(t.team_as_mine)} | {t.supplement_used}/{t.supplement_recs} "
                 f"| {len(t.errors)}/{t.questions} | {t.seconds:.0f}초 |"
             )
+            count_rows.append(
+                f"| {name} | {t.rec_count} | {t.activity_count} | {len(t.unlabeled)} "
+                f"| {len(t.whole_activity)} |"
+            )
             lines = [
+                *(f"- 정답 밖(후보) {x}" for x in t.unlabeled),
+                *(f"- 활동 통째(후보) {x}" for x in t.whole_activity),
                 *(f"- 엉뚱한 추천 {x}" for x in t.wrong_picks),
                 *(f"- 억지 추천 {x}" for x in t.forced),
                 *(f"- 요구사항 판정 틀림 {x}" for x in t.req_wrong),
@@ -429,9 +454,18 @@ def report(
         "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"
     )
     type_head = "| 모델 · 프롬프트 | 문항 유형 정답 | 허용 포함 | 오류 |\n| --- | --- | --- | --- |"
+    count_head = (
+        "| 모델 · 프롬프트 | 추천 수 | 활동 수 | 정답 밖(후보) | 활동 통째(후보) |\n"
+        "| --- | --- | --- | --- | --- |"
+    )
     tables = "\n\n".join(
         "\n".join(t)
-        for t in ([head, *rows], [clar_head, *clar_rows], [type_head, *type_rows])
+        for t in (
+            [head, *rows],
+            [count_head, *count_rows],
+            [clar_head, *clar_rows],
+            [type_head, *type_rows],
+        )
         if len(t) > 1
     )
     return tables + "\n" + "".join(details) + "\n"

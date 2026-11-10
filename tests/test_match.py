@@ -293,3 +293,82 @@ def test_question_type_in_llm_schema():
     assert "questionType" in LLM_JSON_SCHEMA["required"]
     assert LLM_JSON_SCHEMA["properties"]["questionType"]["enum"] == list(QUESTION_TYPES)
     assert len(QUESTION_TYPES) == 12 and {"OTHER", "JOB_SKILL"} <= set(QUESTION_TYPES)
+
+
+# ---- 추천 0 ~ 8개 · 활동 5개까지(S-84) ----
+
+
+def _many(n, activity=lambda i: i):
+    """경험 n개 — 경험 i 는 활동 activity(i). activity 가 None 을 주면 activityId 를 싣지 않는다."""
+    exps = []
+    for i in range(1, n + 1):
+        exp = _exp(500 + i, f"본문 {i}", "ME", [(600 + i, f"발췌 {i}")])
+        if activity(i) is not None:
+            exp["activityId"] = activity(i)
+        exps.append(exp)
+    return exps
+
+
+def _recommend_all(exps):
+    return {
+        "questionType": "COLLABORATION",
+        "requirements": [{"text": "역할", "status": "SUPPORTED", "experienceIds": [exps[0]["id"]]}],
+        "recommendations": [
+            {"experienceId": e["id"], "reason": "r", "emphasis": "e", "evidence": [], "gaps": []}
+            for e in exps
+        ],
+        "clarifications": [],
+    }
+
+
+def _post_many(client_with, exps, n_out=None):
+    out = _recommend_all(exps[:n_out] if n_out else exps)
+    llm = FakeLLM(out, out)
+    res = client_with(llm, max_attempts=2).post("/match", json={**BODY, "experiences": exps})
+    return res, llm
+
+
+def test_eight_recommendations_in_five_activities_ok(client_with):
+    exps = _many(8, activity=lambda i: (i + 1) // 2)  # 활동 1 ~ 4 에 두 줄씩
+    res, llm = _post_many(client_with, exps)
+    assert res.status_code == 200
+    assert len(res.json()["recommendations"]) == 8
+    assert llm.calls == 1
+
+
+def test_five_activities_ok(client_with):
+    res, _ = _post_many(client_with, _many(5))
+    assert res.status_code == 200
+
+
+def test_nine_recommendations_rejected(client_with):
+    res, llm = _post_many(client_with, _many(9, activity=lambda i: 1))
+    assert res.status_code == 502
+    assert res.json()["error"]["code"] == "LLM_INVALID_OUTPUT"
+    assert llm.calls == 2
+
+
+def test_six_activities_rejected(client_with):
+    res, llm = _post_many(client_with, _many(6))
+    assert res.status_code == 502
+    assert res.json()["error"]["code"] == "LLM_INVALID_OUTPUT"
+    assert llm.calls == 2
+
+
+def test_without_activity_id_skips_activity_count(client_with):
+    # BE 가 activityId 를 싣기 전 요청 — 400 이 아니고 활동 수 검사를 건너뛴다
+    res, _ = _post_many(client_with, _many(8, activity=lambda i: None))
+    assert res.status_code == 200
+
+
+def test_prompt_shows_activity_id(client_with):
+    seen = {}
+
+    class Spy(FakeLLM):
+        async def generate_json(self, system, user, schema, deadline):
+            seen["user"] = user
+            return await super().generate_json(system, user, schema, deadline)
+
+    exps = _many(2, activity=lambda i: 7)
+    client_with(Spy(_recommend_all(exps))).post("/match", json={**BODY, "experiences": exps})
+    assert "(활동 7)" in seen["user"]

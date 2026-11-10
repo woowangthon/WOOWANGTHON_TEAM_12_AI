@@ -355,7 +355,7 @@ def test_year_only_period_backs_year():
     "experiences",
     [
         pytest.param([], id="0개"),
-        pytest.param([_exp(i, "본문", "ME", [(200 + i, "발췌")]) for i in (1, 2, 3, 4)], id="4개"),
+        pytest.param([_exp(i, "본문", "ME", [(200 + i, "발췌")]) for i in range(1, 10)], id="9개"),
         pytest.param([EXP_101, EXP_101], id="중복"),
         pytest.param(None, id="없음"),
     ],

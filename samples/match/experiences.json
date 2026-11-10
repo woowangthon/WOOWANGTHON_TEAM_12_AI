@@ -1,6 +1,7 @@
 [
   {
     "id": 101,
+    "activityId": 1,
     "activityName": "바꿔요 — 캠퍼스 중고거래 앱",
     "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
     "content": "채팅 메시지가 늦게 도착하는 문제를 폴링에서 WebSocket 으로 바꿔 해결했다",
@@ -14,6 +15,7 @@
   },
   {
     "id": 102,
+    "activityId": 1,
     "activityName": "바꿔요 — 캠퍼스 중고거래 앱",
     "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
     "content": "매주 금요일 스프린트 회고를 했다",
@@ -25,6 +27,7 @@
   },
   {
     "id": 103,
+    "activityId": 1,
     "activityName": "바꿔요 — 캠퍼스 중고거래 앱",
     "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
     "content": "서비스를 AWS 에 배포했다",
@@ -36,6 +39,7 @@
   },
   {
     "id": 104,
+    "activityId": 1,
     "activityName": "바꿔요 — 캠퍼스 중고거래 앱",
     "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
     "content": "백엔드 API 설계를 맡았다",
@@ -47,6 +51,7 @@
   },
   {
     "id": 106,
+    "activityId": 1,
     "activityName": "바꿔요 — 캠퍼스 중고거래 앱",
     "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
     "content": "중간 발표 전 일정이 밀리자 남은 기능을 꼭 할 것과 미룰 것으로 나눠 일정표를 다시 짰다",
@@ -58,6 +63,7 @@
   },
   {
     "id": 107,
+    "activityId": 1,
     "activityName": "바꿔요 — 캠퍼스 중고거래 앱",
     "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
     "content": "거래 후기 화면을 두고 디자이너와 개발 쪽 의견이 갈리자 두 안의 장단점을 표로 정리해 회의에서 하나로 정했다",
@@ -72,6 +78,7 @@
   },
   {
     "id": 105,
+    "activityId": 2,
     "activityName": "알고리즘 스터디",
     "period": { "start": "2024-09", "end": null, "ongoing": true },
     "content": "매주 풀 문제를 고른다",
@@ -83,6 +90,7 @@
   },
   {
     "id": 108,
+    "activityId": 2,
     "activityName": "알고리즘 스터디",
     "period": { "start": "2024-09", "end": null, "ongoing": true },
     "content": "참여가 줄자 출석 체크 대신 풀이 공유 시트를 만들어 각자 푼 문제를 적게 했다",
@@ -94,6 +102,7 @@
   },
   {
     "id": 111,
+    "activityId": 3,
     "activityName": "모여봄 — 동네 소모임 앱",
     "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
     "content": "매주 월요일 30분씩 스탠드업을 해서 일정이 밀리는 걸 일찍 알았다",
@@ -105,6 +114,7 @@
   },
   {
     "id": 112,
+    "activityId": 3,
     "activityName": "모여봄 — 동네 소모임 앱",
     "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
     "content": "거리와 관심사를 섞어 점수를 매기는 모임 추천 로직을 만들었다",
@@ -116,6 +126,7 @@
   },
   {
     "id": 113,
+    "activityId": 3,
     "activityName": "모여봄 — 동네 소모임 앱",
     "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
     "content": "로그인과 알림 서버를 맡아 FCM 으로 모임 시작 알림을 보내게 했다",
@@ -127,6 +138,7 @@
   },
   {
     "id": 114,
+    "activityId": 3,
     "activityName": "모여봄 — 동네 소모임 앱",
     "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
     "content": "중간 발표 직전 서버가 자주 죽은 원인이 DB 커넥션을 닫지 않은 코드여서 고쳤다",
@@ -138,6 +150,7 @@
   },
   {
     "id": 115,
+    "activityId": 3,
     "activityName": "모여봄 — 동네 소모임 앱",
     "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
     "content": "테스트를 거의 쓰지 않아 막판에 버그가 몰린 것을 돌아보고, 다음엔 처음부터 테스트를 같이 쓰기로 정했다",
@@ -152,6 +165,7 @@
   },
   {
     "id": 116,
+    "activityId": 3,
     "activityName": "모여봄 — 동네 소모임 앱",
     "period": { "start": "2025-03", "end": "2025-06", "ongoing": false },
     "content": "다음 프로젝트에선 장애가 나면 로그부터 남기고 보겠다고 다짐했다",
@@ -163,6 +177,7 @@
   },
   {
     "id": 121,
+    "activityId": 4,
     "activityName": "카페 아르바이트",
     "period": { "start": "2024-01", "end": "2024-12", "ongoing": false },
     "content": "매주 마감 뒤 재고를 엑셀 표로 정리해 사장님께 다음 주 발주량을 제안했다",
@@ -176,6 +191,7 @@
   },
   {
     "id": 122,
+    "activityId": 4,
     "activityName": "카페 아르바이트",
     "period": { "start": "2024-01", "end": "2024-12", "ongoing": false },
     "content": "새로 온 아르바이트생이 보도록 음료 레시피 안내 문서를 만들었다",
@@ -187,6 +203,7 @@
   },
   {
     "id": 131,
+    "activityId": 5,
     "activityName": "컴퓨터공학과 학생회",
     "period": { "start": "2023", "end": "2023", "ongoing": false },
     "content": "새내기 배움터 일정표를 만들고 당일 진행을 맡았다",
@@ -198,6 +215,7 @@
   },
   {
     "id": 132,
+    "activityId": 5,
     "activityName": "컴퓨터공학과 학생회",
     "period": { "start": "2023", "end": "2023", "ongoing": false },
     "content": "축제 부스 예산을 짰다",
@@ -209,6 +227,7 @@
   },
   {
     "id": 133,
+    "activityId": 5,
     "activityName": "컴퓨터공학과 학생회",
     "period": { "start": "2023", "end": "2023", "ongoing": false },
     "content": "축제 부스 영수증을 모았다",
@@ -220,6 +239,7 @@
   },
   {
     "id": 141,
+    "activityId": 6,
     "activityName": "개인 프로젝트 — 가계부 웹앱",
     "period": null,
     "content": "혼자 만든 가계부 웹앱을 친구 5명이 한 달 동안 썼다",
