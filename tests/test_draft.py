@@ -520,6 +520,26 @@ def test_guided_contract_example(client_with):
     assert seen["user"].index("</경험 목록>") < seen["user"].index("<작성 지침>")
 
 
+@pytest.mark.parametrize(
+    "frame,first_step",
+    [
+        ("MOTIVE_LINK", "지원처에서 본 것"),
+        ("CAUSE_FIX", "한 줄 요약"),
+        ("ALIGN", "함께 하던 일"),
+        ("CHANGE", "기존 방식"),
+        ("SKILL_STEPS", "역량 한 줄"),
+        ("ORIGIN", "지금의 나 한 줄"),
+    ],
+)
+def test_structure_card_steps_are_in_prompt(client_with, frame, first_step):
+    # 구조 카드(S-82) — 계약 README 「구성 틀」 단계 문구가 <구성 틀> 에 실린다
+    Spy, seen = _spy()
+    body = {**GUIDED, "question": {**QUESTION, "frame": frame}, "guidelines": []}
+    r = client_with(Spy(GOOD)).post("/draft", json=body)
+    assert r.status_code == 200
+    assert f"<구성 틀>\n{frame}: {first_step}" in seen["user"]
+
+
 def test_none_frame_and_no_guidelines_are_unchanged():
     body = {"question": {**QUESTION, "frame": "NONE"}, "experiences": [EXP_101], "guidelines": []}
     question, exps, gs = check_request(DraftRequest.model_validate(body), load_settings())

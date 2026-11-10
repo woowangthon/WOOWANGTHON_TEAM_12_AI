@@ -1,0 +1,10 @@
+[
+  {"id": "c-motive", "base": "motivation", "frame": "MOTIVE_LINK"},
+  {"id": "c-align", "base": "coordination", "frame": "ALIGN"},
+  {"id": "c-align-team", "base": "team-way", "frame": "ALIGN"},
+  {"id": "c-align-ctx", "base": "ctx-collab", "frame": "ALIGN"},
+  {"id": "c-cause-ctx", "base": "ctx-tech", "frame": "CAUSE_FIX"},
+  {"id": "c-change-ctx", "base": "ctx-two", "frame": "CHANGE"},
+  {"id": "c-origin", "base": "aspiration-team", "frame": "ORIGIN"},
+  {"id": "c-skill", "base": "job-fit", "frame": "SKILL_STEPS"}
+]
