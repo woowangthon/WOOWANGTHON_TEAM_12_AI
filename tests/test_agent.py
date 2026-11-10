@@ -457,3 +457,56 @@ def test_read_outcome_계약_오류_모양():
     assert read_outcome(True, None, ["뭔가 실패"]).error["code"] == "TOOL_ERROR"
     assert read_outcome(False, {"a": 1}, ["무시"]).result == {"a": 1}
     assert read_outcome(False, None, ['{"a":1}']).result == {"a": 1}
+
+
+CURRENT = {
+    "id": 41,
+    "text": "기술 문제 해결 경험",
+    "organization": "OO",
+    "experiences": [
+        {
+            "id": 101,
+            "activityName": "바꿔요",
+            "content": "채팅 지연을 고쳤다",
+            "recommended": True,
+            "inDraft": True,
+        },
+        {
+            "id": 105,
+            "activityName": "알고리즘 스터디",
+            "content": "문제 선정을 맡았다",
+            "recommended": False,
+            "inDraft": True,
+        },
+    ],
+}
+
+
+def test_지금_걸린_경험을_프롬프트에_싣는다(post):
+    """ETC#300 — 「지금 경험 말고」에 되묻지 않게 그 문항의 추천 · 초안 경험을 안다."""
+    llm = FakeToolLLM(turn("다른 경험을 찾지 못했어요."))
+    post(llm, FakeMcp(), text="지금 경험 말고 다른 거", context={"question": CURRENT})
+    prompt = llm.seen[0][1]["content"]
+    assert "<지금 걸린 경험>" in prompt
+    assert "- [101] 바꿔요 — 채팅 지연을 고쳤다 (추천 · 초안에 씀)" in prompt
+    assert "- [105] 알고리즘 스터디 — 문제 선정을 맡았다 (초안에 씀)" in prompt
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        {"id": 41, "text": "기술 문제 해결 경험", "organization": "OO"},  # 이전 BE — 칸 없음
+        {**CURRENT, "experiences": []},
+    ],
+)
+def test_걸린_경험이_없으면_목록을_싣지_않는다(post, question):
+    llm = FakeToolLLM(turn("찾지 못했어요."))
+    events = post(llm, FakeMcp(), context={"question": question})
+    assert events[-1]["type"] == "done"
+    assert "<지금 걸린 경험>" not in llm.seen[0][1]["content"]
+
+
+def test_지금_걸린_경험의_활동_이름은_말해도_된다(post):
+    llm = FakeToolLLM(turn("「바꿔요」 말고는 쌓인 자료에서 찾지 못했어요."))
+    events = post(llm, FakeMcp(), text="지금 경험 말고 다른 거", context={"question": CURRENT})
+    assert [e["type"] for e in events] == ["message", "done"]

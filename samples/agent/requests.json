@@ -6,6 +6,7 @@
   { "id": "find-team-deploy", "text": "내가 서비스 배포해 본 적 있나?", "end": "done", "mustFind": [103], "notMine": true },
   { "id": "find-team-budget", "text": "예산 직접 짜 본 적 있어?", "end": "done", "mustFind": [132], "notMine": true },
   { "id": "find-in-question", "text": "이 문항에 쓸 만한 경험 찾아 줘", "context": { "question": { "id": 41, "text": "기술적인 문제를 해결한 경험을 구체적으로 적어 주세요.", "organization": "OO 백엔드 부트캠프" } }, "end": "done", "mustFind": [101] },
+  { "id": "find-other-than-current", "text": "지금 고른 경험 말고 이 문항에 쓸 다른 경험을 찾아 줘", "context": { "question": { "id": 41, "text": "기술적인 문제를 해결한 경험을 구체적으로 적어 주세요.", "organization": "OO 백엔드 부트캠프", "experiences": [ { "id": 101, "activityName": "바꿔요 — 캠퍼스 중고거래 앱", "content": "채팅 메시지가 늦게 도착하는 문제를 폴링에서 WebSocket 으로 바꿔 해결했다", "recommended": true, "inDraft": true } ] } }, "end": "done" },
 
   { "id": "none-volunteer", "text": "해외 봉사 활동 해 본 적 있나?", "end": "done" },
   { "id": "none-ml", "text": "머신러닝 모델 학습시켜 본 경험 찾아 줘", "end": "done" },
