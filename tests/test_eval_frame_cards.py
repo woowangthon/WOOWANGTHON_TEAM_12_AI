@@ -1,7 +1,7 @@
 """구조 카드 초안 시험 자료(samples/draft/cards.json)와 채점 — LLM 없이."""
 
 from app.config import load_settings
-from app.draft import CARD_EXAMPLES, CARD_STEPS, FRAME_STEPS, check_request
+from app.draft import FRAME_STEPS, check_request
 from app.schemas import DraftRequest, LLMDraftOutput, MatchExperience
 from scripts.eval_draft import context_of, load_experiences, picked, question
 from scripts.eval_frame_cards import load_cards, plain_of, score_trunk
@@ -52,39 +52,18 @@ def test_trunk_counts_switches_and_share():
     assert (t.pairs, t.switches, t.share) == (1, 2, 0.75)
 
 
-def test_in_order_allows_merged_and_repeated_steps():
-    from scripts.eval_frame_cards import in_order
+def test_joins_count_sentences_opened_by_connectives():
+    from scripts.eval_frame_cards import joins_of
 
-    names = CARD_STEPS["CAUSE_FIX"]
-    assert in_order("CAUSE_FIX", [names[0], names[2], names[2], names[5]])  # 건너뜀 · 두 문장
-    assert not in_order("CAUSE_FIX", [names[0], names[3], names[2]])  # 뒤로 감
-    assert not in_order("CAUSE_FIX", [names[0], "없는 단계"])
-    skill = CARD_STEPS["SKILL_STEPS"]
-    assert in_order("SKILL_STEPS", [skill[0], skill[4], skill[0], skill[2]])  # 둘째 역량
-    assert not in_order("SKILL_STEPS", [skill[0], skill[4], skill[1]])
-
-
-def test_score_steps_counts_copy_joins_and_bare_changes():
-    from scripts.eval_frame_cards import score_steps
-
-    card = next(c for c in CARDS if c["frame"] == "CAUSE_FIX")
-    names = CARD_STEPS["CAUSE_FIX"]
-    copied = CARD_EXAMPLES["CAUSE_FIX"][1][2]  # 예시 문장 그대로
     data = LLMDraftOutput.model_validate(
         {
             "sentences": [
-                _sentence("서버 응답이 느렸습니다.", 1),
-                _sentence(copied, 1),
+                _sentence("서버가 느렸습니다.", 1),
                 _sentence("그래서 로그를 봤습니다.", 1),
+                _sentence("캐시를 붙였습니다.", 1),
+                _sentence("이 일로 측정부터 하게 됐습니다.", 1),
             ],
             "omitted": [],
         }
     )
-    s = score_steps(card, data, [names[0], names[1], names[2]])
-    assert (s.pairs, s.ordered, s.missing) == (1, 1, 3)
-    assert len(s.copied) == 1
-    assert (s.joins, s.gaps) == (1, 2)
-    assert (len(s.bare), s.changes) == (1, 2)  # 걸림돌로 넘어간 문장만 이음말 없음
-    # step 이 없는 판도 예시 베끼기 · 이음말은 센다
-    assert score_steps(card, data, None).pairs == 0
-    assert len(score_steps(card, data, None).copied) == 1
+    assert joins_of(data) == (2, 3)

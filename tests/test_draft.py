@@ -8,10 +8,6 @@ import pytest
 from app.citations import numbers, unsupported_numbers
 from app.config import load_settings
 from app.draft import (
-    CARD_EXAMPLES,
-    CARD_MODE,
-    CARD_STEPS,
-    FRAME_STEPS,
     LLM_JSON_SCHEMA,
     backings,
     build_draft_message,
@@ -1122,64 +1118,3 @@ def test_title_in_llm_schema():
 
     assert "title" in LLM_JSON_SCHEMA["required"]
     assert LLM_JSON_SCHEMA["properties"]["title"] == {"type": ["string", "null"]}
-
-
-def test_card_steps_and_example_in_prompt_and_schema():
-    # 구조 카드 실험 판(AI#90) — 단계 이름 · 고른 카드의 예시 하나가 실리고, 스키마가 문장마다 step 을 묻는다
-    body = {**GUIDED, "question": {**QUESTION, "frame": "CAUSE_FIX"}, "guidelines": []}
-    question, exps, gs = check_request(DraftRequest.model_validate(body), load_settings())
-    user = build_draft_message(question, exps, gs, card_mode="example")
-    assert "단계 이름: 「한 줄 요약」 「걸림돌」" in user
-    assert user.count("<카드 예시>") == 1
-    assert "[원인 확인 · 가정]" in user
-    assert "학생회" not in user  # 다른 카드의 예시는 싣지 않는다
-    item = schema_for(gs, "CAUSE_FIX", "example")["properties"]["sentences"]["items"]
-    assert item["properties"]["step"]["enum"] == CARD_STEPS["CAUSE_FIX"]
-    assert "step" in item["required"]
-    assert "step" not in LLM_JSON_SCHEMA["properties"]["sentences"]["items"]["properties"]
-
-
-def test_product_card_prompt_is_unchanged_and_step_never_reaches_response(client_with):
-    # 제품 판은 off(AI#90 채점) — 카드를 켜도 예전 사용자 메시지 · 스키마. LLM 이 step 을 돌려줘도 응답에 싣지 않는다
-    assert CARD_MODE == "off"
-    seen = {}
-
-    class Spy(FakeLLM):
-        async def generate_json(self, system, user, schema, deadline):
-            seen["user"], seen["schema"] = user, schema
-            return await super().generate_json(system, user, schema, deadline)
-
-    steps = [{**s, "step": "한 줄 요약"} for s in GOOD["sentences"]]
-    body = {**GUIDED, "question": {**QUESTION, "frame": "CAUSE_FIX"}, "guidelines": []}
-    r = client_with(Spy({**GOOD, "sentences": steps})).post("/draft", json=body)
-    assert r.status_code == 200
-    assert all("step" not in s for s in r.json()["sentences"])
-    assert "단계 이름" not in seen["user"] and "<카드 예시>" not in seen["user"]
-    assert seen["schema"] is LLM_JSON_SCHEMA
-
-
-@pytest.mark.parametrize("frame", ["STAR", "CARL", "PREP"])
-def test_old_frames_get_no_card_steps(frame):
-    body = {**GUIDED, "question": {**QUESTION, "frame": frame}, "guidelines": []}
-    question, exps, gs = check_request(DraftRequest.model_validate(body), load_settings())
-    assert "단계 이름" not in build_draft_message(question, exps, gs)
-    assert schema_for(gs, question.frame) is LLM_JSON_SCHEMA
-
-
-def test_card_mode_off_is_the_old_card_prompt():
-    body = {**GUIDED, "question": {**QUESTION, "frame": "ALIGN"}, "guidelines": []}
-    question, exps, gs = check_request(DraftRequest.model_validate(body), load_settings())
-    off = build_draft_message(question, exps, gs, card_mode="off")
-    assert off.endswith(f"<구성 틀>\nALIGN: {FRAME_STEPS['ALIGN']}\n</구성 틀>")
-    assert schema_for(gs, "ALIGN", "off") is LLM_JSON_SCHEMA
-    steps = build_draft_message(question, exps, gs, card_mode="steps")
-    assert "단계 이름" in steps and "<카드 예시>" not in steps
-
-
-def test_card_examples_follow_card_steps():
-    # 예시의 단계는 카드 단계 이름 그대로 · 카드 순서대로
-    assert set(CARD_EXAMPLES) == set(CARD_STEPS)
-    for frame, lines in CARD_EXAMPLES.items():
-        idx = [CARD_STEPS[frame].index(step) for step, _, _ in lines]
-        assert idx == sorted(idx), frame
-        assert {kind for _, kind, _ in lines} <= {"사실", "가정", "생각"}

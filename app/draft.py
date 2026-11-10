@@ -76,216 +76,6 @@ FRAME_STEPS = {
     "그대로 해 본 경험(한 경험을 처음부터 끝까지) → 결과 → 지금 · 직무에서(생각 문장)",
 }
 
-# 구조 카드의 단계 이름(AI#90) — 문장마다 step 으로 받는다. 내부용이라 응답에 싣지 않는다(DraftSentence 에 칸이 없어
-# 파싱 때 버려진다). 단계를 지키게 하는 힘이고, 채점(scripts/eval_frame_cards.py)이 단계 순서를 잰다
-CARD_STEPS = {
-    "MOTIVE_LINK": ["지원처에서 본 것", "맞닿은 내 경험", "거기서 얻은 역량", "입사 뒤 할 일"],
-    "CAUSE_FIX": ["한 줄 요약", "걸림돌", "원인 확인", "판단과 행동", "결과", "배운 점"],
-    "ALIGN": ["함께 하던 일", "엇갈린 지점", "들은 입장", "맞춘 방식", "결과", "협업에서 본 것"],
-    "CHANGE": ["기존 방식", "바꿔야 한 이유", "제안과 반대", "위험과 보완", "결과"],
-    "SKILL_STEPS": [
-        "역량 한 줄",
-        "계기",
-        "쌓은 단계 — 기초",
-        "쌓은 단계 — 적용",
-        "쌓은 단계 — 깊이",
-        "지금의 증거",
-        "직무에서 쓸 곳",
-    ],
-    "ORIGIN": ["지금의 나 한 줄", "계기", "그대로 해 본 경험", "결과", "지금 · 직무에서"],
-}
-# 블록을 되풀이할 수 있는 카드 — 둘째 블록은 첫 단계부터 다시(SKILL_STEPS 「역량이 둘이면 … 한 번씩」)
-CARD_REPEATS = {"SKILL_STEPS"}
-
-# 카드마다 가상 예시 하나(AI#90) — 개발과 먼 분야의 지어낸 경험이다. 합격 자소서 본문 · 문장을 쓰지 않는다(S-82 ·
-# SPEC 미결정 16 ③). 사용자 개인 문체도 쓰지 않는다. 주 목적은 연결(그래서 · 그런데 · 그 뒤)이 앞 일에서 나오는 꼴이다.
-# (단계, 종류, 문장) — 종류는 사실 · 가정 · 생각
-CARD_EXAMPLES: dict[str, list[tuple[str, str, str]]] = {
-    "MOTIVE_LINK": [
-        (
-            "지원처에서 본 것",
-            "사실",
-            "공고에서 매장마다 손님 문의를 따로 받아 같은 질문에도 답이 매번 달라진다는 과제를 읽었습니다.",
-        ),
-        (
-            "맞닿은 내 경험",
-            "사실",
-            "카페에서 일할 때도 직원마다 원두 설명이 달라 손님이 되묻는 일이 잦았습니다.",
-        ),
-        (
-            "맞닿은 내 경험",
-            "가정",
-            "그래서 자주 받는 질문과 답을 한 장에 모아 계산대 옆에 붙였고, 그 뒤로는 새로 온 직원도 같은 말로 안내했습니다.",
-        ),
-        (
-            "거기서 얻은 역량",
-            "가정",
-            "흩어진 답을 한곳에 모아 누구나 같은 답을 하게 만드는 법을 그때 익혔습니다.",
-        ),
-        (
-            "입사 뒤 할 일",
-            "생각",
-            "입사하면 매장마다 다른 안내를 모아 같은 답을 드리는 일부터 해 보고 싶습니다.",
-        ),
-    ],
-    "CAUSE_FIX": [
-        (
-            "한 줄 요약",
-            "사실",
-            "동아리 축제 부스에서 끝없이 길어지던 줄을 주문 자리와 받는 자리를 나눠 풀었습니다.",
-        ),
-        (
-            "걸림돌",
-            "사실",
-            "첫날 점심 무렵 줄이 부스 밖까지 이어져, 기다리다 돌아가는 손님이 생겼습니다.",
-        ),
-        (
-            "원인 확인",
-            "가정",
-            "처음엔 만드는 손이 느린 줄 알았는데, 줄 옆에서 지켜보니 주문 받는 사람이 음식까지 건네느라 주문이 멈춰 있었습니다.",
-        ),
-        (
-            "판단과 행동",
-            "가정",
-            "그래서 다음 날에는 두 자리를 나누고, 주문을 마친 손님은 옆으로 비켜 기다리게 했습니다.",
-        ),
-        ("결과", "가정", "그러자 줄이 부스 밖으로 넘어가는 일이 없어졌습니다."),
-        (
-            "배운 점",
-            "가정",
-            "느린 곳을 짐작하기 전에 먼저 지켜봐야 한다는 것을 이 일로 배웠습니다.",
-        ),
-    ],
-    "ALIGN": [
-        (
-            "함께 하던 일",
-            "사실",
-            "학생회에서 체육대회 준비를 맡아 홍보 담당 부원과 함께 예산을 나누고 있었습니다.",
-        ),
-        (
-            "엇갈린 지점",
-            "사실",
-            "홍보 쪽은 현수막을 늘리자고 했고, 저는 상품에 더 써야 참가자가 모인다고 보아 의견이 갈렸습니다.",
-        ),
-        (
-            "들은 입장",
-            "가정",
-            "이야기를 더 들어 보니 홍보 담당은 지난 행사 때 행사를 아는 학생이 적어 참가가 저조했던 것을 걱정하고 있었습니다.",
-        ),
-        (
-            "맞춘 방식",
-            "가정",
-            "그 걱정이 알리는 데 있었기에, 현수막 대신 학과 단체방 공지를 함께 쓰고 아낀 돈을 상품에 보태자고 제안했습니다.",
-        ),
-        ("결과", "가정", "두 걱정을 함께 덜자 남은 준비는 다툼 없이 나눠 맡았습니다."),
-        (
-            "협업에서 본 것",
-            "생각",
-            "앞으로도 의견이 갈리면 상대가 무엇을 걱정하는지부터 묻고 싶습니다.",
-        ),
-    ],
-    "CHANGE": [
-        (
-            "기존 방식",
-            "사실",
-            "도서관 근로를 할 때 반납된 책은 하루 끝에 한꺼번에 서가로 옮겼습니다.",
-        ),
-        (
-            "바꿔야 한 이유",
-            "가정",
-            "그런데 저녁마다 찾는 책이 반납대에 쌓여 있어 서가에 없다는 문의가 이어졌고, 문의 기록을 살펴보다 그 까닭을 알았습니다.",
-        ),
-        (
-            "제안과 반대",
-            "가정",
-            "그래서 반납이 몰리는 점심 뒤에 한 번 더 옮기자고 제안했는데, 다른 근로생은 그 시간에 대출 창구가 빈다며 반대했습니다.",
-        ),
-        (
-            "위험과 보완",
-            "가정",
-            "그 걱정을 덜려고 옮기는 동안은 창구에 안내판을 세우고, 대출이 밀리면 바로 돌아오기로 했습니다.",
-        ),
-        ("결과", "가정", "그 뒤로 서가에 없다는 문의가 줄었습니다."),
-    ],
-    "SKILL_STEPS": [
-        (
-            "역량 한 줄",
-            "사실",
-            "저는 어려운 내용을 듣는 사람 눈높이에 맞춰 풀어 설명할 수 있습니다.",
-        ),
-        (
-            "계기",
-            "사실",
-            "아동센터 학습 봉사를 시작했을 때 제 설명을 아이들이 따라오지 못한 것이 계기였습니다.",
-        ),
-        (
-            "쌓은 단계 — 기초",
-            "사실",
-            "그래서 먼저 봉사자 연수에서 설명 순서를 짜는 법을 배웠습니다.",
-        ),
-        (
-            "쌓은 단계 — 적용",
-            "가정",
-            "배운 대로 분수 수업을 그림에서 시작해 식으로 넘어가게 바꾸자, 아이들이 되묻는 일이 줄었습니다.",
-        ),
-        (
-            "쌓은 단계 — 깊이",
-            "가정",
-            "그 뒤엔 아이마다 막히는 곳이 달라, 수업 끝에 문제를 풀게 하고 틀린 곳을 모아 다음 수업 첫머리에 다시 다뤘습니다.",
-        ),
-        (
-            "지금의 증거",
-            "사실",
-            "이렇게 만든 수업 자료는 센터에서 다음 봉사자에게 그대로 넘겨 쓰고 있습니다.",
-        ),
-        (
-            "직무에서 쓸 곳",
-            "생각",
-            "입사 뒤에도 처음 보는 사람이 따라올 수 있게 설명하는 데 이 힘을 쓰고 싶습니다.",
-        ),
-    ],
-    "ORIGIN": [
-        (
-            "지금의 나 한 줄",
-            "생각",
-            "함께 쓰는 돈일수록 누구나 볼 수 있게 남겨야 한다고 생각합니다.",
-        ),
-        (
-            "계기",
-            "사실",
-            "동아리에서 회비 쓰임을 두고 선배들 사이에 다툼이 났던 일을 곁에서 본 것이 계기였습니다.",
-        ),
-        (
-            "그대로 해 본 경험",
-            "사실",
-            "이듬해 총무를 맡고는 영수증을 찍어 모든 부원이 보는 표에 그날그날 올렸습니다.",
-        ),
-        (
-            "그대로 해 본 경험",
-            "가정",
-            "처음엔 번거롭다는 말도 들었지만, 학기 중에 쓰임을 묻는 부원에게 표를 바로 보여 줄 수 있었습니다.",
-        ),
-        ("결과", "가정", "그해에는 회비를 두고 다툼이 생기지 않았습니다."),
-        (
-            "지금 · 직무에서",
-            "생각",
-            "일에서도 제가 맡은 것의 쓰임과 까닭을 누구나 볼 수 있게 남기고 싶습니다.",
-        ),
-    ],
-}
-
-# 구조 카드를 켰을 때 무엇을 더 싣나(AI#90 실험) — "off" 카드 단계 문구만 · "steps" 단계 이름 + 문장마다 step ·
-# "example" steps + 카드 예시. 채점(scripts/eval_frame_cards.py --variants)만 판을 바꿔 부르고, 제품은 CARD_MODE 다.
-# off 로 둔 까닭(AI#90 · ETC ai-scope 「구조 카드 단계 · 예시 실험」): 두 판 모두 본문은 그대로이고 step 만 글에 맞춰
-# 붙였으며(c-skill 의 원인 → 해결을 「기초 → 적용 → 깊이」로 이름만), 다른 두 일을 단계 칸에 끼워 맞춘 초안이 나왔다
-CARD_MODES = ("off", "steps", "example")
-CARD_MODE = "off"
-
-
-def card_steps_on(frame: str | None, card_mode: str) -> bool:
-    return frame in CARD_STEPS and card_mode != "off"
-
-
 SYSTEM_PROMPT = """\
 너는 지원 문항 하나와 사용자가 고른 경험을 받아, 합격한 자기소개서 답처럼 읽히는 답변 초안을 문장 단위로 쓴다.
 경험을 한 줄씩 옮겨 늘어놓는 것이 아니라, 문항에 답하는 한 편의 글을 쓴다.
@@ -599,46 +389,11 @@ def hint_lines(question: DraftQuestion, experiences: list[DraftExperience]) -> l
     ]
 
 
-def card_step_lines(frame: str) -> list[str]:
-    """구조 카드의 단계 이름 · step 쓰는 법(AI#90) — 끼워 맞춘 뚝뚝 끊기는 글이 되지 않게 잇는 법을 같이 싣는다."""
-    names = " ".join(f"「{n}」" for n in CARD_STEPS[frame])
-    lines = [
-        f"단계 이름: {names}",
-        "- 문장마다 step 에 그 문장이 맡은 단계 이름을 위 목록 그대로 하나 적는다. 화면에는 보이지 않는다.",
-        "- 단계 순서대로 쓰되 단계마다 한 문장을 채우는 게 아니다 — 이웃한 두 단계를 한 문장에 합쳐도 되고"
-        "(step 은 그 문장이 주로 맡은 단계), 한 단계에 두 문장을 써도 된다.",
-        "- 다음 문장은 앞 문장의 결과 · 이유를 받아 잇는다(그래서 · 그런데 · 그 뒤 · 그러자처럼 앞 일에서 나오는 연결). "
-        "단계 이름에 맞춰 사실을 끊어 늘어놓지 않는다.",
-    ]
-    if frame in CARD_REPEATS:
-        lines.append(f"- 역량이 둘이면 둘째 역량에서 「{CARD_STEPS[frame][0]}」부터 다시 센다.")
-    return lines
-
-
-def card_example_lines(frame: str) -> list[str]:
-    """<카드 예시> — 고른 카드의 예시 하나만(AI#90). 장면 · 표현이 새지 않게 옮기지 말라고 같이 적는다."""
-    return [
-        "",
-        "<카드 예시>",
-        "개발과 먼 분야의 지어낸 예시다 — 단계를 어떻게 잇는지만 본다. 근거도 사실도 아니고, "
-        "장면 · 낱말 · 표현을 초안에 옮기지 않는다. [단계 · 문장 종류] 문장.",
-        *(f"[{step} · {kind}] {text}" for step, kind, text in CARD_EXAMPLES[frame]),
-        "</카드 예시>",
-    ]
-
-
-def style_lines(
-    question: DraftQuestion, guidelines: list[DraftGuideline], card_mode: str = CARD_MODE
-) -> list[str]:
+def style_lines(question: DraftQuestion, guidelines: list[DraftGuideline]) -> list[str]:
     """<구성 틀> · <작성 지침> — 틀이 NONE · 없음이고 지침이 없으면 [] 라 사용자 메시지가 예전과 같다."""
     lines: list[str] = []
     if question.frame in FRAME_STEPS:
-        lines += ["", "<구성 틀>", f"{question.frame}: {FRAME_STEPS[question.frame]}"]
-        if card_steps_on(question.frame, card_mode):
-            lines += card_step_lines(question.frame)
-        lines.append("</구성 틀>")
-        if card_steps_on(question.frame, card_mode) and card_mode == "example":
-            lines += card_example_lines(question.frame)
+        lines += ["", "<구성 틀>", f"{question.frame}: {FRAME_STEPS[question.frame]}", "</구성 틀>"]
     if guidelines:
         lines += [
             "",
@@ -675,45 +430,22 @@ def build_draft_message(
     experiences: list[DraftExperience],
     guidelines: list[DraftGuideline] = (),
     context: list[MatchExperience] = (),
-    card_mode: str = CARD_MODE,
 ) -> str:
     return "\n".join(
         [
             build_user_message(question, experiences),
             *context_lines(list(context)),
             *hint_lines(question, experiences),
-            *style_lines(question, list(guidelines), card_mode),
+            *style_lines(question, list(guidelines)),
             *length_lines(question),
         ]
     )
 
 
-def schema_for(
-    guidelines: list[DraftGuideline], frame: str | None = None, card_mode: str = CARD_MODE
-) -> dict[str, Any]:
-    """지침이 있을 때만 guidelines 를, 구조 카드일 때만 문장마다 step 을 묻는다 —
-    둘 다 아니면 LLM_JSON_SCHEMA 그대로(예전과 같다)."""
-    schema = LLM_JSON_SCHEMA
-    if card_steps_on(frame, card_mode):
-        sentences = schema["properties"]["sentences"]
-        item = sentences["items"]
-        step = {"type": "string", "enum": CARD_STEPS[frame]}
-        schema = {
-            **schema,
-            "properties": {
-                **schema["properties"],
-                "sentences": {
-                    **sentences,
-                    "items": {
-                        **item,
-                        "properties": {**item["properties"], "step": step},
-                        "required": [*item["required"], "step"],
-                    },
-                },
-            },
-        }
+def schema_for(guidelines: list[DraftGuideline]) -> dict[str, Any]:
+    """지침이 있을 때만 guidelines 를 묻는다 — 없으면 LLM_JSON_SCHEMA 그대로(예전과 같다)."""
     if not guidelines:
-        return schema
+        return LLM_JSON_SCHEMA
     item = {
         "type": "object",
         "properties": {
@@ -724,12 +456,12 @@ def schema_for(
         "required": ["id", "applied", "note"],
     }
     return {
-        **schema,
+        **LLM_JSON_SCHEMA,
         "properties": {
-            **schema["properties"],
+            **LLM_JSON_SCHEMA["properties"],
             "guidelines": {"type": "array", "items": item},
         },
-        "required": [*schema["required"], "guidelines"],
+        "required": [*LLM_JSON_SCHEMA["required"], "guidelines"],
     }
 
 
@@ -907,7 +639,7 @@ async def draft(req: DraftRequest, llm: JsonLLM, settings: Settings) -> DraftRes
         llm,
         SYSTEM_PROMPT,
         build_draft_message(question, experiences, guidelines, context),
-        schema_for(guidelines, question.frame),
+        schema_for(guidelines),
         parse,
         settings,
     )
