@@ -542,10 +542,22 @@ DraftQuestion.model_rebuild()
 DraftRequest.model_rebuild()
 
 
+class AgentQuestionExperience(BaseModel):
+    """그 문항에 지금 걸린 경험 — 추천됐거나 초안에 썼다(ai-api.md 「POST /agent」 · ETC#300)."""
+
+    id: int
+    activityName: str
+    content: str
+    recommended: bool = False
+    inDraft: bool = False
+
+
 class AgentQuestion(BaseModel):
     id: int
     text: str
     organization: str | None = None
+    # 빼면 [] 와 같다 — 이전 BE 와 맞물리게
+    experiences: list[AgentQuestionExperience] = []
 
 
 class AgentContext(BaseModel):
