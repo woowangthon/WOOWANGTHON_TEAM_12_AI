@@ -13,8 +13,9 @@ LLM_MAX_ATTEMPTS 번). 응답은 --out 폴더(기본 eval-runs/cards-<시각>, �
 숫자의 뜻(활동 나열이 줄었나 — 「틀 없이」 줄과 「카드」 줄을 견준다. 경험 = 근거가 속한 경험, 보조 재료 포함):
 - 나열: 경험이 둘 이상 쓰였는데 경험마다 한 문장씩인 쌍 수(eval_draft 의 listed) / 경험이 둘 이상인 쌍 수
 - 대표 깊음: 첫째로 고른 경험이 두 문장 이상인 쌍 수(eval_draft 의 deep)
-- 경험 전환: FACT · ELABORATED 문장을 차례로 볼 때 앞 문장과 다른 경험으로 넘어간 횟수(쌍 평균 — 적을수록 한 경험을 끌고 간다)
-- 줄기 비중: 가장 많이 쓰인 경험이 FACT · ELABORATED 문장에서 차지하는 비율(쌍 평균 — 높을수록 한 경험이 줄기다)
+- 경험 전환: FACT · ELABORATED · SUPPOSED 문장을 차례로 볼 때 앞 문장과 다른 경험으로 넘어간 횟수(쌍 평균 — 적을수록 한 경험을
+  끌고 간다). 가정(SUPPOSED)은 첫 근거, 근거가 없으면 짝 omitted 의 경험에 속한다(AI#84)
+- 줄기 비중: 가장 많이 쓰인 경험이 그 문장들에서 차지하는 비율(쌍 평균 — 높을수록 한 경험이 줄기다)
 - 지어냄(후보) · 없는 숫자 · 팀 일을 내 일로(후보) · 모름에 주체(후보) · 종류 위반 · 오류 — eval_draft 와 같다.
   카드를 켰다고 늘면 근거 규칙이 밀린 것이다
 """
@@ -41,6 +42,7 @@ from scripts.eval_draft import (  # noqa: E402
     picked,
     run,
     score,
+    sentence_owners,
 )
 
 CARDS = ROOT / "samples" / "draft" / "cards.json"
@@ -81,13 +83,16 @@ def score_trunk(
     data: LLMDraftOutput,
 ) -> Trunk:
     known = backings([*chosen, *context])
+    by_sentence = sentence_owners(data, known)
     owners: list[int] = []
-    for x in data.sentences:
+    for i, x in enumerate(data.sentences):
         if x.kind == "OPINION":
             continue
         mine = [known[e.type, e.id].experience.id for e in x.evidence if (e.type, e.id) in known]
         if mine:
             owners.append(mine[0])  # 문장의 첫 근거가 속한 경험
+        elif by_sentence[i]:
+            owners.append(min(by_sentence[i]))  # 근거 없는 가정 — 짝 omitted 의 경험(AI#84)
     if not owners:
         return Trunk()
     switches = sum(a != b for a, b in zip(owners, owners[1:], strict=False))
