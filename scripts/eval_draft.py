@@ -4,7 +4,7 @@
     uv run python scripts/eval_draft.py --models openai:gpt-6-luna --prompts tuned
     uv run python scripts/eval_draft.py --rescore eval-runs/draft-<시각>   # 저장한 응답만 다시 채점(LLM 안 부름)
 
-LLM 호출 수 = 쌍 수 × 모델 수 × 프롬프트 수 — 기본 26 × 1 × 2 = 52회(규칙 위반이면 쌍마다 최대 LLM_MAX_ATTEMPTS 번).
+LLM 호출 수 = 쌍 수 × 모델 수 × 프롬프트 수 — 기본 33 × 1 × 2 = 66회(규칙 위반이면 쌍마다 최대 LLM_MAX_ATTEMPTS 번).
 응답은 --out 폴더(기본 eval-runs/draft-<시각>, 커밋하지 않음)에 저장한다. 모델 폴백 없이 고른 모델만 부른다.
 
 자료: samples/match/experiences.json · samples/draft/experiences.json(지어낸 경험)과

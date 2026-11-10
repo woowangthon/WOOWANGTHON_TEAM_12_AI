@@ -106,5 +106,116 @@
     "sourceStatus": "NEEDS_REVIEW",
     "citations": [],
     "supplements": []
+  },
+  {
+    "id": 161,
+    "activityName": "스프링 읽기 스터디",
+    "period": {
+      "start": "2025-09",
+      "end": "2025-12",
+      "ongoing": false
+    },
+    "content": "스프링 시큐리티 단원 발표를 맡았다",
+    "competencies": [
+      "COMMUNICATION"
+    ],
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 261,
+        "quote": "내가 스프링 시큐리티 단원 발표를 맡았다."
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 162,
+    "activityName": "스프링 읽기 스터디",
+    "period": {
+      "start": "2025-09",
+      "end": "2025-12",
+      "ongoing": false
+    },
+    "content": "매주 발표 뒤 질문을 주고받았다",
+    "competencies": [
+      "COMMUNICATION",
+      "COLLABORATION"
+    ],
+    "actor": "TEAM",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 262,
+        "quote": "매주 발표가 끝나면 다 같이 질문을 주고받았다."
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 163,
+    "activityName": "스프링 읽기 스터디",
+    "period": {
+      "start": "2025-09",
+      "end": "2025-12",
+      "ongoing": false
+    },
+    "content": "회의록을 정리해 단체방에 전달했다",
+    "competencies": [
+      "COLLABORATION"
+    ],
+    "actor": "TEAM",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 263,
+        "quote": "회의록은 매주 정리되어 단체방에 전달됐다."
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 164,
+    "activityName": "스프링 읽기 스터디",
+    "period": {
+      "start": "2025-09",
+      "end": "2025-12",
+      "ongoing": false
+    },
+    "content": "스터디 자료 폴더를 단원별로 정리했다",
+    "competencies": [
+      "COLLABORATION"
+    ],
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 264,
+        "quote": "내가 스터디 자료 폴더를 단원별로 정리했다."
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 165,
+    "activityName": "스프링 읽기 스터디",
+    "period": {
+      "start": "2025-09",
+      "end": "2025-12",
+      "ongoing": false
+    },
+    "content": "학기 중 두 차례 공개 발표를 열었다",
+    "competencies": [
+      "COMMUNICATION"
+    ],
+    "actor": "TEAM",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 265,
+        "quote": "학기 중에 두 차례 공개 발표가 진행됐다."
+      }
+    ],
+    "supplements": []
   }
 ]
