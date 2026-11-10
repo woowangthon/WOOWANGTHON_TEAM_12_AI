@@ -236,3 +236,13 @@ def test_score_counts_activities_and_padding():
     assert len(s.whole_activity) == 1
     labeled = {*Q["tech-problem"]["good"], *Q["tech-problem"]["ok"], *Q["tech-problem"]["bad"]}
     assert len(s.unlabeled) == len([i for i in whole if i not in labeled])
+
+
+def test_ask_kind_follows_reviewer_order():
+    # 되묻기 갈래(AI#99) — 내 몫 → 판단 → 확인 · 결과 → 그 밖, 먼저 걸린 것 하나
+    from scripts.eval_match import ask_kind
+
+    assert ask_kind("회고에서 직접 맡은 일이 있었다면 무엇이었나요?") == "내 몫"
+    assert ask_kind("전체를 바꾸지 않고 재시도를 고른 이유는 무엇인가요?") == "판단 · 원인 · 입장"
+    assert ask_kind("고친 뒤 정상 동작을 어떻게 확인했나요?") == "확인 · 결과"
+    assert ask_kind("그 프로젝트는 언제 진행했나요?") == "그 밖"
