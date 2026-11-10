@@ -1,5 +1,5 @@
-"""지원 문항 + 경험 전부 → 문항 유형 하나 · 요구사항 · 추천 0 ~ 3개 · 되묻기 0 ~ 3개
-(SPEC R-03 F-06 · F-07 · F-08 / S-19 · S-20 · S-22 · S-25 · S-41).
+"""지원 문항 + 경험 전부 → 문항 유형 하나 · 요구사항 · 추천 0 ~ 8개(서로 다른 활동 5개까지) · 되묻기 0 ~ 3개
+(SPEC R-03 F-06 · F-07 · F-08 / S-19 · S-20 · S-22 · S-25 · S-41 · S-84).
 
 판정은 경험 본문 · 근거 · 보완으로 한다 — 역량 태그는 LLM 에 넘기지 않는다(SPEC F-06 · 미결정 8 기본값,
 태그를 AI 가 빠뜨려도 매칭이 무너지지 않게).
@@ -32,6 +32,9 @@ from app.schemas import (
 
 log = logging.getLogger(__name__)
 
+# 추천의 서로 다른 활동 상한(S-84). 추천 개수 상한 8은 LLMMatchOutput 이 본다
+MAX_ACTIVITIES = 5
+
 SYSTEM_PROMPT = """\
 너는 지원 문항 하나와 사용자가 쌓아 둔 경험 목록을 받아, 문항에 맞는 경험을 근거와 함께 고르고 부족한 사실을 묻는다.
 글을 대신 써 주는 게 아니다. 문항이 무엇을 보려는지 나누고, 이미 있는 경험 · 근거 · 보완에서 맞는 것을 찾는다.
@@ -49,7 +52,11 @@ SYSTEM_PROMPT = """\
    - PARTIAL: 관련은 있지만 일부만 보여 준다(비슷하지만 다른 일 · 다른 도구 · 내 몫이 불분명 · 원문 확인 필요).
    - NOT_FOUND: 받쳐 주는 경험이 없다. 「경험이 없다」가 아니라 「자료에서 확인되지 않는다」는 뜻이다.
    experienceIds 는 그 요구사항을 받치는 경험 ID. NOT_FOUND 면 빈 배열, 아니면 1개 이상.
-3. 추천 recommendations: 문항에 맞는 경험을 잘 맞는 것부터 0 ~ 3개.
+3. 추천 recommendations: 문항에 맞는 경험을 잘 맞는 것부터 0 ~ 8개, 서로 다른 활동은 5개까지.
+   - 경험은 활동의 한 줄이다. 화면은 추천을 활동별로 묶어 「이 문항에 쓸 만한 줄」로 보이고, 사용자는 활동을 고른다.
+     그래서 한 활동에서는 **이 문항에 쓸 만한 줄만** 고른다 — 그 활동의 경험을 다 넣지 않는다(나머지는 초안 때 재료로 따로 실린다).
+   - 순서가 곧 활동 순서다 — 가장 잘 맞는 활동의 줄부터. 같은 활동의 줄은 이어서 둔다.
+   - 8개 · 5개는 상한이지 목표가 아니다. 맞는 줄이 두 개면 두 개만 넣는다.
    - 본문 · 근거 · 보완에 적힌 일로 판단한다. 활동 이름이나 비슷한 낱말만 보고 고르지 않는다.
    - 맞는 경험이 없으면 빈 배열이다. 개수를 채우려고 억지로 고르지 않는다 — 문항과 상관없는 경험을
      「그래도 쓸 수 있다」며 넣지 않는다.
@@ -131,7 +138,7 @@ LLM_JSON_SCHEMA: dict[str, Any] = {
         },
         "recommendations": {
             "type": "array",
-            "maxItems": 3,
+            "maxItems": 8,
             "items": {
                 "type": "object",
                 "properties": {
@@ -177,6 +184,11 @@ _SOURCE_STATUS = {
 }
 
 
+def _activity_id(exp: MatchExperience) -> str:
+    # 같은 이름의 다른 활동을 가르려고 — 활동 수(S-84)를 LLM 이 셀 수 있게
+    return f" (활동 {exp.activityId})" if exp.activityId is not None else ""
+
+
 def _period(exp: MatchExperience) -> str:
     p = exp.period
     if p is None or (p.start is None and p.end is None and not p.ongoing):
@@ -206,7 +218,7 @@ def experience_lines(experiences: list[MatchExperience]) -> list[str]:
     for exp in experiences:
         lines += [
             f"[경험 {exp.id}]",
-            f"활동: {exp.activityName or '(없음)'}{_period(exp)}",
+            f"활동: {exp.activityName or '(없음)'}{_activity_id(exp)}{_period(exp)}",
             f"본문: {exp.content}",
             f"수행 주체: {exp.actor}",
             f"원문 확인: {_SOURCE_STATUS.get(exp.sourceStatus or '', exp.sourceStatus or '(없음)')}",
@@ -268,6 +280,14 @@ def check_output(output: LLMMatchOutput, experiences: list[MatchExperience]) -> 
                 "(NOT_FOUND 면 0개, 아니면 1개 이상)"
             )
     seen = check_recommendations(output.recommendations, by_id)
+    # 활동 수(S-84) — activityId 가 없는 경험은 세지 않는다(BE 가 싣기 전 요청)
+    activities = {
+        by_id[r.experienceId].activityId
+        for r in output.recommendations
+        if by_id[r.experienceId].activityId is not None
+    }
+    if len(activities) > MAX_ACTIVITIES:
+        raise ValueError(f"추천의 활동 {len(activities)}개 — 최대 {MAX_ACTIVITIES}개")
     for i, c in enumerate(output.clarifications):
         # 답이 그 경험의 보완이 되므로 추천하지 않은 경험엔 묻지 않는다(계약)
         if c.experienceId not in seen:

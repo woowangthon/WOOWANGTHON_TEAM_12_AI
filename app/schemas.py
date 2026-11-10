@@ -207,6 +207,8 @@ class MatchSupplement(BaseModel):
 
 class MatchExperience(BaseModel):
     id: int
+    # 추천의 활동 수를 센다(S-84). BE 가 싣기 전 요청도 받게 선택 — 없으면 활동 수 검사를 건너뛴다
+    activityId: int | None = None
     activityName: str | None = None
     period: MatchPeriod | None = None
     content: str
@@ -250,7 +252,8 @@ class Clarification(BaseModel):
 class LLMMatchOutput(BaseModel):
     questionType: QuestionType
     requirements: list[Requirement] = Field(min_length=1, max_length=6)
-    recommendations: list[Recommendation] = Field(max_length=3)
+    # 0 ~ 8개 · 서로 다른 활동 5개까지(S-84) — 활동 수는 app/match.py check_output 이 본다
+    recommendations: list[Recommendation] = Field(max_length=8)
     clarifications: list[Clarification] = Field(max_length=3)
 
 

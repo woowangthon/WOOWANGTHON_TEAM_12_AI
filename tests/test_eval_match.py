@@ -214,3 +214,25 @@ def test_score_question_type():
         assert (s.type_right, s.type_ok, s.type_total) == (right, ok, 1), got
         assert len(s.type_wrong) == 1 - right
         assert score_type(q, data).type_ok == ok
+
+
+def test_pool_activity_ids_follow_names():
+    # 같은 활동 이름 ↔ 같은 activityId(S-84 활동 수를 세는 단서)
+    pairs = {(e.activityName, e.activityId) for e in EXPS}
+    assert all(e.activityId is not None for e in EXPS)
+    assert len({n for n, _ in pairs}) == len(pairs) == len({a for _, a in pairs})
+
+
+def test_score_counts_activities_and_padding():
+    """S-84 — 추천 · 활동 수, 정답 밖 추천, 활동의 경험을 통째로 넣었나."""
+    whole = [e.id for e in EXPS if e.activityId == BY_ID[101].activityId]
+    data = _response(
+        [("기술 문제 해결", "SUPPORTED", [101])],
+        [_rec(i, "r") for i in whole],
+    )
+    s = score(Q["tech-problem"], EXPS, data)
+    assert s.rec_count == len(whole)
+    assert s.activity_count == 1
+    assert len(s.whole_activity) == 1
+    labeled = {*Q["tech-problem"]["good"], *Q["tech-problem"]["ok"], *Q["tech-problem"]["bad"]}
+    assert len(s.unlabeled) == len([i for i in whole if i not in labeled])
