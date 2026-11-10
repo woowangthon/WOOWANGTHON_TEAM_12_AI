@@ -107,5 +107,14 @@
     {"mark": "① ", "text": "팀은 매주 금요일 스프린트 회고를 했습니다.", "want": "SOURCE", "evidence": [["CITATION", 202]]},
     {"mark": "② ", "text": "팀원이 맡아 서비스를 AWS 에 올렸습니다.", "want": "SOURCE", "evidence": [["CITATION", 203]]},
     {"mark": "③ ", "text": "함께 일할 때는 서로의 상황을 먼저 나누는 것이 중요하다고 생각합니다.", "want": "OPINION"}
+  ]},
+  {"id": "supp-short", "sentences": [
+    {"text": "동아리 출석 서버가 밤마다 종료되는 문제가 있었습니다.", "want": "SOURCE", "evidence": [["CITATION", 271]]},
+    {"text": "서버가 종료되는 원인은 힙 덤프를 떠서 찾았습니다.", "want": "USER_INPUT", "evidence": [["SUPPLEMENT", 372]]},
+    {"text": "수정 후에는 제가 직접 붙인 모니터링 스택을 통해 서버 상태를 확인했습니다.", "want": "USER_INPUT", "evidence": [["SUPPLEMENT", 371]]},
+    {"text": "모니터링 스택은 장애가 나기 한 달 전쯤 붙여 두었습니다.", "want": "USER_INPUT", "evidence": [["SUPPLEMENT", 373]]},
+    {"text": "수정 뒤 서버 종료 횟수는 눈에 띄게 줄었습니다.", "want": "UNSUPPORTED", "kind": "exaggerate"},
+    {"text": "장애 원인은 동아리 팀원들에게 정리해 공유했습니다.", "want": "UNSUPPORTED", "kind": "none"},
+    {"text": "확인할 수단을 먼저 갖춰 두는 것이 중요하다고 느꼈습니다.", "want": "OPINION"}
   ]}
 ]

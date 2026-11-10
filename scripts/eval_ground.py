@@ -8,7 +8,8 @@ LLM 호출 수 = 답 수 × 모델 수 × 회 수 — 기본 15회(규칙 위반
 응답은 --out 폴더(기본 eval-runs/ground-<시각>, 커밋하지 않음)에 저장한다. 모델 폴백 없이 고른 모델만 부른다.
 키는 --env 파일(기본 레포의 .env)에서 읽고 화면에 찍지 않는다.
 
-자료: samples/match/experiences.json(지어낸 경험 전부)과 samples/ground/answers.json(문장마다 손으로 적은 정답).
+자료: samples/match/experiences.json(지어낸 경험 전부) · samples/ground/experiences.json(점검에만 쓰는 경험 —
+짧게 답한 보완, AI#100)과 samples/ground/answers.json(문장마다 손으로 적은 정답).
 
 숫자의 뜻:
 - 문장: 판정을 받은 문장 수 합
@@ -110,7 +111,8 @@ def score(answer: dict, data: GroundCheckResponse) -> Score:
 
 
 def load_experiences() -> list[dict]:
-    return json.loads(EXPERIENCES.read_text(encoding="utf-8"))
+    extra = (DATA / "experiences.json").read_text(encoding="utf-8")
+    return json.loads(EXPERIENCES.read_text(encoding="utf-8")) + json.loads(extra)
 
 
 def load_answers(only: list[str] | None = None) -> list[dict]:

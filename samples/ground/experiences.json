@@ -1,0 +1,42 @@
+[
+  {
+    "id": 171,
+    "activityId": 7,
+    "activityName": "동아리 출석 서버 운영",
+    "period": {"start": "2025-09", "end": "2025-12", "ongoing": false},
+    "content": "밤마다 서버가 종료되던 문제를 코드를 고쳐 해결했다",
+    "competencies": ["PROBLEM_SOLVING"],
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {"id": 271, "quote": "밤마다 출석 서버가 종료됐다. 내가 코드를 고쳐 해결했다."}
+    ],
+    "supplements": [
+      {
+        "id": 371,
+        "question": "코드를 수정한 뒤 서버 종료 문제가 해결됐는지 어떻게 확인했나요?",
+        "answer": "직접 붙인 모니터링 스택을 통해 확인함"
+      },
+      {
+        "id": 372,
+        "question": "서버가 종료되는 원인은 어떻게 찾았나요?",
+        "answer": "힙 덤프 떠 봄"
+      },
+      {
+        "id": 373,
+        "question": "모니터링 스택은 언제 붙였나요?",
+        "answer": "장애 나기 한 달 전쯤"
+      },
+      {
+        "id": 374,
+        "question": "수정 뒤 서버 종료 횟수는 얼마나 줄었나요?",
+        "answer": "따로 세어 보지 않았다"
+      },
+      {
+        "id": 375,
+        "question": "장애 원인을 동아리 팀원들에게 어떻게 공유했나요?",
+        "answer": "공유는 못 했다"
+      }
+    ]
+  }
+]
