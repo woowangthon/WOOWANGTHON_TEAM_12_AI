@@ -695,11 +695,14 @@ async def run(
     pairs: list[dict],
     out: Path,
     env: Path = ROOT / ".env",
+    card_mode: str | None = None,
 ) -> None:
+    """card_mode — 구조 카드에 무엇을 더 싣나(app.draft.CARD_MODES). None 이면 제품과 같다(CARD_MODE).
+    LLM 이 문장마다 돌려준 step(응답 모양엔 없다 — AI#90)은 record["steps"] 에 따로 남긴다."""
     from dotenv import load_dotenv
 
     from app.config import load_settings, parse_models
-    from app.draft import build_draft_message, check_output, check_request, schema_for
+    from app.draft import CARD_MODE, build_draft_message, check_output, check_request, schema_for
     from app.errors import ApiError
     from app.llm import build_llm, generate_valid
     from app.schemas import DraftRequest
@@ -724,10 +727,14 @@ async def run(
         )
         q, exps, gs = check_request(req, settings)
         ctx = req.contextExperiences or []
+        mode = card_mode or CARD_MODE
+        steps: list = []
 
         def parse(text: str) -> LLMDraftOutput:
             output = LLMDraftOutput.model_validate_json(text)
-            return check_output(output, exps, gs, ctx) if prompt == "tuned" else output
+            output = check_output(output, exps, gs, ctx) if prompt == "tuned" else output
+            steps[:] = [s.get("step") for s in json.loads(text).get("sentences", [])]
+            return output
 
         async with gate:
             started = time.monotonic()
@@ -735,13 +742,15 @@ async def run(
                 got = await generate_valid(
                     llm,
                     PROMPTS[prompt],
-                    build_draft_message(q, exps, gs, ctx),
-                    schema_for(gs),
+                    build_draft_message(q, exps, gs, ctx, mode),
+                    schema_for(gs, q.frame, mode),
                     parse,
                     settings,
                 )
                 record = {"response": json.loads(got.value.model_dump_json())}
                 record["attempt"] = got.attempt
+                if any(x is not None for x in steps):
+                    record["steps"] = steps
             except ApiError as e:
                 record = {"error": f"{e.code}: {e.message}"}
             record["seconds"] = round(time.monotonic() - started, 1)

@@ -6,7 +6,7 @@ SAMPLE(draft-samples): 전부 **지어낸** 문항 · 경험이다. 경험은 `.
 - `pairs.json` — 문항 하나 + 고른 경험, 손으로 적은 정답
 - `clarify.json` — 경험 151 · 152 에 이미 있는 사실과 그걸 묻는 질문을 거르는 정규식. 나머지 경험은 `../match/clarify.json` 을 그대로 쓴다
 - `guided.json` — 기본 쌍(`base`)에 구성 틀(`frame`) · 작성 지침(`guidelines`)을 얹은 요청(S-49 · S-50). 채점은 `uv run python scripts/eval_draft_guided.py` 가 기본 쌍과 나란히 한다. 지침의 `expect: "not"` 은 근거와 부딪치거나(「수치로」 · 「리더였다고」) 서로 부딪쳐 `applied: false` 가 맞는 것, `frameBeats` 는 틀의 단계 순서대로 나와야 맞는 사실의 정규식 — 「첫 문장에 무엇을 했고 어떻게 됐는지」 지침(901)이 만드는 요약 첫 문장에 걸리지 않는 낱말로 적어 본문의 순서만 본다
-- `cards.json` — 기본 쌍(`base`)에 구조 카드(`frame` — contracts README 「구성 틀」 제안 표의 카드, S-82)를 얹은 요청 8쌍. 채점은 `uv run python scripts/eval_frame_cards.py` 가 같은 쌍에서 `frame` 만 뺀 요청과 나란히 한다(나열 · 경험 전환 · 줄기 비중 — 숫자의 뜻은 스크립트 머리말)
+- `cards.json` — 기본 쌍(`base`)에 구조 카드(`frame` — contracts README 「구성 틀」 제안 표의 카드, S-82)를 얹은 요청 8쌍. 채점은 `uv run python scripts/eval_frame_cards.py --variants …` 가 판(틀 없이 `plain` · 카드 문구만 `off` · 단계 이름 `steps` · 단계 이름 + 카드 예시 `example`)을 나란히 한다(나열 · 경험 전환 · 줄기 비중 · 단계 순서 · 예시 베끼기 · 이음말 — 숫자의 뜻은 스크립트 머리말). 카드 예시는 `app/draft.py` `CARD_EXAMPLES` — 개발과 먼 분야의 지어낸 경험이다
 - `experiences.json` — 근거 · 보완이 풍부한 지어낸 경험 151 · 152(152 는 결과 칸이 비어 있다). 근거는 일부러 글의 순서와 다르게 놓았다 — 시간순이면 입력을 따라 쓰기만 해도 구성 순서를 맞힌다. 매칭 채점 숫자가 흔들리지 않게 `../match/experiences.json` 에 넣지 않고 따로 둔다
 
 | 정답 칸 | 뜻 |
