@@ -2,13 +2,20 @@
 
 import json
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.config import load_settings
 from app.errors import LLMError, LLMTimeout
-from app.extract import SYSTEM_PROMPT, TARGET_RULE, build_user_message
+from app.extract import (
+    SYSTEM_PROMPT,
+    TARGET_RULE,
+    WORK_LOG_RULE,
+    build_user_message,
+    is_work_log,
+)
 from app.main import app
 from app.schemas import ExistingActivity
 from tests.conftest import FakeLLM
@@ -411,3 +418,68 @@ def test_no_target_keeps_prompt_exactly(client_with, body):
     existing = [ExistingActivity.model_validate(a) for a in EXISTING]
     assert llm.user == build_user_message(BODY["sourceName"], BODY["text"], existing)
     assert "대상 활동" not in llm.user
+
+
+# ---- 작업 로그 묶기는 GitHub 자료일 때만(AI#113) ----
+
+SAMPLES = Path(__file__).resolve().parent.parent / "samples"
+
+
+def test_base_prompt_has_no_work_log_rule():
+    # 늘 붙는 본문은 AI#109 전과 같다 — 이력 목록 · 회고로 번지지 않게
+    assert "작업 로그" not in SYSTEM_PROMPT
+    assert "커밋" not in SYSTEM_PROMPT
+
+
+@pytest.mark.parametrize(
+    "text,want",
+    [
+        (
+            "## 내가 쓴 커밋 제목 (GitHub 아이디 kim-dev · 최근 44개)\n- 2026-01-20 readme 수정",
+            True,
+        ),
+        ("# r\n\n## 내가 연 PR 제목 (3개)\n- 2026-01-10 #12 로그인 (merged)", True),
+        ("커밋 메모: 내가 쓴 커밋 제목을 정리했다", False),  # 절 제목이 아니다
+        (
+            "## 커밋 메모\n- 2025-03-02 로그인 수정",
+            False,
+        ),  # 붙여 넣은 커밋 메모(commit-memo) — AI#109 전과 같다
+        ("- 2024.12 SQLD 자격증 취득\n- 2023.08 정보처리기사", False),
+    ],
+)
+def test_is_work_log(text, want):
+    assert is_work_log(text) is want
+
+
+@pytest.mark.parametrize(
+    "sample,want",
+    [("github-commits", True), ("commit-memo", False), ("category-list", False)],
+)
+def test_samples_detect_as_expected(sample, want):
+    assert is_work_log((SAMPLES / f"{sample}.md").read_text(encoding="utf-8")) is want
+
+
+def test_github_source_gets_work_log_rule_at_end(client_with):
+    llm = SpyLLM(GOOD)
+    text = (SAMPLES / "github-commits.md").read_text(encoding="utf-8")
+    res = client_with(llm).post("/extract", json={"sourceName": "recipe-box", "text": text})
+    assert res.status_code == 200
+    # 앞부분이 늘 같다 — 프롬프트 캐시가 산다
+    assert llm.system == SYSTEM_PROMPT + WORK_LOG_RULE
+
+
+def test_github_source_with_target_keeps_target_rule_first(client_with):
+    llm = SpyLLM(GOOD)
+    text = (SAMPLES / "github-commits.md").read_text(encoding="utf-8")
+    body = {"sourceName": "recipe-box", "text": text, "existingActivities": EXISTING}
+    res = client_with(llm).post("/extract", json={**body, "targetActivityId": 7})
+    assert res.status_code == 200
+    assert llm.system == SYSTEM_PROMPT + TARGET_RULE + WORK_LOG_RULE
+
+
+def test_non_github_source_keeps_prompt_exactly(client_with):
+    llm = SpyLLM(GOOD)
+    text = (SAMPLES / "commit-memo.md").read_text(encoding="utf-8")
+    res = client_with(llm).post("/extract", json={"sourceName": "메모.md", "text": text})
+    assert res.status_code == 200
+    assert llm.system == SYSTEM_PROMPT
