@@ -649,3 +649,40 @@ class LLMGuidelinesOutput(BaseModel):
 
 class GuidelinesResponse(LLMGuidelinesOutput):
     model: str | None
+
+
+# ==== POST /posting-match — ETC docs/contracts/ai-api.md 「POST /posting-match」(S-93) ====
+
+
+# 개수(1 ~ 40) · 줄 id 중복 · 경험 id 중복은 app/posting_match.py check_request 가 본다
+class PostingMatchLine(PostingLine):
+    id: int
+
+
+class PostingMatchRequest(BaseModel):
+    jobRole: JobRole | None = None
+    lines: list[PostingMatchLine] | None = None
+    experiences: list[MatchExperience] | None = None
+
+
+class LineJudgement(BaseModel):
+    id: int
+    status: RequirementStatus
+    # NOT_FOUND 면 0개, 아니면 1 ~ 3개 — 0개 · 경험 ID · 수행 주체는 check_output 이 본다
+    experienceIds: list[int] = Field(max_length=3)
+
+
+class PostingClarification(BaseModel):
+    lineId: int
+    experienceId: int
+    question: Annotated[NonBlank, Field(max_length=80)]
+
+
+# LLM 이 내는 모양 — 넘치면 잘라 내지 않고 규칙 위반(다시 부른다)
+class LLMPostingMatchOutput(BaseModel):
+    lines: list[LineJudgement]
+    clarifications: list[PostingClarification] = Field(max_length=3)
+
+
+class PostingMatchResponse(LLMPostingMatchOutput):
+    model: str | None

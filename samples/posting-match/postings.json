@@ -1,0 +1,116 @@
+[
+  {
+    "id": "backend",
+    "jobRole": "BACKEND",
+    "lines": [
+      {
+        "id": 1001, "section": "DUTY", "text": "백엔드 API 설계 및 개발", "ksa": "SKILL",
+        "dev": { "expect": "SUPPORTED", "ok": ["PARTIAL"] },
+        "mixed": { "expect": "SUPPORTED", "ok": ["PARTIAL"] },
+        "bad": [102, 103, 121, 122, 131, 132, 133, 161, 162, 163]
+      },
+      {
+        "id": 1002, "section": "DUTY", "text": "서비스 장애 대응 및 운영", "ksa": "SKILL",
+        "dev": { "expect": "PARTIAL", "ok": [] },
+        "mixed": { "expect": "PARTIAL", "ok": [] },
+        "bad": [121, 122, 131, 132, 133, 161, 162, 163]
+      },
+      {
+        "id": 1003, "section": "REQUIRED", "text": "Java · Spring Boot 기반 서버 개발 경험", "ksa": "SKILL",
+        "dev": { "expect": "NOT_FOUND", "ok": ["PARTIAL"] },
+        "mixed": { "expect": "NOT_FOUND", "ok": ["PARTIAL"] },
+        "bad": [102, 105, 106, 107, 108, 111, 121, 122, 131, 132, 133, 141, 161, 162, 163]
+      },
+      {
+        "id": 1004, "section": "REQUIRED", "text": "관계형 데이터베이스와 SQL 에 대한 이해", "ksa": "KNOWLEDGE",
+        "dev": { "expect": "NOT_FOUND", "ok": ["PARTIAL"] },
+        "mixed": { "expect": "NOT_FOUND", "ok": ["PARTIAL"] },
+        "bad": [102, 105, 106, 107, 108, 111, 121, 122, 131, 132, 133, 161, 162, 163]
+      },
+      {
+        "id": 1005, "section": "REQUIRED", "text": "WebSocket 등 실시간 통신 구현 경험", "ksa": "SKILL",
+        "dev": { "expect": "SUPPORTED", "ok": [] },
+        "mixed": { "expect": "SUPPORTED", "ok": [] },
+        "bad": [102, 103, 105, 106, 107, 108, 111, 121, 122, 131, 132, 133, 161, 162, 163]
+      },
+      {
+        "id": 1006, "section": "PREFERRED", "text": "FCM 등 푸시 알림 연동 경험", "ksa": "SKILL",
+        "dev": { "expect": "SUPPORTED", "ok": [] },
+        "mixed": { "expect": "SUPPORTED", "ok": [] },
+        "bad": [102, 103, 105, 106, 107, 108, 111, 121, 122, 131, 132, 133, 161, 162, 163]
+      },
+      {
+        "id": 1007, "section": "PREFERRED", "text": "테스트 코드 작성 경험", "ksa": "SKILL",
+        "dev": { "expect": "NOT_FOUND", "ok": ["PARTIAL"] },
+        "mixed": { "expect": "NOT_FOUND", "ok": ["PARTIAL"] },
+        "bad": [102, 103, 105, 106, 107, 108, 111, 121, 122, 131, 132, 133, 161, 162, 163]
+      },
+      {
+        "id": 1008, "section": "STACK", "text": "AWS", "ksa": "SKILL",
+        "dev": { "expect": "PARTIAL", "ok": [] },
+        "mixed": { "expect": "PARTIAL", "ok": [] },
+        "bad": [101, 102, 104, 105, 106, 107, 108, 111, 113, 121, 122, 131, 132, 133, 161, 162, 163]
+      },
+      {
+        "id": 1009, "section": "PREFERRED", "text": "팀원과 일정을 함께 조율한 경험", "ksa": "ATTITUDE",
+        "dev": { "expect": "PARTIAL", "ok": ["SUPPORTED"] },
+        "mixed": { "expect": "PARTIAL", "ok": ["SUPPORTED"] },
+        "bad": [101, 103, 104, 113, 121, 122, 133, 141, 161, 162]
+      }
+    ]
+  },
+  {
+    "id": "marketing",
+    "jobRole": "MARKETING",
+    "lines": [
+      {
+        "id": 2001, "section": "DUTY", "text": "브랜드 SNS 채널 운영 및 콘텐츠 기획", "ksa": "SKILL",
+        "dev": { "expect": "NOT_FOUND", "ok": [] },
+        "mixed": { "expect": "SUPPORTED", "ok": ["PARTIAL"] },
+        "bad": [101, 102, 103, 104, 105, 106, 107, 108, 111, 112, 113, 114, 115, 116, 121, 122, 131, 132, 133, 141]
+      },
+      {
+        "id": 2002, "section": "DUTY", "text": "온 · 오프라인 프로모션 캠페인 기획 및 실행", "ksa": "SKILL",
+        "dev": { "expect": "NOT_FOUND", "ok": [] },
+        "mixed": { "expect": "SUPPORTED", "ok": ["PARTIAL"] },
+        "bad": [101, 102, 103, 104, 105, 106, 107, 108, 111, 112, 113, 114, 115, 116, 121, 122, 132, 133, 141]
+      },
+      {
+        "id": 2003, "section": "REQUIRED", "text": "캠페인 성과 데이터를 분석해 개선안을 내는 능력", "ksa": "SKILL",
+        "dev": { "expect": "NOT_FOUND", "ok": [] },
+        "mixed": { "expect": "PARTIAL", "ok": ["SUPPORTED"] },
+        "bad": [101, 102, 103, 104, 105, 106, 107, 108, 111, 112, 113, 114, 115, 116, 122, 131, 132, 133, 141]
+      },
+      {
+        "id": 2004, "section": "REQUIRED", "text": "B2B 고객사와 원활하게 소통하는 능력", "ksa": "ATTITUDE",
+        "dev": { "expect": "NOT_FOUND", "ok": [] },
+        "mixed": { "expect": "NOT_FOUND", "ok": ["PARTIAL"] },
+        "bad": [101, 102, 103, 104, 105, 108, 111, 112, 113, 114, 115, 116, 122, 132, 133, 141, 162]
+      },
+      {
+        "id": 2005, "section": "REQUIRED", "text": "유관 부서와 협업하며 일정을 조율하는 능력", "ksa": "ATTITUDE",
+        "dev": { "expect": "PARTIAL", "ok": ["SUPPORTED"] },
+        "mixed": { "expect": "PARTIAL", "ok": ["SUPPORTED"] },
+        "bad": [101, 103, 104, 105, 113, 114, 116, 121, 122, 133, 141, 161, 162, 163]
+      },
+      {
+        "id": 2006, "section": "PREFERRED", "text": "Photoshop · Figma 등 디자인 툴 활용 능력", "ksa": "SKILL",
+        "dev": { "expect": "NOT_FOUND", "ok": [] },
+        "mixed": { "expect": "PARTIAL", "ok": ["NOT_FOUND"] },
+        "bad": [101, 102, 103, 104, 105, 106, 107, 108, 111, 112, 113, 114, 115, 116, 121, 122, 131, 132, 133, 141, 161, 163]
+      },
+      {
+        "id": 2007, "section": "STACK", "text": "Google Analytics", "ksa": "SKILL",
+        "dev": { "expect": "NOT_FOUND", "ok": [] },
+        "mixed": { "expect": "NOT_FOUND", "ok": [] },
+        "bad": []
+      },
+      {
+        "id": 2008, "section": "DUTY", "text": "보도자료 · 고객 안내 문서 작성", "ksa": "SKILL",
+        "dev": { "expect": "NOT_FOUND", "ok": [] },
+        "mixed": { "expect": "PARTIAL", "ok": ["NOT_FOUND"] },
+        "bad": [101, 102, 103, 104, 105, 106, 107, 108, 111, 112, 113, 114, 115, 116, 121, 131, 132, 133, 141, 162, 163]
+      }
+    ]
+  }
+]

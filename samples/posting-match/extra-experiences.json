@@ -1,0 +1,43 @@
+[
+  {
+    "id": 161,
+    "activityId": 7,
+    "activityName": "연합 동아리 홍보팀",
+    "period": { "start": "2024-03", "end": "2024-12", "ongoing": false },
+    "content": "동아리 인스타그램 계정을 맡아 행사 홍보 게시물을 주 2회 올렸다",
+    "competencies": ["OPERATION"],
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      { "id": 261, "quote": "나는 동아리 인스타그램 계정을 맡아 행사 홍보 게시물을 주 2회 올렸다." },
+      { "id": 262, "quote": "게시물마다 저장 수를 표로 적어 두고, 반응이 좋았던 저녁 시간대로 올리는 시간을 옮겼다." }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 162,
+    "activityId": 7,
+    "activityName": "연합 동아리 홍보팀",
+    "period": { "start": "2024-03", "end": "2024-12", "ongoing": false },
+    "content": "정기 공연 홍보 포스터를 만들었다",
+    "competencies": ["IMPLEMENTATION"],
+    "actor": "TEAM",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [{ "id": 263, "quote": "공연 포스터는 디자인 담당 팀원이 Photoshop 으로 만들었다." }],
+    "supplements": []
+  },
+  {
+    "id": 163,
+    "activityId": 7,
+    "activityName": "연합 동아리 홍보팀",
+    "period": { "start": "2024-03", "end": "2024-12", "ongoing": false },
+    "content": "축제 때 부스 사진을 SNS 에 올리면 음료를 할인해 주는 인증 이벤트를 기획했다",
+    "competencies": ["PLANNING"],
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      { "id": 264, "quote": "축제 때 내가 부스 사진을 SNS 에 올리면 음료를 할인해 주는 인증 이벤트를 기획했다." }
+    ],
+    "supplements": []
+  }
+]
