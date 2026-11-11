@@ -1,0 +1,589 @@
+[
+  {
+    "id": "moc",
+    "name": "개발 노트 모음(MOC) — 이름만 있는 활동",
+    "experiences": [
+      {
+        "id": 101,
+        "content": "AI 코드 리뷰 도구를 써 봤다",
+        "actor": "ME",
+        "competencies": [
+          "LEARNING"
+        ],
+        "citations": [
+          {
+            "id": 2011,
+            "quote": "AI 코드 리뷰 도구 써 봄 — 결과물 만족하지 않음, 참고만 함"
+          }
+        ],
+        "supplements": [],
+        "expect": {
+          "S": [],
+          "T": [],
+          "A": [
+            "C2011"
+          ],
+          "R": [
+            "C2011"
+          ]
+        },
+        "learned": []
+      },
+      {
+        "id": 102,
+        "content": "Docker 로 개발 환경을 맞췄다",
+        "actor": "ME",
+        "competencies": [
+          "IMPLEMENTATION"
+        ],
+        "citations": [
+          {
+            "id": 2021,
+            "quote": "Docker compose 로 로컬 DB 띄우기"
+          }
+        ],
+        "supplements": [],
+        "expect": {
+          "S": [],
+          "T": [],
+          "A": [
+            "C2021"
+          ],
+          "R": []
+        },
+        "learned": []
+      },
+      {
+        "id": 103,
+        "content": "Git 브랜치 전략을 정리했다",
+        "actor": "UNKNOWN",
+        "competencies": [
+          "PLANNING"
+        ],
+        "citations": [
+          {
+            "id": 2031,
+            "quote": "Git 브랜치 전략 정리"
+          }
+        ],
+        "supplements": [],
+        "expect": {
+          "S": [],
+          "T": [],
+          "A": null,
+          "R": []
+        },
+        "learned": []
+      },
+      {
+        "id": 104,
+        "content": "알고리즘 문제를 매일 풀었다",
+        "actor": "ME",
+        "competencies": [
+          "PERSEVERANCE"
+        ],
+        "citations": [],
+        "supplements": [],
+        "expect": {
+          "S": [],
+          "T": [],
+          "A": [],
+          "R": []
+        },
+        "learned": []
+      },
+      {
+        "id": 105,
+        "content": "Next.js 로 블로그를 옮겼다",
+        "actor": "ME",
+        "competencies": [
+          "IMPLEMENTATION"
+        ],
+        "citations": [
+          {
+            "id": 2051,
+            "quote": "블로그 Next.js 이전 (Gatsby 빌드 너무 느려서)"
+          }
+        ],
+        "supplements": [
+          {
+            "id": 3051,
+            "question": "블로그를 옮기고 무엇이 달라졌나요?",
+            "answer": "빌드가 5분에서 40초로 줄었고, 글 쓰는 게 덜 귀찮아졌다"
+          }
+        ],
+        "expect": {
+          "S": [
+            "C2051"
+          ],
+          "T": [],
+          "A": [
+            "C2051"
+          ],
+          "R": [
+            "P3051"
+          ]
+        },
+        "learned": []
+      }
+    ]
+  },
+  {
+    "id": "retro",
+    "name": "캡스톤 「모여봄」 회고",
+    "experiences": [
+      {
+        "id": 201,
+        "content": "출시 직전 로그인 오류를 밤새 고쳤다",
+        "actor": "ME",
+        "competencies": [
+          "PROBLEM_SOLVING",
+          "RESPONSIBILITY"
+        ],
+        "citations": [
+          {
+            "id": 2111,
+            "quote": "출시 이틀 전 카카오 로그인이 안 되는 문제가 터졌다. 내가 맡은 인증 쪽이라 밤새 리다이렉트 주소 설정을 하나씩 확인해서 고쳤다. 이때 배포 전 체크리스트가 왜 필요한지 뼈저리게 느꼈다."
+          }
+        ],
+        "supplements": [],
+        "expect": {
+          "S": [
+            "C2111"
+          ],
+          "T": [
+            "C2111"
+          ],
+          "A": [
+            "C2111"
+          ],
+          "R": null
+        },
+        "learned": [
+          "이때 배포 전 체크리스트가 왜 필요한지 뼈저리게 느꼈다."
+        ]
+      },
+      {
+        "id": 202,
+        "content": "매주 스프린트 회고를 진행했다",
+        "actor": "TEAM",
+        "competencies": [
+          "COLLABORATION"
+        ],
+        "citations": [
+          {
+            "id": 2121,
+            "quote": "우리 팀은 매주 금요일 KPT 로 회고를 했다. 덕분에 같은 실수가 줄었다. 솔직하게 말하는 문화가 중요하다는 걸 배웠다."
+          }
+        ],
+        "supplements": [],
+        "expect": {
+          "S": [],
+          "T": [],
+          "A": [
+            "C2121"
+          ],
+          "R": [
+            "C2121"
+          ]
+        },
+        "learned": [
+          "솔직하게 말하는 문화가 중요하다는 걸 배웠다."
+        ]
+      },
+      {
+        "id": 203,
+        "content": "기능 범위를 줄여 일정을 맞췄다",
+        "actor": "ME",
+        "competencies": [
+          "PLANNING",
+          "COMMUNICATION"
+        ],
+        "citations": [
+          {
+            "id": 2131,
+            "quote": "중간 발표 때 기능이 12개였는데 일정이 안 될 것 같아서 내가 팀원들과 우선순위를 다시 매겨 7개로 줄였다."
+          }
+        ],
+        "supplements": [
+          {
+            "id": 3131,
+            "question": "범위를 줄이고 나서 무엇이 달라졌나요?",
+            "answer": "마감 3일 전에 기능을 다 끝내고 테스트할 시간이 생겼다. 다 하려는 것보다 덜어내는 게 더 어렵다는 걸 알았다"
+          }
+        ],
+        "expect": {
+          "S": [
+            "C2131"
+          ],
+          "T": null,
+          "A": [
+            "C2131"
+          ],
+          "R": [
+            "P3131"
+          ]
+        },
+        "learned": []
+      },
+      {
+        "id": 204,
+        "content": "디자이너와 화면 설계를 맞췄다",
+        "actor": "TEAM",
+        "competencies": [
+          "COLLABORATION",
+          "COMMUNICATION"
+        ],
+        "citations": [
+          {
+            "id": 2141,
+            "quote": "디자이너랑 개발자 사이에 화면 이해가 달라서 피그마에 주석을 달기로 했다."
+          }
+        ],
+        "supplements": [
+          {
+            "id": 3141,
+            "question": "이 일에서 직접 맡은 업무는 무엇이었나요?",
+            "answer": "피그마 화면마다 API 이름과 상태값을 주석으로 붙이는 걸 내가 맡았다"
+          }
+        ],
+        "expect": {
+          "S": [
+            "C2141"
+          ],
+          "T": [
+            "P3141"
+          ],
+          "A": [
+            "P3141",
+            "C2141"
+          ],
+          "R": []
+        },
+        "learned": []
+      },
+      {
+        "id": 205,
+        "content": "테스트 코드를 처음 써 봤다",
+        "actor": "ME",
+        "competencies": [
+          "LEARNING"
+        ],
+        "citations": [
+          {
+            "id": 2151,
+            "quote": "처음으로 JUnit 테스트를 써 봤다. 다음 프로젝트에서는 테스트를 먼저 짜겠다."
+          }
+        ],
+        "supplements": [],
+        "expect": {
+          "S": [],
+          "T": [],
+          "A": [
+            "C2151"
+          ],
+          "R": []
+        },
+        "learned": [
+          "다음 프로젝트에서는 테스트를 먼저 짜겠다."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "readme",
+    "name": "팀 프로젝트 「바꿔요」 README",
+    "experiences": [
+      {
+        "id": 301,
+        "content": "채팅을 폴링에서 WebSocket 으로 바꿨다",
+        "actor": "TEAM",
+        "competencies": [
+          "IMPLEMENTATION",
+          "PROBLEM_SOLVING"
+        ],
+        "citations": [
+          {
+            "id": 2211,
+            "quote": "기존 3초 폴링 방식은 메시지가 늦게 보였다. STOMP 기반 WebSocket 으로 전환해 메시지 지연을 없앴다."
+          }
+        ],
+        "supplements": [],
+        "expect": {
+          "S": [
+            "C2211"
+          ],
+          "T": [],
+          "A": [
+            "C2211"
+          ],
+          "R": [
+            "C2211"
+          ]
+        },
+        "learned": []
+      },
+      {
+        "id": 302,
+        "content": "상품 이미지를 압축해 목록 로딩을 줄였다",
+        "actor": "TEAM",
+        "competencies": [
+          "PROBLEM_SOLVING"
+        ],
+        "citations": [
+          {
+            "id": 2221,
+            "quote": "상품 목록 로딩이 느리다는 피드백이 있어 업로드 시 이미지를 WebP 로 변환했다. 목록 첫 화면 로딩이 1.8초에서 0.6초로 줄었다."
+          }
+        ],
+        "supplements": [
+          {
+            "id": 3221,
+            "question": "이 일에서 직접 맡은 몫은 무엇이었나요?",
+            "answer": "업로드 API 에서 WebP 로 바꾸는 부분을 내가 만들었다"
+          }
+        ],
+        "expect": {
+          "S": [
+            "C2221"
+          ],
+          "T": [
+            "P3221"
+          ],
+          "A": [
+            "P3221",
+            "C2221"
+          ],
+          "R": [
+            "C2221"
+          ]
+        },
+        "learned": []
+      },
+      {
+        "id": 303,
+        "content": "GitHub Actions 로 배포를 자동화했다",
+        "actor": "TEAM",
+        "competencies": [
+          "OPERATION"
+        ],
+        "citations": [
+          {
+            "id": 2231,
+            "quote": "main 에 머지되면 GitHub Actions 가 EC2 로 자동 배포한다."
+          }
+        ],
+        "supplements": [],
+        "expect": {
+          "S": [],
+          "T": [],
+          "A": [
+            "C2231"
+          ],
+          "R": null
+        },
+        "learned": []
+      },
+      {
+        "id": 304,
+        "content": "거래 후기 기능을 만들었다",
+        "actor": "UNKNOWN",
+        "competencies": [
+          "IMPLEMENTATION"
+        ],
+        "citations": [
+          {
+            "id": 2241,
+            "quote": "거래 완료 후 서로 후기를 남길 수 있다."
+          }
+        ],
+        "supplements": [],
+        "expect": {
+          "S": [],
+          "T": [],
+          "A": null,
+          "R": null
+        },
+        "learned": []
+      },
+      {
+        "id": 305,
+        "content": "역할을 나눠 개발했다",
+        "actor": "TEAM",
+        "competencies": [
+          "COLLABORATION"
+        ],
+        "citations": [
+          {
+            "id": 2251,
+            "quote": "팀원 4명이 프론트엔드 2명, 백엔드 2명으로 나눠 개발했다. 목표는 학기 안에 실제 거래가 한 건이라도 일어나는 것이었다."
+          }
+        ],
+        "supplements": [],
+        "expect": {
+          "S": [
+            "C2251"
+          ],
+          "T": [],
+          "A": null,
+          "R": []
+        },
+        "learned": []
+      }
+    ]
+  },
+  {
+    "id": "club",
+    "name": "연합 동아리 홍보팀",
+    "experiences": [
+      {
+        "id": 401,
+        "content": "신입 모집 포스터를 만들었다",
+        "actor": "ME",
+        "competencies": [
+          "IMPLEMENTATION"
+        ],
+        "citations": [
+          {
+            "id": 2311,
+            "quote": "작년 지원자가 30명뿐이라 올해 모집 포스터를 내가 맡아 새로 만들었다. 지원자가 52명으로 늘었다."
+          }
+        ],
+        "supplements": [],
+        "expect": {
+          "S": [
+            "C2311"
+          ],
+          "T": [
+            "C2311"
+          ],
+          "A": [
+            "C2311"
+          ],
+          "R": [
+            "C2311"
+          ]
+        },
+        "learned": []
+      },
+      {
+        "id": 402,
+        "content": "인스타그램 계정을 운영했다",
+        "actor": "ME",
+        "competencies": [
+          "OPERATION"
+        ],
+        "citations": [
+          {
+            "id": 2321,
+            "quote": "동아리 인스타 계정 운영 담당"
+          }
+        ],
+        "supplements": [
+          {
+            "id": 3321,
+            "question": "인스타 계정을 운영하면서 직접 한 일은 무엇이었나요?",
+            "answer": "일주일에 두 번 활동 사진과 카드뉴스를 올렸다"
+          }
+        ],
+        "expect": {
+          "S": [],
+          "T": [
+            "C2321"
+          ],
+          "A": [
+            "P3321"
+          ],
+          "R": []
+        },
+        "learned": []
+      },
+      {
+        "id": 403,
+        "content": "홍보 방향을 두고 팀원과 부딪쳤다",
+        "actor": "ME",
+        "competencies": [
+          "COMMUNICATION"
+        ],
+        "citations": [
+          {
+            "id": 2331,
+            "quote": "영상 위주로 가자는 팀원과 카드뉴스를 고집한 나 사이에 의견이 갈렸다."
+          }
+        ],
+        "supplements": [
+          {
+            "id": 3331,
+            "question": "그때 어떻게 정리됐나요?",
+            "answer": "한 달씩 둘 다 올려 보고 반응을 비교하기로 했다. 상대 의견을 시험해 보는 게 말로 설득하는 것보다 빠르다는 걸 배웠다"
+          }
+        ],
+        "expect": {
+          "S": [
+            "C2331"
+          ],
+          "T": [],
+          "A": [
+            "P3331"
+          ],
+          "R": [
+            "P3331"
+          ]
+        },
+        "learned": []
+      },
+      {
+        "id": 404,
+        "content": "축제 부스를 운영했다",
+        "actor": "TEAM",
+        "competencies": [
+          "OPERATION",
+          "COLLABORATION"
+        ],
+        "citations": [
+          {
+            "id": 2341,
+            "quote": "가을 축제에 동아리 부스를 열어 이틀 동안 방문객 200명을 받았다."
+          }
+        ],
+        "supplements": [],
+        "expect": {
+          "S": null,
+          "T": [],
+          "A": [
+            "C2341"
+          ],
+          "R": [
+            "C2341"
+          ]
+        },
+        "learned": []
+      },
+      {
+        "id": 405,
+        "content": "홍보 예산을 정리했다",
+        "actor": "ME",
+        "competencies": [
+          "RESPONSIBILITY"
+        ],
+        "citations": [],
+        "supplements": [
+          {
+            "id": 3351,
+            "question": "예산 정리는 어떻게 했나요?",
+            "answer": "영수증을 구글 시트에 모아 매달 회장에게 공유했다"
+          }
+        ],
+        "expect": {
+          "S": [],
+          "T": [],
+          "A": [
+            "P3351"
+          ],
+          "R": []
+        },
+        "learned": []
+      }
+    ]
+  }
+]
