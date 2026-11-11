@@ -148,6 +148,7 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest -q
 | `scripts/eval_draft.py` | 초안 시험 자료 채점 — 숫자의 뜻은 파일 머리말 |
 | `scripts/eval_match.py` | 매칭 · 되묻기 시험 자료 채점 — 숫자의 뜻은 파일 머리말 |
 | `scripts/eval_posting_match.py` | 공고 기준 경험 찾기 채점(백엔드 · 마케팅 공고 × 경험 더미 2종) — 숫자의 뜻은 파일 머리말 |
+| `scripts/scale_posting_match.py` | 공고 기준 경험 찾기 규모 시험 — 경험 · 줄 수를 키워 시간만 잰다 |
 | `scripts/eval_route.py` | 홈 입력 가르기 시험 입력 채점 — 숫자의 뜻은 파일 머리말 |
 | `scripts/eval_parse.py` | 지원 나누기 시험 글 채점 — 숫자의 뜻은 파일 머리말 |
 | `scripts/eval_capture.py` · `scripts/make_captures.py` | 캡처 읽기 채점 · 지어낸 캡처 그리기 — 숫자의 뜻은 파일 머리말 |

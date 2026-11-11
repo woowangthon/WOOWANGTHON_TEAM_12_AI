@@ -68,3 +68,15 @@ def test_score_counts_forced_and_bad(tmp_path):
     assert s.dev_marketing_forced == 1 and len(s.forced) == 1
     assert len(s.bad_picks) == 1
     assert len(s.made_up_numbers) == 1 and len(s.leading) == 1
+
+
+def test_scale_inputs_are_valid_requests():
+    # 규모 시험 입력 — 경험 200개 · 줄 40개(계약 상한)가 요청 규칙을 지키나(ID 중복 없음 · 글자 한도)
+    from scripts.scale_posting_match import experiences, lines
+
+    exps = experiences(200, DUMMY_EXPS["mixed"])
+    body = {"jobRole": "BACKEND", "lines": lines(40, POSTINGS), "experiences": exps}
+    got_lines, got_exps = check_request(PostingMatchRequest.model_validate(body), load_settings())
+    assert len(got_lines) == 40 and len(got_exps) == 200
+    evidence = [x["id"] for e in exps for x in e["citations"] + e["supplements"]]
+    assert len(set(evidence)) == len(evidence)
