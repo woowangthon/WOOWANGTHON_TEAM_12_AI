@@ -1,0 +1,182 @@
+[
+  {
+    "id": 801,
+    "activityId": 801,
+    "activityName": "발표 자료 경진대회",
+    "content": "발표 자료를 기한 안에 내려고 검토 시간을 줄이고 압축도 해 봤지만 제출 마감을 넘겨 참가하지 못했다.",
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 1801,
+        "quote": "발표 자료를 기한 안에 내려고 검토 시간을 줄이고 압축도 해 봤지만 제출 마감을 넘겨 참가하지 못했다."
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 802,
+    "activityId": 802,
+    "activityName": "교내 해커톤",
+    "content": "첫 시연에서 앱이 멈췄다. 로그를 보고 오류를 고쳐 재시연했고 최종 심사를 통과해 수상했다.",
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 1802,
+        "quote": "첫 시연에서 앱이 멈췄다. 로그를 보고 오류를 고쳐 재시연했고 최종 심사를 통과해 수상했다."
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 803,
+    "activityId": 803,
+    "activityName": "데이터 분석 공모전",
+    "content": "분석 결과를 발표하려고 누락 데이터를 보완하고 검증했지만 핵심 가설을 입증하지 못해 최종 심사에서 탈락했다.",
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 1803,
+        "quote": "분석 결과를 발표하려고 누락 데이터를 보완하고 검증했지만 핵심 가설을 입증하지 못해 최종 심사에서 탈락했다."
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 804,
+    "activityId": 804,
+    "activityName": "개인 자격시험",
+    "content": "시험 신청을 하지 않아 응시하지 못했다.",
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 1804,
+        "quote": "시험 신청을 하지 않아 응시하지 못했다."
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 805,
+    "activityId": 805,
+    "activityName": "동아리 공모전",
+    "content": "팀원이 자료를 내지 않아 제출하지 못했다. 사용자 본인의 시도나 맡은 업무는 기록에 없다.",
+    "actor": "TEAM",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 1805,
+        "quote": "팀원이 자료를 내지 않아 제출하지 못했다. 사용자 본인의 시도나 맡은 업무는 기록에 없다."
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 811,
+    "activityId": 811,
+    "activityName": "학과 전시회",
+    "content": "팀원들과 전시회를 열기 위해 매주 작업 진행을 공유하고 전시물을 함께 설치했다. 내 업무는 따로 적지 않았다.",
+    "actor": "TEAM",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 1811,
+        "quote": "팀원들과 전시회를 열기 위해 매주 작업 진행을 공유하고 전시물을 함께 설치했다. 내 업무는 따로 적지 않았다."
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 813,
+    "activityId": 813,
+    "activityName": "학교 소모임 앱",
+    "content": "팀은 모임 일정을 쉽게 알리는 앱을 만들려고 화면과 서버 작업을 나누고 연동했다. 개인별 업무 기록은 없다.",
+    "actor": "TEAM",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 1813,
+        "quote": "팀은 모임 일정을 쉽게 알리는 앱을 만들려고 화면과 서버 작업을 나누고 연동했다. 개인별 업무 기록은 없다."
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 814,
+    "activityId": 814,
+    "activityName": "학교 소모임 앱",
+    "content": "모임 일정 앱 개발 팀에서 팀장을 맡았다.",
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 1814,
+        "quote": "모임 일정 앱 개발 팀에서 팀장을 맡았다."
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 821,
+    "activityId": 821,
+    "activityName": "동아리 발표 준비",
+    "content": "팀 안에서 발표 연습 시간을 두고 의견이 갈렸다. 나는 가능한 시간을 표로 만들어 회의에서 함께 보자고 제안했다.",
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 1821,
+        "quote": "팀 안에서 발표 연습 시간을 두고 의견이 갈렸다. 나는 가능한 시간을 표로 만들어 회의에서 함께 보자고 제안했다."
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 822,
+    "activityId": 822,
+    "activityName": "수업 디자인 프로젝트",
+    "content": "팀 안에서 첫 화면 구성을 두고 의견이 갈렸다. 나는 내 안이 더 낫다고 설명했고 회의에서 내 안으로 정했다.",
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 1822,
+        "quote": "팀 안에서 첫 화면 구성을 두고 의견이 갈렸다. 나는 내 안이 더 낫다고 설명했고 회의에서 내 안으로 정했다."
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 823,
+    "activityId": 823,
+    "activityName": "룸메이트와 생활",
+    "content": "룸메이트와 청소 순서를 두고 다투다가 내가 먼저 청소했다.",
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 1823,
+        "quote": "룸메이트와 청소 순서를 두고 다투다가 내가 먼저 청소했다."
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 824,
+    "activityId": 824,
+    "activityName": "수업 디자인 프로젝트",
+    "content": "팀은 발표 자료를 한 문서로 모으고 완성본을 함께 검토했다. 갈등 여부는 기록에 없다.",
+    "actor": "TEAM",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 1824,
+        "quote": "팀은 발표 자료를 한 문서로 모으고 완성본을 함께 검토했다. 갈등 여부는 기록에 없다."
+      }
+    ],
+    "supplements": []
+  }
+]
