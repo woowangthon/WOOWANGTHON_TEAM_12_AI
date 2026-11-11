@@ -24,6 +24,7 @@ GOOD = {
     "organizationType": "BOOTCAMP",
     "jobRole": "BACKEND",
     "questions": [Q1, Q2],
+    "postingLines": [],
 }
 
 
@@ -35,14 +36,20 @@ def post(client_with, *outputs, body=None, **settings):
 def test_contract_shape(client_with):
     _, res = post(client_with, GOOD)
     assert res.status_code == 200
-    assert res.json() == {**GOOD, "model": "fake-model"}
+    assert res.json() == {**GOOD, "readFrom": "TEXT", "model": "fake-model"}
 
 
 def test_nothing_found_is_nulls_and_empty(client_with):
-    empty = {"organization": None, "organizationType": None, "jobRole": None, "questions": []}
+    empty = {
+        "organization": None,
+        "organizationType": None,
+        "jobRole": None,
+        "questions": [],
+        "postingLines": [],
+    }
     _, res = post(client_with, empty)
     assert res.status_code == 200
-    assert res.json() == {**empty, "model": "fake-model"}
+    assert res.json() == {**empty, "readFrom": "TEXT", "model": "fake-model"}
 
 
 def test_whitespace_differences_are_still_written(client_with):
@@ -121,7 +128,7 @@ def test_invalid_then_valid(client_with):
 def test_limits(client_with):
     questions = [f"문항 {i} 을 적어 주세요." for i in range(11)]
     text = "\n".join(questions)
-    empty = {"organization": None, "organizationType": None, "jobRole": None}
+    empty = {"organization": None, "organizationType": None, "jobRole": None, "postingLines": []}
     _, res = post(client_with, {**empty, "questions": questions[:10]}, body={"text": text})
     assert res.status_code == 200
     bad = {**empty, "questions": questions}
@@ -175,7 +182,13 @@ def test_url_must_be_http(client_with):
 
 
 def test_text_length_limit(client_with):
-    empty = {"organization": None, "organizationType": None, "jobRole": None, "questions": []}
+    empty = {
+        "organization": None,
+        "organizationType": None,
+        "jobRole": None,
+        "questions": [],
+        "postingLines": [],
+    }
     _, res = post(client_with, empty, body={"text": "가" * MAX_APPLICATION_CHARS})
     assert res.status_code == 200
     llm = FakeLLM()

@@ -258,6 +258,9 @@ def extract_text(html: str) -> str:
     posting = _posting_json(soup)
     for tag in soup(DROP_TAGS):
         tag.decompose()
+    # nav 대신 div + ARIA role로 만든 사이트 메뉴도 본문 글로 보지 않는다.
+    for tag in soup.select('[role="navigation"], [role="menubar"], [role="menu"]'):
+        tag.decompose()
     body = _lines(soup.get_text("\n"))
     if posting and squeeze(posting) not in squeeze(body):
         return f"{posting}\n\n{body}" if body else posting

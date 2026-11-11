@@ -26,8 +26,15 @@ GOOD = {
     "organizationType": "JOB",
     "jobRole": "BACKEND",
     "questions": [QUESTION],
+    "postingLines": [],
 }
-EMPTY = {"organization": None, "organizationType": None, "jobRole": None, "questions": []}
+EMPTY = {
+    "organization": None,
+    "organizationType": None,
+    "jobRole": None,
+    "questions": [],
+    "postingLines": [],
+}
 
 
 class Web:
@@ -80,7 +87,7 @@ def test_reads_page_and_parses_like_text(client_with, web):
     web.pages["https://example.com/job/1"] = page()
     _, res = post(client_with, "https://example.com/job/1", GOOD)
     assert res.status_code == 200
-    assert res.json() == {**GOOD, "model": "fake-model"}
+    assert res.json() == {**GOOD, "readFrom": "URL", "model": "fake-model"}
     assert web.seen == ["https://example.com/robots.txt", "https://example.com/job/1"]
 
 
@@ -98,6 +105,26 @@ def test_extract_drops_script_nav_header_footer():
     assert "var x" not in text
     assert "로그인" not in text
     assert "Copyright" not in text
+
+
+def test_extract_drops_aria_navigation_but_keeps_posting():
+    html = (
+        '<div role="navigation"><div role="menu">Engineering Design Marketing</div></div>'
+        "<main><h1>노을상자 채용</h1><p>B2B 브랜드 캠페인 기획 및 운영</p></main>"
+        '<div role="menubar">로그인 인재풀</div>'
+    )
+    text = fetch_page.extract_text(html)
+    assert "B2B 브랜드 캠페인 기획 및 운영" in text
+    assert "Engineering" not in text
+    assert "인재풀" not in text
+
+
+def test_menu_only_page_is_unreadable_not_filled_in(client_with, web):
+    web.pages["https://example.com/menu"] = page(
+        '<div role="navigation">' + "Engineering Design Marketing " * 30 + "</div>"
+    )
+    llm, res = post(client_with, "https://example.com/menu")
+    assert_unreadable(res, llm)
 
 
 def test_job_posting_json_is_used_when_page_is_drawn_by_script():
