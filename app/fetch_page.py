@@ -25,6 +25,7 @@ from bs4 import BeautifulSoup
 from charset_normalizer import from_bytes
 
 from app.errors import UrlBlocked, UrlUnreadable
+from app.google_forms import GoogleForm, is_form_url, parse_form, unreadable
 
 log = logging.getLogger(__name__)
 
@@ -297,9 +298,11 @@ def detail_url(url: str) -> str | None:
     return None
 
 
-def _read_html(req: "_Request", url: str) -> str:
-    """받아서 뽑은 글. 2xx · HTML · 2MB 가 아니면 UrlUnreadable."""
-    _, raw = req.follow(url, robots=True)
+def _read_page(req: "_Request", url: str) -> tuple[str, str]:
+    """최종 주소와 HTML. 2xx · HTML · 2MB 가 아니면 UrlUnreadable."""
+    final_url, raw = req.follow(url, robots=True)
+    if raw.status in (401, 403) and (is_form_url(url) or is_form_url(final_url)):
+        raise unreadable()
     if not 200 <= raw.status < 300:
         raise UrlUnreadable(msg_status(raw.status), why=f"http-{raw.status}")
     ctype = raw.content_type.split(";")[0].strip().lower()
@@ -307,13 +310,21 @@ def _read_html(req: "_Request", url: str) -> str:
         raise UrlUnreadable(MSG_NOT_HTML, why="not-html")
     if raw.too_big:
         raise UrlUnreadable(MSG_TOO_BIG, why="too-big")
-    return extract_text(decode(raw.body, raw.content_type))
+    return final_url, decode(raw.body, raw.content_type)
+
+
+def _read_html(req: "_Request", url: str) -> str:
+    return extract_text(_read_page(req, url)[1])
 
 
 def fetch_text(url: str) -> str:
     """링크 → 뽑은 글(최대 20000자). 못 읽으면 UrlBlocked · UrlUnreadable."""
     req = _Request()
     text = _read_html(req, url)
+    return _page_text(req, url, text)
+
+
+def _page_text(req: "_Request", url: str, text: str) -> str:
     detail = detail_url(url)
     if detail is not None:
         # 상세 본문을 앞에 — 못 받으면 공고 페이지 글만 쓴다(그 글도 실제 페이지라 지어낸 것이 아니다)
@@ -326,11 +337,23 @@ def fetch_text(url: str) -> str:
     return text[:MAX_CHARS]
 
 
-async def read_url(url: str) -> str:
+def fetch_application(url: str) -> str | GoogleForm:
+    """최종 주소가 구글폼이면 script JSON, 일반 공고면 기존 본문 뽑기를 쓴다."""
+    req = _Request()
+    final_url, html = _read_page(req, url)
+    if is_form_url(final_url) and urlsplit(final_url).hostname == "docs.google.com":
+        return parse_form(html)
+    if is_form_url(url):
+        # 로그인 등 다른 페이지로 넘어갔다. 그 글을 LLM 에 넘기지 않는다.
+        raise unreadable()
+    return _page_text(req, url, extract_text(html))
+
+
+async def read_url(url: str) -> str | GoogleForm:
     """요청 스레드를 막지 않게 따로 받는다. 로그에는 링크와 결과 코드만."""
     started = time.monotonic()
     try:
-        text = await asyncio.wait_for(asyncio.to_thread(fetch_text, url), FETCH_SECONDS + 1)
+        text = await asyncio.wait_for(asyncio.to_thread(fetch_application, url), FETCH_SECONDS + 1)
     except TimeoutError:
         log.info("링크 읽기 url=%s result=timeout", url)
         raise UrlUnreadable(MSG_TIMEOUT, why="timeout") from None
@@ -340,7 +363,7 @@ async def read_url(url: str) -> str:
     log.info(
         "링크 읽기 url=%s result=OK chars=%d elapsed=%.1fs",
         url,
-        len(text),
+        len(text) if isinstance(text, str) else sum(map(len, text.questions)),
         time.monotonic() - started,
     )
     return text

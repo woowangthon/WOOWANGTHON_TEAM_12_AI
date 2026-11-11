@@ -18,9 +18,19 @@ import time
 from collections.abc import Sequence
 from typing import Any
 
+from pydantic import ValidationError
+
 from app.config import Settings
-from app.errors import ImageUnreadable, InvalidImage, InvalidRequest, LLMTimeout, TextTooLong
+from app.errors import (
+    ImageUnreadable,
+    InvalidImage,
+    InvalidRequest,
+    LLMTimeout,
+    TextTooLong,
+    UrlUnreadable,
+)
 from app.fetch_page import read_url
+from app.google_forms import GoogleForm
 from app.llm import Image, JsonLLM, generate_valid
 from app.schemas import (
     JOB_ROLES,
@@ -249,7 +259,29 @@ async def parse_application(
         return await _parse_images(req.images, vision_llm or llm, settings, system, started)
     if text is None:
         assert req.url is not None
-        text = await read_url(req.url)
+        source = await read_url(req.url)
+        if isinstance(source, GoogleForm):
+            try:
+                out = ParseApplicationResponse(
+                    organization=source.organization,
+                    organizationType=None,
+                    jobRole=None,
+                    questions=source.questions,
+                    postingLines=[],
+                    readFrom="URL",
+                    model=None,
+                )
+                check_unique(out)
+            except (ValidationError, ValueError):
+                raise UrlUnreadable(
+                    "폼 문항을 그대로 가져오지 못했어요 — 문항 화면을 캡처해 넣어 주세요",
+                    why="google-form-output",
+                ) from None
+            log.info(
+                "지원 나누기 완료 source=google-form model=none questions=%d", len(out.questions)
+            )
+            return out
+        text = source
     # 받기 15초를 포함해 전체 50초(계약) — 받는 데 쓴 만큼 LLM 시간을 줄인다
     left = settings.llm_sync_timeout_seconds - (time.monotonic() - started)
     if left <= 0:
