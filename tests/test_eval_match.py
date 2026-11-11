@@ -246,3 +246,50 @@ def test_ask_kind_follows_reviewer_order():
     assert ask_kind("전체를 바꾸지 않고 재시도를 고른 이유는 무엇인가요?") == "판단 · 원인 · 입장"
     assert ask_kind("고친 뒤 정상 동작을 어떻게 확인했나요?") == "확인 · 결과"
     assert ask_kind("그 프로젝트는 언제 진행했나요?") == "그 밖"
+
+
+def _exp(content: str) -> MatchExperience:
+    return MatchExperience.model_validate(
+        {"id": 1, "content": content, "actor": "ME", "citations": [], "supplements": []}
+    )
+
+
+def test_echoes_body_catches_noun_form_restatement():
+    # 강조점 본문 되풀이(AI#105) — 운영 화면 예. 조사 · 어미 · 꼴 낱말이 붙어도 되풀이로 친다
+    from scripts.eval_match import echoes_body
+
+    assert echoes_body(
+        "스터디 일정과 주차별 문제 목록 관리", _exp("스터디 일정과 주차별 문제 목록을 관리했다.")
+    )
+    assert echoes_body("공연장 대관 일정 조율", _exp("공연장 대관 일정을 조율했다."))
+    assert echoes_body("공연장 대관 일정을 조율한 행동", _exp("공연장 대관 일정을 조율했다."))
+    assert not echoes_body(
+        "손님이 몰린 걸 보고 주문 순서를 바꾼 판단", _exp("카페에서 주문 순서를 바꿨다.")
+    )
+
+
+def test_same_angle_pairs_across_questions():
+    from scripts.eval_match import same_angle
+
+    assert same_angle(
+        "참여 상황에 맞춰 바꾼 스터디 운영 방식", "참여 감소 뒤 스터디 운영 방식을 바꾼 행동"
+    )
+    assert not same_angle(
+        "메시지 지연 뒤 3초 폴링을 구독 방식으로 바꾼 조치", "채팅 기능에서 직접 맡아 변경한 부분"
+    )
+
+
+def test_score_collects_emphasis_by_experience():
+    q = Q["tech-problem"]
+    rec = {"experienceId": 101, "reason": "맞다", "emphasis": "가", "evidence": [], "gaps": []}
+    data = MatchResponse.model_validate(
+        {
+            "questionType": "PROBLEM_SOLVING",
+            "requirements": [{"text": "문제 해결", "status": "SUPPORTED", "experienceIds": [101]}],
+            "recommendations": [rec],
+            "clarifications": [],
+            "model": "m",
+        }
+    )
+    s = score(q, EXPS, data)
+    assert s.emph_by_exp == {101: [("tech-problem", "가")]}

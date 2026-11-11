@@ -37,6 +37,14 @@ samples/match/questions.json(문항마다 손으로 적은 정답). 정답 칸:
 - 정답 밖(후보): good · ok 에도 bad 에도 없는 경험을 추천한 수 — 상한이 늘어 억지로 채웠나 사람이 읽는다
 - 활동 통째(후보): 경험이 3개 이상인 활동의 경험을 전부 추천한 수 — 「문항에 쓸 만한 줄만」을 어겼나 본다
 
+강조점 emphasis(AI#105 — 본문을 되풀이하지 말고 문항의 요구사항과 잇는 각도로):
+- 본문 되풀이(후보): emphasis 낱말의 70% 이상이 그 경험의 활동 · 본문에 있는 추천 수 / 추천 수. 조사 · 어미가 붙어도
+  같은 낱말로 치고(「목록」 ↔ 「목록을」 · 「조율」 ↔ 「조율했다」), 「행동 · 과정 · 부분」 같은 꼴 낱말과 한 글자 낱말은 뺀다
+  — 「공연장 대관 일정 조율」 「…을 바꾼 행동」 꼴. 「재구성 ↔ 다시 짰다」 같은 말 바꾸기는 못 거른다
+- 문항마다 같음(후보): 한 실행에서 같은 경험이 두 문항에 추천됐을 때 짧은 쪽 emphasis 낱말의 60% 이상이 다른 쪽에 있는 쌍
+  / 그런 쌍
+  — S-21 「문항마다 다른 각도」를 어겼나 본다. 낱말로 거른 것이라 목록(문항별 강조점)을 사람이 읽는다
+
 되묻기(S-22 · S-25) — samples/match/clarify.json 의 「경험에 이미 있는 사실」과 그걸 묻는 정규식으로 센다.
 정규식 · 낱말로 거른 것은 전부 후보다 — 목록을 사람이 읽고 판단한다(질문 전체도 찍는다):
 - 되묻기 수: 질문 수 합(0개 문항 수 / 답한 문항 수)
@@ -141,10 +149,72 @@ class Score:
     ask_why: int = 0
     ask_check: int = 0
     ask_other: list[str] = field(default_factory=list)
+    emph_echo: list[str] = field(default_factory=list)
+    emph_by_exp: dict[int, list[tuple[str, str]]] = field(default_factory=dict)
 
     def add(self, other: "Score") -> None:
         for name, value in vars(other).items():
-            setattr(self, name, getattr(self, name) + value)
+            if isinstance(value, dict):
+                for k, v in value.items():
+                    getattr(self, name).setdefault(k, []).extend(v)
+            else:
+                setattr(self, name, getattr(self, name) + value)
+
+
+WORD = re.compile(r"[가-힣]+|[A-Za-z0-9]+")
+
+
+def _words(text: str) -> list[str]:
+    return [w.lower() for w in WORD.findall(unicodedata.normalize("NFKC", text))]
+
+
+def _in_text(word: str, text: str) -> bool:
+    """낱말이 text 에 있나 — 뒤 두 글자(조사 · 어미)까지 떼어 본다. 두 글자 밑으로는 떼지 않는다."""
+    for n in range(len(word), max(1, len(word) - 2, min(2, len(word)) - 1), -1):
+        if word[:n] in text:
+            return True
+    return False
+
+
+# 꼴 낱말 — 무엇을 앞세우는지는 말하지 않고 문장 모양만 만든다(「…을 바꾼 행동」 「…한 경험」)
+FILLER = {
+    "행동",
+    "과정",
+    "부분",
+    "경험",
+    "내용",
+    "방법",
+    "점",
+    "것",
+    "일",
+    "및",
+    "통한",
+    "통해",
+    "위한",
+    "위해",
+}
+
+
+def _content_words(text: str) -> list[str]:
+    return [w for w in _words(text) if len(w) > 1 and w not in FILLER]
+
+
+def _share_in(words: list[str], text: str) -> float:
+    return sum(_in_text(w, text) for w in words) / len(words) if words else 1.0
+
+
+def echoes_body(emphasis: str, exp: MatchExperience) -> bool:
+    """emphasis 의 낱말(꼴 낱말 · 한 글자 빼고) 70% 이상이 활동 · 본문에 있다 — 본문을 명사형으로 되풀이한 후보."""
+    body = " ".join(_words(f"{exp.activityName or ''} {exp.content}"))
+    return _share_in(_content_words(emphasis), body) >= 0.7
+
+
+def same_angle(a: str, b: str) -> bool:
+    """짧은 쪽 emphasis 낱말의 60% 이상이 다른 쪽에 있다(조사 · 어미 떼고)."""
+    x, y = _content_words(a), _content_words(b)
+    if len(x) > len(y):
+        x, y = y, x
+    return bool(x) and _share_in(x, " ".join(y)) >= 0.6
 
 
 def ask_kind(question: str) -> str:
@@ -244,6 +314,9 @@ def score(
         words = MINE_WORDS.findall(said)
         if exp.actor != "ME" and words:
             s.team_as_mine.append(f"{qid}: 경험 {exp.id}({exp.actor}) {words} 「{said}」")
+        if echoes_body(rec.emphasis, exp):
+            s.emph_echo.append(f"{qid}: 경험 {exp.id} 「{rec.emphasis}」 ← 본문 「{exp.content}」")
+        s.emph_by_exp.setdefault(exp.id, []).append((qid, rec.emphasis))
         if exp.supplements:
             s.supplement_recs += 1
             s.supplement_used += any(e.type == "SUPPLEMENT" for e in rec.evidence)
@@ -399,7 +472,7 @@ def report(
     out: Path, experiences: list[dict], questions: list[dict], type_questions: list[dict]
 ) -> str:
     known = load_known()
-    rows, clar_rows, type_rows, count_rows, details = [], [], [], [], []
+    rows, clar_rows, type_rows, count_rows, emph_rows, details = [], [], [], [], [], []
     for model_dir in sorted(p for p in out.iterdir() if p.is_dir()):
         for prompt_dir in sorted(p for p in model_dir.iterdir() if p.is_dir()):
             stripped = prompt_dir.name.endswith(NOSUPP)
@@ -459,9 +532,29 @@ def report(
                 f"| {name} | {t.rec_count} | {t.activity_count} | {len(t.unlabeled)} "
                 f"| {len(t.whole_activity)} |"
             )
+            pairs = [
+                (exp_id, a, b)
+                for exp_id, said in sorted(t.emph_by_exp.items())
+                for i, a in enumerate(said)
+                for b in said[i + 1 :]
+            ]
+            same = [p for p in pairs if same_angle(p[1][1], p[2][1])]
+            emph_rows.append(
+                f"| {name} | {len(t.emph_echo)}/{t.rec_count} | {len(same)}/{len(pairs)} |"
+            )
             lines = [
                 *(f"- 정답 밖(후보) {x}" for x in t.unlabeled),
                 *(f"- 활동 통째(후보) {x}" for x in t.whole_activity),
+                *(f"- 본문 되풀이(후보) {x}" for x in t.emph_echo),
+                *(
+                    f"- 문항마다 같음(후보) 경험 {e}: {a[0]} 「{a[1]}」 · {b[0]} 「{b[1]}」"
+                    for e, a, b in same
+                ),
+                *(
+                    f"- 문항별 강조점 경험 {e}: " + " · ".join(f"{q} 「{x}」" for q, x in said)
+                    for e, said in sorted(t.emph_by_exp.items())
+                    if len(said) > 1
+                ),
                 *(f"- 엉뚱한 추천 {x}" for x in t.wrong_picks),
                 *(f"- 억지 추천 {x}" for x in t.forced),
                 *(f"- 요구사항 판정 틀림 {x}" for x in t.req_wrong),
@@ -489,6 +582,10 @@ def report(
         "| 갈래 내 몫 · 판단/원인/입장 · 확인/결과 · 그 밖(후보) | 오류 |\n"
         "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
     )
+    emph_head = (
+        "| 모델 · 프롬프트 | 강조점 본문 되풀이(후보) | 같은 경험 · 문항마다 같음(후보) |\n"
+        "| --- | --- | --- |"
+    )
     type_head = "| 모델 · 프롬프트 | 문항 유형 정답 | 허용 포함 | 오류 |\n| --- | --- | --- | --- |"
     count_head = (
         "| 모델 · 프롬프트 | 추천 수 | 활동 수 | 정답 밖(후보) | 활동 통째(후보) |\n"
@@ -499,6 +596,7 @@ def report(
         for t in (
             [head, *rows],
             [count_head, *count_rows],
+            [emph_head, *emph_rows],
             [clar_head, *clar_rows],
             [type_head, *type_rows],
         )
