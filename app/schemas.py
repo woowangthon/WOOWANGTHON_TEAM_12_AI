@@ -498,10 +498,18 @@ class PostingLine(BaseModel):
     ksa: Ksa | None
 
 
+class CaptureImage(BaseModel):
+    # 형식 · 크기 · base64 는 app/parse_application.py check_images 가 보고 400 INVALID_IMAGE 로 돌려준다.
+    # 빠진 칸도 여기서 막지 않는다 — 요청 모양 오류(INVALID_REQUEST)는 받은 값을 문구에 싣기 때문이다
+    mediaType: str = ""
+    data: str = ""
+
+
 class ParseApplicationRequest(BaseModel):
-    # 둘 중 하나만 · 비었는지 · 20000자는 app/parse_application.py check_request 가 본다
+    # 셋 중 하나만 · 비었는지 · 20000자 · 캡처 장 수는 app/parse_application.py check_request 가 본다
     text: str | None = None
     url: str | None = None
+    images: list[CaptureImage] | None = None
 
 
 # LLM 이 내는 모양. 글에 적혀 있나 · 순서 · 중복은 app/parse_application.py check_written 이 본다

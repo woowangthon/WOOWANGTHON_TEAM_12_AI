@@ -5,11 +5,12 @@
 """
 
 import asyncio
+import base64
 import copy
 import logging
 import time
-from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from collections.abc import Awaitable, Callable, Sequence
+from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 import openai
@@ -38,11 +39,29 @@ class LLMResult:
     model: str
 
 
+@dataclass(frozen=True)
+class Image:
+    """모델에 넘길 이미지 한 장(S-92 캡처). data 는 base64 글자 그대로 — 파일 · 외부 URL 로 올리지 않는다.
+
+    로그 · 오류 문구에 싣지 않는다(repr 에서도 뺀다).
+    """
+
+    media_type: str
+    data: str = field(repr=False)
+
+
 class JsonLLM(Protocol):
     async def generate_json(
-        self, system: str, user: str, schema: dict[str, Any], deadline: float
+        self,
+        system: str,
+        user: str,
+        schema: dict[str, Any],
+        deadline: float,
+        images: Sequence[Image] = (),
     ) -> LLMResult:
-        """deadline(time.monotonic 기준) 안에 JSON 문자열을 돌려준다. 실패하면 LLMError · LLMTimeout."""
+        """deadline(time.monotonic 기준) 안에 JSON 문자열을 돌려준다. 실패하면 LLMError · LLMTimeout.
+
+        images 는 user 글 앞에 함께 싣는다(비전 모델 — VISION_LLM_MODELS)."""
         ...
 
 
@@ -72,7 +91,14 @@ class Provider(Protocol):
     name: str
     available: bool
 
-    async def call(self, model: str, system: str, user: str, schema: dict[str, Any]) -> str:
+    async def call(
+        self,
+        model: str,
+        system: str,
+        user: str,
+        schema: dict[str, Any],
+        images: Sequence[Image] = (),
+    ) -> str:
         """JSON 문자열. 모델을 지금 못 쓰면 Unavailable, 키 · 요청 문제면 LLMError."""
         ...
 
@@ -105,10 +131,12 @@ def _strict(schema: dict[str, Any]) -> dict[str, Any]:
 class OpenAIProvider:
     name = "openai"
 
-    def __init__(self, api_key: str | None):
+    def __init__(self, api_key: str | None, image_detail: str = "high"):
         self.available = bool(api_key)
         # 다시 시도 · 시간 제한은 FallbackLLM 이 맡는다 — SDK 자체 재시도는 끈다
         self._client = openai.AsyncOpenAI(api_key=api_key, max_retries=0) if api_key else None
+        # 캡처의 글자를 읽어야 하니 high — low 와 견준 채점은 scripts/eval_capture.py --detail
+        self.image_detail = image_detail
 
     async def _create(self, model: str, **kwargs: Any) -> Any:
         assert self._client is not None
@@ -122,12 +150,35 @@ class OpenAIProvider:
             raise Unavailable(type(e).__name__) from e
         return response.choices[0].message
 
-    async def call(self, model: str, system: str, user: str, schema: dict[str, Any]) -> str:
+    async def call(
+        self,
+        model: str,
+        system: str,
+        user: str,
+        schema: dict[str, Any],
+        images: Sequence[Image] = (),
+    ) -> str:
+        content: str | list[dict[str, Any]] = user
+        if images:
+            # base64 데이터 URL 로 요청에 바로 싣는다 — Files API · 외부 URL 을 쓰지 않는다(저장 안 함)
+            content = [
+                *(
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:{image.media_type};base64,{image.data}",
+                            "detail": self.image_detail,
+                        },
+                    }
+                    for image in images
+                ),
+                {"type": "text", "text": user},
+            ]
         message = await self._create(
             model,
             messages=[
                 {"role": "system", "content": system},
-                {"role": "user", "content": user},
+                {"role": "user", "content": content},
             ],
             response_format={
                 "type": "json_schema",
@@ -167,8 +218,25 @@ class GeminiProvider:
         self.available = bool(api_key)
         self._client = genai.Client(api_key=api_key) if api_key else None
 
-    async def call(self, model: str, system: str, user: str, schema: dict[str, Any]) -> str:
+    async def call(
+        self,
+        model: str,
+        system: str,
+        user: str,
+        schema: dict[str, Any],
+        images: Sequence[Image] = (),
+    ) -> str:
         assert self._client is not None
+        contents: str | list[Any] = user
+        if images:
+            # 요청 안에 바이트로 싣는다 — Files API 를 쓰지 않는다(저장 안 함)
+            contents = [
+                *(
+                    types.Part.from_bytes(data=base64.b64decode(i.data), mime_type=i.media_type)
+                    for i in images
+                ),
+                user,
+            ]
         config = types.GenerateContentConfig(
             system_instruction=system,
             response_mime_type="application/json",
@@ -177,7 +245,7 @@ class GeminiProvider:
         )
         try:
             response = await self._client.aio.models.generate_content(
-                model=model, contents=user, config=config
+                model=model, contents=contents, config=config
             )
         except genai_errors.APIError as e:
             if e.code in FALLBACK_CODES:
@@ -207,11 +275,20 @@ class FallbackLLM:
         self.min_call_seconds = min_call_seconds
 
     async def generate_json(
-        self, system: str, user: str, schema: dict[str, Any], deadline: float
+        self,
+        system: str,
+        user: str,
+        schema: dict[str, Any],
+        deadline: float,
+        images: Sequence[Image] = (),
     ) -> LLMResult:
-        text, name = await self._first_answer(
-            lambda provider, model: provider.call(model, system, user, schema), deadline
-        )
+        def call(provider: Provider, model: str) -> Awaitable[str]:
+            # 글만 부를 땐 images 를 넘기지 않는다 — 시험의 가짜 제공사도 그대로 돈다
+            if images:
+                return provider.call(model, system, user, schema, images)
+            return provider.call(model, system, user, schema)
+
+        text, name = await self._first_answer(call, deadline)
         return LLMResult(text=text, model=name)
 
     async def generate_turn(
@@ -265,10 +342,11 @@ def build_llm(
     settings: Settings,
     models: tuple[tuple[str, str], ...] | None = None,
     call_timeout: float | None = None,
+    image_detail: str = "high",
 ) -> FallbackLLM:
     """models 를 안 주면 settings.llm_models(추출) 순서로, call_timeout 을 안 주면 settings.llm_call_timeout_seconds."""
     providers: dict[str, Provider] = {
-        "openai": OpenAIProvider(settings.openai_api_key),
+        "openai": OpenAIProvider(settings.openai_api_key, image_detail),
         "gemini": GeminiProvider(settings.gemini_api_key),
     }
     return FallbackLLM(
@@ -294,12 +372,14 @@ async def generate_valid[T](
     parse: Callable[[str], T],
     settings: Settings,
     timeout: float | None = None,
+    images: Sequence[Image] = (),
 ) -> Valid[T]:
     """LLM 출력을 parse 로 검사하고, 규칙을 벗어나면 다시 부른다(최대 settings.max_attempts 번).
 
     parse 는 규칙 위반이면 ValueError(pydantic ValidationError 포함)를 던진다. 출력을 그럴듯하게
     고치지 않는다 — 끝까지 벗어나면 LLMInvalidOutput(계약 ai-api 「응답 규칙」).
     timeout 은 폴백 · 다시 시도까지 합친 전체 시간 — 안 주면 settings.llm_timeout_seconds(작업 호출).
+    images 는 비전 모델에 같이 싣는다(S-92) — 글만 부르는 곳은 넘기지 않는다(가짜 LLM 들이 그대로 돈다).
     """
     deadline = time.monotonic() + (settings.llm_timeout_seconds if timeout is None else timeout)
     last_error = ""
@@ -307,7 +387,10 @@ async def generate_valid[T](
         if deadline - time.monotonic() <= 0:
             raise LLMTimeout(f"다시 시도할 시간이 남지 않았습니다(이전 오류: {last_error})")
         started = time.monotonic()
-        result = await llm.generate_json(system, user, schema, deadline)
+        if images:
+            result = await llm.generate_json(system, user, schema, deadline, images=images)
+        else:
+            result = await llm.generate_json(system, user, schema, deadline)
         elapsed = time.monotonic() - started
         try:
             value = parse(result.text)

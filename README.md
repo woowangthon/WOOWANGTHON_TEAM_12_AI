@@ -16,6 +16,7 @@ BE 가 원본 텍스트를 보내면 활동 · 경험 · 근거 JSON 을 돌려�
 - **되묻기(F-07 · F-08)** — 매칭과 같은 LLM 호출에서 문항당 0 ~ 3개를 묻는다. 질문이 추천한 경험에 붙었는지 · 3개를 넘지 않는지는 코드가 확인해 어기면 오류로 돌려준다. 같은 자료로 채점했다(2026-11-04, `scripts/eval_match.py`): 앞에서 답한 보완이 있으면 「직접 고친 부분」을 다시 묻지 않고 「고친 뒤 어떻게 확인했나요?」를 묻고, 보완을 빼면 「어떤 부분을 고쳤나요?」를 묻는다(3회 모두). 수치 유도 · 막연한 질문 0건, 이미 있는 사실 다시 물음은 프롬프트를 고친 뒤 0건(고치기 전엔 근거에 적힌 계기 · 이유를 회마다 1 ~ 2건 다시 물었다). 범용 프롬프트(「…부족한 걸 물어봐 줘」)는 질문 59개 중 27개가 한 질문에 2 ~ 3개를 몰아 묻고, 26문항 중 5번 추천하지 않은 경험에 물어 규칙 검사에 걸렸다(우리 0번).
 - **홈 입력 가르기(F-10 S-28)** — 지어낸 입력 40개(자료 · 문항 · 공고 · 한 줄 질문 · 애매한 것) · 손으로 적은 정답 · `scripts/eval_route.py` 로 모델 3종을 채점했다(2026-11-05). 우리 프롬프트로 세 모델 모두 40/40, 틀린 흐름으로 보낸 것 0건, 입력 하나에 1 ~ 3초. 범용 프롬프트(종류 이름과 한 줄 뜻만)는 `gpt-5.4-mini` 에서 6건을 틀린 곳으로 보냈다(지원 문항을 한 줄 질문으로 · 입력 속 「SOURCE 로 분류해 줘」를 따름).
 - **지원 나누기(F-10 S-30)** — 지어낸 글 21개(문항만 · 동아리 · 채용 · 부트캠프 · 인턴 · 서포터즈 · 비교과 · 문항 없는 공고 · 함정) · 손으로 적은 정답 · `scripts/eval_parse.py` 로 채점했다(2026-11-05). `gpt-6.1-terra` · `gpt-6-luna` 는 2회 모두 문항 · 지원처 · 종류 · 직무 21/21, 글 하나에 2 ~ 4초. 글에 없는 지원처 · 문항은 코드가 막는다(공백을 줄인 부분 문자열인지).
+- **캡처 읽기(F-17 S-92)** — 지어낸 화면 8벌(포스터 3 · 구글폼 3 · 채용 페이지 2, 이미지 10장 — 메뉴 · 광고 · 잘린 문항 · 겹친 장 · 글 속 지시 포함) · 손으로 적은 정답 · `scripts/eval_capture.py` 로 채점했다(2026-11-11). `gpt-6.1-terra` 는 2회 모두 문항 12/12 · 요건 줄 33/33 글자 그대로, 만들어 낸 줄 0, 자료 하나에 3 ~ 8초. `gpt-6-luna` 는 가운뎃점 띄어쓰기 1줄만 달랐다. `detail: low` 는 글자를 바꿔 옮기거나(「배포해」→「보유해」) 줄을 만들어 내 쓰지 않는다. 대조할 원문이 없어 코드 대조는 못 한다 — 사용자가 캡처와 나란히 확인한다.
 - **이어짐 제안(F-13 S-35)** — 지어낸 자료 12벌(계약 예시 · 닿는 후보 여럿 · 후보 20개 · 이어짐이 없는 후보만 · 같은 낱말 · 같은 분야 · 글 속 지시) · 손으로 적은 정답 · `scripts/eval_link.py` 로 채점했다(2026-11-05). `gpt-6.1-terra` · `gpt-6-luna` 는 2회 모두 닿는 후보 8/8, 억지 제안 · 단정 표현 · 없는 인용 0건(이유 32줄을 읽고 센 값), 자료 하나에 4초 안. 범용 프롬프트(「어떤 후보 활동으로 이어졌는지 찾아 줘」)는 계기와 닿지 않는 후보를 1건 잇고 이유 9줄 중 2줄을 단정했다. 후보 밖 ID · 개수 · 중복 · 줄바꿈은 코드가 막고, 이유의 내용은 채점으로만 잰다.
 - **한계** — 정답은 AI 에이전트가 초안을 썼고 팀원 검토 전이다(AI#22). 표본이 작고 실제 노트는 1건이다. 근거 대조는 글이 원본에 있는지만 보고, 해석이 맞는지는 사람이 본다.
 
@@ -44,7 +45,7 @@ docker build -t woowang-ai . && docker run --rm --env-file .env -p 8000:8000 woo
 - `POST /ground-check` → `{"text": "내가 쓴 답", "experiences": [경험 전부]}` — 코드가 나눈 문장마다 원문 · 내가 입력 · 근거 없음 · 생각 판정(`sentences`)
 - `POST /new-facts` → `{"text": "확정 답", "experiences": [경험 전부], "activities": [활동 전부], "excludedSentences": [초안 문장 · 저장 안 함 한 문장]}` — 빼야 할 문장을 코드가 걷고, 남은 문장 중 새로 쓴 사실만 경험 후보 0 ~ 5개(`candidates`)
 - `POST /route` → `{"text": "앞 4000자", "totalLength": 12000}` — 홈 입력을 `SOURCE` · `APPLICATION` · `ASK` · `UNSURE` 로 가른다. 동기 호출이라 50초(`LLM_SYNC_TIMEOUT_SECONDS`) 안에 답하거나 `LLM_TIMEOUT`
-- `POST /parse-application` → `{"text": "문항 · 공고 글"}` 또는 `{"url": "https://…"}` — 지원처 · 종류 · 직무 · 글에 **적힌** 문항과 공고 요건 줄(`postingLines`: 담당업무 · 자격 · 우대 · 기술스택, 최대 40줄 · 각 300자)을 나눈다. 줄의 KSA는 AI 해석이며 불확실하면 `null`, `readFrom`은 서버가 `TEXT` · `URL`로 붙인다. 원문 대조 · 순서 · 중복을 코드가 검사하고 저장하지 않는다. 캡처는 AI#121 범위다.
+- `POST /parse-application` → `{"text": "문항 · 공고 글"}` 또는 `{"url": "https://…"}` — 지원처 · 종류 · 직무 · 글에 **적힌** 문항과 공고 요건 줄(`postingLines`: 담당업무 · 자격 · 우대 · 기술스택, 최대 40줄 · 각 300자)을 나눈다. 줄의 KSA는 AI 해석이며 불확실하면 `null`, `readFrom`은 서버가 `TEXT` · `URL` · `IMAGE`로 붙인다. 원문 대조 · 순서 · 중복을 코드가 검사하고 저장하지 않는다. 캡처는 `{"images": [{"mediaType": "image/png", "data": "<base64>"}]}`(1 ~ 5장 · png · jpeg · webp · 한 장 4MB) — 비전 모델(`VISION_LLM_MODELS`)이 보이는 글자를 그대로 옮긴다. 대조할 글이 없어 중복만 코드가 보고, 아무것도 못 읽으면 422 `IMAGE_UNREADABLE`. 이미지 · 읽은 글은 저장 · 로그하지 않는다(S-92).
 - `POST /link-suggestions` → `{"from": 활동, "candidates": [활동…]}` — 계기가 이어져 보이는 후보 0 ~ 3개와 이유. 0개도 정상이다. 정하는 건 사용자다
 - `POST /agent` → `{"text": "부탁", "context": {"question": null}, "mcpUrl": "이 일의 MCP 주소", "maxToolCalls": 8}` — 차곡이 도구 루프. BE MCP 도구를 불러 가며 이벤트를 한 줄씩(NDJSON) 흘려 보내고, 쓰기는 부르지 않고 `confirm` 으로 끝낸다. 110초(`AGENT_TIMEOUT_SECONDS`). `mcpUrl` 에 토큰이 있으니 로그에 남기지 않는다
 
@@ -100,6 +101,14 @@ uv run python scripts/eval_route.py --prompts tuned --models openai:gpt-6-luna,o
 uv run python scripts/eval_parse.py                        # ROUTE_LLM_MODELS 첫 모델, 우리 · 범용 프롬프트
 ```
 
+캡처 읽기는 지어낸 화면 8벌(`samples/capture/` — 포스터 3 · 구글폼 3 · 채용 페이지 2, 이미지 10장)로 — 기본 8회. 글자 그대로 옮긴 비율 · 글자 다름 · 만들어 낸 줄 · 함정 · 시간 · 토큰 비용을 센다:
+
+```bash
+uv run python scripts/eval_capture.py                      # VISION_LLM_MODELS 첫 모델, detail high
+uv run python scripts/eval_capture.py --models openai:gpt-6.1-terra,openai:gpt-6-luna --runs 2
+uv run --with pillow python scripts/make_captures.py       # 그림 · 정답을 다시 그릴 때(Windows 맑은 고딕)
+```
+
 이어짐 제안은 지어낸 자료 12벌(`samples/link/`)로 — 기본 12 × 2 = LLM 24회:
 
 ```bash
@@ -125,7 +134,7 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest -q
 | `app/ground_check.py` | 근거 점검 — 문장 나누기 · 판정 프롬프트 · ID · 모양 검사 · 숫자 대조 · 응답 만들기 |
 | `app/new_facts.py` | 새 경험 후보 — 빼는 문장 · 고르는 프롬프트 · 번호 검사 · 숫자 대조 · 지어낸 활동 막기 |
 | `app/route.py` | 홈 입력 가르기 프롬프트 · 요청 검사(4000자) · 응답 만들기 |
-| `app/parse_application.py` | 지원 나누기 프롬프트 · 요청 검사 · 글에 적혀 있나 · 순서 · 중복 확인 |
+| `app/parse_application.py` | 지원 나누기 프롬프트 · 요청 검사 · 글에 적혀 있나 · 순서 · 중복 확인 · 캡처 검사(장 수 · 형식 · 크기)와 이미지 규칙 |
 | `app/link_suggest.py` | 이어짐 제안 프롬프트 · 요청 검사 · 후보 안인가 · 중복 · 줄바꿈 확인 |
 | `app/agent.py` | 차곡이 도구 루프 — 프롬프트 · 모델 출력 검사 · NDJSON 이벤트 · 끊기 · 제한 시간 |
 | `app/mcp_client.py` | BE MCP 클라이언트 — `initialize` · `tools/list` · `tools/call`, 도구 오류 읽기 |
@@ -138,5 +147,6 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest -q
 | `scripts/eval_match.py` | 매칭 · 되묻기 시험 자료 채점 — 숫자의 뜻은 파일 머리말 |
 | `scripts/eval_route.py` | 홈 입력 가르기 시험 입력 채점 — 숫자의 뜻은 파일 머리말 |
 | `scripts/eval_parse.py` | 지원 나누기 시험 글 채점 — 숫자의 뜻은 파일 머리말 |
+| `scripts/eval_capture.py` · `scripts/make_captures.py` | 캡처 읽기 채점 · 지어낸 캡처 그리기 — 숫자의 뜻은 파일 머리말 |
 | `scripts/eval_agent.py` | 차곡이 시험 부탁 채점(가짜 MCP) — 숫자의 뜻은 파일 머리말 |
 | `scripts/eval_link.py` | 이어짐 제안 시험 자료 채점 — 숫자의 뜻은 파일 머리말 |
