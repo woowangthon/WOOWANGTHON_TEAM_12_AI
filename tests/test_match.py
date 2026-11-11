@@ -120,6 +120,133 @@ def test_prompt_uses_content_not_tags(client_with):
     assert "OO 연합 동아리" in user
 
 
+@pytest.mark.parametrize("extra", [{}, {"jobRole": None}, {"postingLines": []}])
+def test_absent_job_context_preserves_both_prompts(client_with, extra):
+    from app.match import SYSTEM_PROMPT, build_user_message
+    from app.schemas import MatchExperience, MatchQuestion
+
+    seen = []
+
+    class Spy(FakeLLM):
+        async def generate_json(self, system, user, schema, deadline):
+            seen.append((system, user))
+            return await super().generate_json(system, user, schema, deadline)
+
+    response = client_with(Spy(GOOD)).post(
+        "/match", json={**BODY, "question": {**BODY["question"], **extra}}
+    )
+    assert response.status_code == 200
+    expected = build_user_message(
+        MatchQuestion.model_validate(BODY["question"]),
+        [MatchExperience.model_validate(e) for e in EXPERIENCES],
+    )
+    assert seen == [(SYSTEM_PROMPT, expected)]
+    assert "<지원 맥락>" not in expected
+
+
+POSTING_LINE = {"section": "REQUIRED", "text": "Spring 기반 API 개발", "ksa": "SKILL"}
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"jobRole": "BACKEND"},
+        {"postingLines": [POSTING_LINE]},
+        {"jobRole": "BACKEND", "postingLines": [POSTING_LINE, {**POSTING_LINE, "ksa": None}]},
+    ],
+)
+def test_optional_job_context_is_separate_and_response_unchanged(client_with, extra):
+    from app.match import JOB_CONTEXT_RULE, SYSTEM_PROMPT
+
+    seen = []
+
+    class Spy(FakeLLM):
+        async def generate_json(self, system, user, schema, deadline):
+            seen.append((system, user))
+            return await super().generate_json(system, user, schema, deadline)
+
+    fake = Spy(GOOD)
+    response = client_with(fake).post(
+        "/match", json={**BODY, "question": {**BODY["question"], **extra}}
+    )
+    assert response.status_code == 200
+    assert response.json() == {**GOOD, "model": "fake-model"}
+    assert fake.calls == 1
+    system, user = seen[0]
+    assert system == SYSTEM_PROMPT + JOB_CONTEXT_RULE
+    assert user.index("</문항>") < user.index("<지원 맥락>")
+    assert user.index("</지원 맥락>") < user.index("<경험 목록>")
+    if "jobRole" in extra:
+        assert "지원 직무: BACKEND" in user
+    if "postingLines" in extra:
+        assert "[REQUIRED · SKILL] Spring 기반 API 개발" in user
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"jobRole": "CHEF"},
+        {"postingLines": None},
+        {"postingLines": [POSTING_LINE] * 41},
+        {"postingLines": [{**POSTING_LINE, "section": "OTHER"}]},
+        {"postingLines": [{**POSTING_LINE, "ksa": "OTHER"}]},
+        {"postingLines": [{**POSTING_LINE, "text": "  "}]},
+        {"postingLines": [{**POSTING_LINE, "text": "가" * 301}]},
+    ],
+)
+def test_invalid_job_context_is_rejected_before_llm(client_with, extra):
+    llm = FakeLLM()
+    response = client_with(llm).post(
+        "/match", json={**BODY, "question": {**BODY["question"], **extra}}
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "INVALID_REQUEST"
+    assert llm.calls == 0
+
+
+def test_job_context_accepts_contract_limits_without_changing_413_count(client_with):
+    from app.match import experience_chars
+    from app.schemas import MatchExperience
+
+    # 계약의 413 합계는 기존 문항 · 경험만 센다. 공고 줄은 별도 40줄 × 300자 한도다.
+    limit = len(BODY["question"]["text"]) + experience_chars(
+        [MatchExperience.model_validate(e) for e in EXPERIENCES]
+    )
+    body = {
+        **BODY,
+        "question": {
+            **BODY["question"],
+            "postingLines": [{**POSTING_LINE, "text": "가" * 300, "ksa": None}] * 40,
+        },
+    }
+    llm = FakeLLM(GOOD)
+    assert client_with(llm, max_match_chars=limit).post("/match", json=body).status_code == 200
+    llm = FakeLLM()
+    response = client_with(llm, max_match_chars=limit - 1).post("/match", json=body)
+    assert response.status_code == 413
+    assert llm.calls == 0
+
+
+def test_job_context_cannot_supply_evidence_ids(client_with):
+    # 공고에 붙은 id 는 경험의 근거 ID가 될 수 없다.
+    llm = FakeLLM(
+        _bad(
+            lambda out: out["recommendations"][0]["evidence"].append(
+                {"type": "CITATION", "id": 999}
+            )
+        )
+    )
+    response = client_with(llm, max_attempts=1).post(
+        "/match",
+        json={
+            **BODY,
+            "question": {**BODY["question"], "postingLines": [{**POSTING_LINE, "id": 999}]},
+        },
+    )
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "LLM_INVALID_OUTPUT"
+
+
 def test_no_experiences_all_not_found(client_with):
     out = {
         "questionType": "GROWTH",

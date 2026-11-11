@@ -360,7 +360,8 @@ def test_material_score_empty_questions_do_not_count_as_coverage():
     assert (result.material_covered, result.material_questions) == (0, 1)
 
 
-def test_material_evaluation_sends_only_the_question_pool(monkeypatch, tmp_path):
+@pytest.mark.parametrize("job_context", [True, False])
+def test_material_evaluation_sends_only_the_question_pool(monkeypatch, tmp_path, job_context):
     import asyncio
 
     import dotenv
@@ -386,12 +387,61 @@ def test_material_evaluation_sends_only_the_question_pool(monkeypatch, tmp_path)
     )
     monkeypatch.setattr(llm, "build_llm", lambda settings: fake)
     monkeypatch.setattr(dotenv, "load_dotenv", lambda *args, **kwargs: False)
-    q = {**Q["tech-problem"], "pool": [101]}
+    q = {
+        **Q["tech-problem"],
+        "pool": [101],
+        "jobRole": "BACKEND",
+        "postingLines": [{"section": "REQUIRED", "text": "Spring API 개발", "ksa": "SKILL"}],
+    }
     asyncio.run(
-        eval_match.run(["openai:fake"], ["generic"], ["with"], EXPERIENCES, [q], [], tmp_path)
+        eval_match.run(
+            ["openai:fake"],
+            ["generic"],
+            ["with"],
+            EXPERIENCES,
+            [q],
+            [],
+            tmp_path,
+            job_context=job_context,
+        )
     )
     assert len(seen) == 1
-    assert seen[0][0] == eval_match.GENERIC_PROMPT
+    from app.match import JOB_CONTEXT_RULE
+
+    assert seen[0][0] == eval_match.GENERIC_PROMPT + (JOB_CONTEXT_RULE if job_context else "")
+    assert ("지원 직무: BACKEND" in seen[0][1]) == job_context
+    assert ("Spring API 개발" in seen[0][1]) == job_context
     assert "[경험 101]" in seen[0][1]
     assert "[경험 102]" not in seen[0][1]
     assert (tmp_path / "openai_fake" / "generic" / "run-1" / "tech-problem.json").is_file()
+
+
+def test_context_score_uses_first_activity_and_flags_posting_only_requirements():
+    q = {
+        **Q["tech-problem"],
+        "roleActivityIds": [BY_ID[101].activityId],
+        "forbiddenRequirements": ["Spring|트래픽"],
+    }
+    data = _response([("Spring 트래픽 처리", "SUPPORTED", [101])], [_rec(101, "r")])
+    result = score(q, EXPS, data)
+    assert (result.role_right, result.role_total) == (1, 1)
+    assert result.unrelated_requirements == ["tech-problem: Spring 트래픽 처리"]
+    empty = _response([("문제 해결", "NOT_FOUND", [])], [])
+    assert score(q, EXPS, empty).role_right == 0
+    assert score(Q["tech-problem"], EXPS, data).role_total == 0
+
+
+# SAMPLE(match-context): 실제 사람의 기록이 아닌 직무 · 공고 맥락 비교 사례.
+def test_context_samples_follow_contract(monkeypatch):
+    from scripts import eval_match
+
+    monkeypatch.setattr(eval_match, "DATA", eval_match.ROOT / "samples" / "match-context")
+    exps, questions = eval_match.load_data(None)
+    assert len(questions) == 5
+    by_id = {e["id"]: e for e in exps}
+    for q in questions:
+        MatchRequest.model_validate({"question": q, "experiences": exps})
+        assert set(q["good"] + q["ok"] + q["bad"]) <= set(by_id)
+        assert set(q.get("roleActivityIds", [])) <= {e["activityId"] for e in exps}
+        for pattern in q.get("forbiddenRequirements", []):
+            re.compile(pattern)
