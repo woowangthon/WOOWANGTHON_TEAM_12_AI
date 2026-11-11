@@ -1,0 +1,92 @@
+[
+  {
+    "id": "posting-jikhaeng",
+    "why": "SAMPLE(parse-samples): 직행 형태의 지어낸 백엔드 공고 — 네 칸 · 문항 없음",
+    "sourceShape": "직행",
+    "text": "직행 형태 시험 공고\n돌담페이 백엔드 개발자 채용\n담당업무\n- Spring 기반 결제 API 개발\n- 결제 이력 조회 성능 개선\n자격요건\n· Java로 서버를 개발한 경험\n· 관계형 데이터베이스와 트랜잭션에 대한 이해\n우대사항\n1. 장애 원인을 분석하고 재발을 막아 본 경험\n기술스택\nKotlin, Java, PostgreSQL\n전형 절차\n서류 → 코딩 테스트 → 면접\n복지\n점심 식대와 도서 구입비 지원",
+    "organization": ["돌담페이"], "organizationType": ["JOB"], "jobRole": ["BACKEND"], "questions": [],
+    "postingLines": [
+      {"section": "DUTY", "text": "Spring 기반 결제 API 개발", "ksa": "SKILL"},
+      {"section": "DUTY", "text": "결제 이력 조회 성능 개선", "ksa": "SKILL"},
+      {"section": "REQUIRED", "text": "Java로 서버를 개발한 경험", "ksa": "SKILL"},
+      {"section": "REQUIRED", "text": "관계형 데이터베이스와 트랜잭션에 대한 이해", "ksa": "KNOWLEDGE"},
+      {"section": "PREFERRED", "text": "장애 원인을 분석하고 재발을 막아 본 경험", "ksa": "SKILL"},
+      {"section": "STACK", "text": "Kotlin, Java, PostgreSQL", "ksa": "KNOWLEDGE"}
+    ],
+    "noise": ["서류 → 코딩 테스트 → 면접", "점심 식대와 도서 구입비 지원"]
+  },
+  {
+    "id": "posting-saramin",
+    "why": "SAMPLE(parse-samples): 사람인 형태의 지어낸 데이터 공고 — 제목의 칸을 뜻보다 우선",
+    "sourceShape": "사람인",
+    "text": "사람인 형태 시험 공고\n잔물결리서치 데이터 분석가 경력 채용\n기업 소개\n잔물결리서치는 소매 데이터로 보고서를 만드는 회사입니다.\n주요 업무\n• 매출 지표 정의 및 대시보드 운영\n지원 자격\n• SQL을 사용한 데이터 분석 경험\n• 통계적 가설 검정에 대한 이해\n• 분석 결과를 동료에게 명확히 설명하는 태도\n우대 사항\n• Python 데이터 처리 경험\n사용 기술\n• SQL, Python, Tableau\n지원 방법\n이력서를 채용 사이트로 제출\n전형 절차\n서류 심사 → 실무 면접",
+    "organization": ["잔물결리서치"], "organizationType": ["JOB"], "jobRole": ["AI_DATA"], "questions": [],
+    "postingLines": [
+      {"section": "DUTY", "text": "매출 지표 정의 및 대시보드 운영", "ksa": "SKILL"},
+      {"section": "REQUIRED", "text": "SQL을 사용한 데이터 분석 경험", "ksa": "SKILL"},
+      {"section": "REQUIRED", "text": "통계적 가설 검정에 대한 이해", "ksa": "KNOWLEDGE"},
+      {"section": "REQUIRED", "text": "분석 결과를 동료에게 명확히 설명하는 태도", "ksa": "ATTITUDE"},
+      {"section": "PREFERRED", "text": "Python 데이터 처리 경험", "ksa": "SKILL"},
+      {"section": "STACK", "text": "SQL, Python, Tableau", "ksa": "KNOWLEDGE"}
+    ],
+    "noise": ["잔물결리서치는 소매 데이터로 보고서를 만드는 회사입니다.", "이력서를 채용 사이트로 제출", "서류 심사 → 실무 면접"]
+  },
+  {
+    "id": "posting-wanted",
+    "why": "SAMPLE(parse-samples): 원티드 형태의 지어낸 프론트 공고 — 자연스러운 제목 · 글자 보존",
+    "sourceShape": "원티드",
+    "text": "원티드 형태 시험 공고\n구름연필 프론트엔드 엔지니어 채용\n이런 일을 해요\n- React로 문서 편집 화면 개발\n- 키보드 접근성 개선\n이런 분을 찾아요\n- TypeScript로 웹 서비스를 운영해 보신 분\n- 피드백을 열린 자세로 주고받는 분\n이런 경험이 있으면 좋아요\n- 웹 성능을 측정하고 개선해 본 경험\n기술 스택\nReact · TypeScript · Vite\n혜택 및 복지\n원격 근무 장비 제공\n채용 과정\n서류 → 화상 인터뷰",
+    "organization": ["구름연필"], "organizationType": ["JOB"], "jobRole": ["FRONTEND"], "questions": [],
+    "postingLines": [
+      {"section": "DUTY", "text": "React로 문서 편집 화면 개발", "ksa": "SKILL"},
+      {"section": "DUTY", "text": "키보드 접근성 개선", "ksa": "SKILL"},
+      {"section": "REQUIRED", "text": "TypeScript로 웹 서비스를 운영해 보신 분", "ksa": "SKILL"},
+      {"section": "REQUIRED", "text": "피드백을 열린 자세로 주고받는 분", "ksa": "ATTITUDE"},
+      {"section": "PREFERRED", "text": "웹 성능을 측정하고 개선해 본 경험", "ksa": "SKILL"},
+      {"section": "STACK", "text": "React · TypeScript · Vite", "ksa": "KNOWLEDGE"}
+    ],
+    "noise": ["원격 근무 장비 제공", "서류 → 화상 인터뷰"]
+  },
+  {
+    "id": "posting-company-marketing",
+    "why": "SAMPLE(parse-samples): 회사 채용 페이지 형태의 지어낸 비개발 직무 — KSA 불확실한 줄",
+    "sourceShape": "회사 채용 페이지",
+    "text": "단풍레터 콘텐츠 마케터 신입 채용\n회사 소개\n단풍레터는 지역 문화 소식을 전하는 회사입니다.\n담당업무\n- 뉴스레터 콘텐츠 기획 및 발행\n자격요건\n- 디지털 마케팅 지표에 대한 기초 지식\n- 독자의 반응을 꾸준히 살피는 태도\n- 주 5일 근무 가능\n우대사항\n- 구독자 인터뷰 진행 경험\n복리후생\n연차 자유 사용\n제출 서류\n이력서와 자유 양식 자기소개서\n전형 절차\n서류 → 면접",
+    "organization": ["단풍레터"], "organizationType": ["JOB"], "jobRole": ["MARKETING"], "questions": [],
+    "postingLines": [
+      {"section": "DUTY", "text": "뉴스레터 콘텐츠 기획 및 발행", "ksa": "SKILL"},
+      {"section": "REQUIRED", "text": "디지털 마케팅 지표에 대한 기초 지식", "ksa": "KNOWLEDGE"},
+      {"section": "REQUIRED", "text": "독자의 반응을 꾸준히 살피는 태도", "ksa": "ATTITUDE"},
+      {"section": "REQUIRED", "text": "주 5일 근무 가능", "ksa": null},
+      {"section": "PREFERRED", "text": "구독자 인터뷰 진행 경험", "ksa": "SKILL"}
+    ],
+    "noise": ["단풍레터는 지역 문화 소식을 전하는 회사입니다.", "연차 자유 사용", "이력서와 자유 양식 자기소개서", "서류 → 면접"]
+  },
+  {
+    "id": "posting-company-no-heading",
+    "why": "SAMPLE(parse-samples): 제목 없는 지어낸 회사 공고 — 확실하지 않은 칸 REQUIRED",
+    "sourceShape": "회사 채용 페이지",
+    "text": "흰자작클라우드 인프라 엔지니어 채용\n1. Linux 운영 경험\n2. 네트워크 기초 지식\n3. 문제를 끝까지 확인하는 책임감\n회사 소개: 작은 팀이 클라우드 운영 도구를 만듭니다.\n복지: 교육비 지원\n지원 방법: 채용 담당자에게 이력서 제출",
+    "organization": ["흰자작클라우드"], "organizationType": ["JOB"], "jobRole": ["INFRA"], "questions": [],
+    "postingLines": [
+      {"section": "REQUIRED", "text": "Linux 운영 경험", "ksa": "SKILL"},
+      {"section": "REQUIRED", "text": "네트워크 기초 지식", "ksa": "KNOWLEDGE"},
+      {"section": "REQUIRED", "text": "문제를 끝까지 확인하는 책임감", "ksa": "ATTITUDE"}
+    ],
+    "noise": ["작은 팀이 클라우드 운영 도구를 만듭니다.", "교육비 지원", "채용 담당자에게 이력서 제출"]
+  },
+  {
+    "id": "posting-menu-noise",
+    "why": "SAMPLE(parse-samples): 메뉴가 섞인 지어낸 회사 페이지 — Job group은 공고 요건 아님",
+    "sourceShape": "회사 채용 페이지 · 메뉴 잡음",
+    "text": "회사 채용 사이트 메뉴\nJob group\nEngineering\nDesign\nMarketing\nBusiness\nInfrastructure\nAI · Data\n채용 목록 | 회사 소개 | 인재풀 등록 | 로그인\n아래부터 선택한 공고 본문\n노을상자 B2B 브랜드 마케터 채용\n담당업무\n- B2B 브랜드 캠페인 기획 및 운영\n자격요건\n- 기업 고객 대상 콘텐츠 제작 경험\n- 여러 부서와 협력하는 태도\n우대사항\n- 캠페인 성과 분석 경험\n회사 소개\n노을상자는 기업용 협업 도구를 만듭니다.\n복지\n건강검진 비용 지원\n전형 절차\n서류 → 실무 면접 → 최종 면접\n하단 메뉴\nEngineering | Design | Marketing | 인재풀 등록",
+    "organization": ["노을상자"], "organizationType": ["JOB"], "jobRole": ["MARKETING"], "questions": [],
+    "postingLines": [
+      {"section": "DUTY", "text": "B2B 브랜드 캠페인 기획 및 운영", "ksa": "SKILL"},
+      {"section": "REQUIRED", "text": "기업 고객 대상 콘텐츠 제작 경험", "ksa": "SKILL"},
+      {"section": "REQUIRED", "text": "여러 부서와 협력하는 태도", "ksa": "ATTITUDE"},
+      {"section": "PREFERRED", "text": "캠페인 성과 분석 경험", "ksa": "SKILL"}
+    ],
+    "noise": ["Engineering", "Design", "Marketing", "Business", "Infrastructure", "AI · Data", "인재풀 등록", "노을상자는 기업용 협업 도구를 만듭니다.", "건강검진 비용 지원", "서류 → 실무 면접 → 최종 면접"]
+  }
+]

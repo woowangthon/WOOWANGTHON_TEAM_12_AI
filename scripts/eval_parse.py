@@ -10,6 +10,7 @@ LLM 호출 수 = 글 수 × 모델 수 × 프롬프트 수 × runs(규칙 위반
 모델 폴백 없이 고른 모델만 부른다. 키는 --env 파일(기본 레포의 .env)에서 읽고 화면에 찍지 않는다.
 
 자료: samples/parse/inputs.json(지어낸 글과 손으로 적은 정답 — 칸의 뜻은 samples/parse/README.md).
+공고 요건 줄 자료는 samples/parse/postings.json(지어낸 공고 6건 · 메뉴 잡음 포함).
 
 숫자의 뜻:
 - 문항: 꺼낸 문항 목록이 정답과 순서까지 같은 글 수(앞 번호 · 끝의 글자 수 안내는 안 본다)
@@ -17,6 +18,8 @@ LLM 호출 수 = 글 수 × 모델 수 × 프롬프트 수 × runs(규칙 위반
 - 지원처 · 종류 · 직무: 값이 정답 목록에 있는 글 수
 - 오류: 다시 시도 뒤에도 규칙을 어겨 LLM_INVALID_OUTPUT 등으로 끝난 수 — 글에 없는 문항 · 이름은 여기로 온다
 - 시간: 글 하나에 걸린 시간(다시 시도 포함)의 중앙값 · 최대 — 동기 호출이라 사용자가 이만큼 기다린다
+- 줄 재현율 · 잡음 비율: 정답 줄을 찾은 비율 · 정답 밖 출력 줄 비율(줄 정답이 있는 자료만)
+- 칸 · KSA: 찾은 줄 중 정답과 같은 수. KSA 정답도 AI 해석의 기준점이며 팀원 검토 전이다
 """
 
 import argparse
@@ -41,16 +44,23 @@ FIELDS = ("organization", "organizationType", "jobRole")
 # 범용 프롬프트 — 같은 출력 모양(JSON 스키마)에 칸 이름의 뜻만 준다
 GENERIC_PROMPT = (
     "이 글에서 지원처 이름(organization) · 지원처 종류(organizationType) · 직무(jobRole) · "
-    "지원 문항(questions)을 찾아 줘. 없으면 null · 빈 배열."
+    "지원 문항(questions) · 공고 요건 줄(postingLines: section · text · ksa)을 찾아 줘. 없으면 null · 빈 배열."
 )
 PROMPTS = {"tuned": SYSTEM_PROMPT, "generic": GENERIC_PROMPT}
 
 _LEADING_NUMBER = re.compile(r"^(?:\d+[.)]|Q\d+[.:]?)\s*")
 _TRAILING_LIMIT = re.compile(r"\s*\([^()]*\d+\s*자[^()]*\)$")
+_LEADING_BULLET = re.compile(r"^(?:[·•-]|\d+[.)])\s+")
+
+
+def posting_core(text: str) -> str:
+    """원문 대조와 같이 공백만 줄이고, 남겨도 되는 앞 글머리는 채점에서만 뺀다."""
+    return _LEADING_BULLET.sub("", squeeze(text))
 
 
 def load_inputs(only: list[str] | None) -> list[dict]:
     items = json.loads((DATA / "inputs.json").read_text(encoding="utf-8"))
+    items += json.loads((DATA / "postings.json").read_text(encoding="utf-8"))
     return [i for i in items if not only or i["id"] in only]
 
 
@@ -76,6 +86,13 @@ class Score:
     wrong: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     seconds: list[float] = field(default_factory=list)
+    posting_expected: int = 0
+    posting_found: int = 0
+    posting_returned: int = 0
+    posting_noise: int = 0
+    posting_section: int = 0
+    posting_ksa: int = 0
+    posting_wrong: list[str] = field(default_factory=list)
 
 
 def score_dir(path: Path, inputs: list[dict]) -> Score:
@@ -86,11 +103,33 @@ def score_dir(path: Path, inputs: list[dict]) -> Score:
             continue
         record = json.loads(f.read_text(encoding="utf-8"))
         s.total += 1
+        # 오류도 재현율 분모에 남긴다. 옛 응답(postingLines 없음)은 0줄로 전후를 비교한다.
+        expected = item.get("postingLines", [])
+        s.posting_expected += len(expected)
         s.seconds.append(record.get("seconds", 0.0))
         if "error" in record:
             s.errors.append(f"{item['id']}: {record['error']}")
             continue
         got = record["response"]
+        if "postingLines" in item:
+            lines = got.get("postingLines", [])
+            s.posting_returned += len(lines)
+            remaining = {posting_core(line["text"]): line for line in expected}
+            for line in lines:
+                key = posting_core(line["text"])
+                answer = remaining.pop(key, None)
+                if answer is not None:
+                    s.posting_found += 1
+                    s.posting_section += line["section"] == answer["section"]
+                    s.posting_ksa += line["ksa"] == answer["ksa"]
+                    if line["section"] != answer["section"] or line["ksa"] != answer["ksa"]:
+                        s.posting_wrong.append(f"{item['id']}: 분류 {line} → 정답 {answer}")
+                else:
+                    # 정답 밖의 줄은 모두 잡음으로 센다 — 알려진 메뉴만 세어 과소평가하지 않는다.
+                    s.posting_noise += 1
+                    s.posting_wrong.append(f"{item['id']}: 불필요한 줄 {line['text']}")
+            for line in remaining.values():
+                s.posting_wrong.append(f"{item['id']}: 못 찾은 줄 {line['text']}")
         if same_questions(got["questions"], item["questions"]):
             s.questions += 1
         else:
@@ -163,19 +202,25 @@ def report(out: Path, inputs: list[dict]) -> str:
             name = f"{model_dir.name} · {prompt_dir.name}"
             secs = s.seconds or [0.0]
             fields = " | ".join(f"{s.right[f]}/{s.total}" for f in FIELDS)
+            recall = s.posting_found / s.posting_expected * 100 if s.posting_expected else 0
+            noise = s.posting_noise / s.posting_returned * 100 if s.posting_returned else 0
             rows.append(
                 f"| {name} | {s.questions}/{s.total} | {len(s.invented)} | {fields} "
-                f"| {len(s.errors)} | {statistics.median(secs):.1f}초 · {max(secs):.1f}초 |"
+                f"| {len(s.errors)} | {statistics.median(secs):.1f}초 · {max(secs):.1f}초 "
+                f"| {s.posting_found}/{s.posting_expected} ({recall:.1f}%) "
+                f"| {s.posting_noise}/{s.posting_returned} ({noise:.1f}%) "
+                f"| {s.posting_section}/{s.posting_found} | {s.posting_ksa}/{s.posting_found} |"
             )
             lines = [
                 *(f"- 없는 문항 만듦 {x}" for x in s.invented),
                 *(f"- 틀림 {x}" for x in s.wrong),
                 *(f"- 오류 {x}" for x in s.errors),
+                *(f"- 공고 {x}" for x in s.posting_wrong),
             ]
             details.append(f"\n### {name}\n\n" + ("\n".join(lines) or "- 전부 맞음"))
     head = (
-        "| 모델 · 프롬프트 | 문항 | 없는 문항 만듦 | 지원처 | 종류 | 직무 | 오류 | 시간(중앙 · 최대) |\n"
-        + "| --- " * 8
+        "| 모델 · 프롬프트 | 문항 | 없는 문항 만듦 | 지원처 | 종류 | 직무 | 오류 | 시간(중앙 · 최대) | 줄 재현율 | 잡음 비율 | 칸 | KSA |\n"
+        + "| --- " * 12
         + "|"
     )
     return "\n".join([head, *rows]) + "\n" + "".join(details) + "\n"

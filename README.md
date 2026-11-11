@@ -44,7 +44,7 @@ docker build -t woowang-ai . && docker run --rm --env-file .env -p 8000:8000 woo
 - `POST /ground-check` → `{"text": "내가 쓴 답", "experiences": [경험 전부]}` — 코드가 나눈 문장마다 원문 · 내가 입력 · 근거 없음 · 생각 판정(`sentences`)
 - `POST /new-facts` → `{"text": "확정 답", "experiences": [경험 전부], "activities": [활동 전부], "excludedSentences": [초안 문장 · 저장 안 함 한 문장]}` — 빼야 할 문장을 코드가 걷고, 남은 문장 중 새로 쓴 사실만 경험 후보 0 ~ 5개(`candidates`)
 - `POST /route` → `{"text": "앞 4000자", "totalLength": 12000}` — 홈 입력을 `SOURCE` · `APPLICATION` · `ASK` · `UNSURE` 로 가른다. 동기 호출이라 50초(`LLM_SYNC_TIMEOUT_SECONDS`) 안에 답하거나 `LLM_TIMEOUT`
-- `POST /parse-application` → `{"text": "문항 · 공고 글"}` — 지원처 · 종류 · 직무 · 글에 **적힌** 문항을 나눈다. 저장하지 않는다. 링크(`url`)는 아직 400(AI#39)
+- `POST /parse-application` → `{"text": "문항 · 공고 글"}` 또는 `{"url": "https://…"}` — 지원처 · 종류 · 직무 · 글에 **적힌** 문항과 공고 요건 줄(`postingLines`: 담당업무 · 자격 · 우대 · 기술스택, 최대 40줄 · 각 300자)을 나눈다. 줄의 KSA는 AI 해석이며 불확실하면 `null`, `readFrom`은 서버가 `TEXT` · `URL`로 붙인다. 원문 대조 · 순서 · 중복을 코드가 검사하고 저장하지 않는다. 캡처는 AI#121 범위다.
 - `POST /link-suggestions` → `{"from": 활동, "candidates": [활동…]}` — 계기가 이어져 보이는 후보 0 ~ 3개와 이유. 0개도 정상이다. 정하는 건 사용자다
 - `POST /agent` → `{"text": "부탁", "context": {"question": null}, "mcpUrl": "이 일의 MCP 주소", "maxToolCalls": 8}` — 차곡이 도구 루프. BE MCP 도구를 불러 가며 이벤트를 한 줄씩(NDJSON) 흘려 보내고, 쓰기는 부르지 않고 `confirm` 으로 끝낸다. 110초(`AGENT_TIMEOUT_SECONDS`). `mcpUrl` 에 토큰이 있으니 로그에 남기지 않는다
 
@@ -94,7 +94,7 @@ uv run python scripts/eval_route.py                        # ROUTE_LLM_MODELS �
 uv run python scripts/eval_route.py --prompts tuned --models openai:gpt-6-luna,openai:gpt-5.4-mini
 ```
 
-지원 나누기는 지어낸 글 21개(`samples/parse/`)로 — 기본 21 × 2 = LLM 42회:
+지원 나누기는 지어낸 글 27개(`samples/parse/` — 기존 21개 + 문항 없는 공고 6개)로 — 기본 27 × 2 = LLM 54회. 공고 6개는 줄 재현율 · 잡음 비율 · 칸 · KSA도 채점한다:
 
 ```bash
 uv run python scripts/eval_parse.py                        # ROUTE_LLM_MODELS 첫 모델, 우리 · 범용 프롬프트

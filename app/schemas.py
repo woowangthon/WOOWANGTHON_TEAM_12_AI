@@ -483,6 +483,18 @@ JobRole = Literal[
 JOB_ROLES: tuple[str, ...] = get_args(JobRole)
 
 
+PostingSection = Literal["DUTY", "REQUIRED", "PREFERRED", "STACK"]
+POSTING_SECTIONS: tuple[str, ...] = get_args(PostingSection)
+Ksa = Literal["KNOWLEDGE", "SKILL", "ATTITUDE"]
+KSAS: tuple[str, ...] = get_args(Ksa)
+
+
+class PostingLine(BaseModel):
+    section: PostingSection
+    text: Annotated[NonBlank, Field(max_length=300)]
+    ksa: Ksa | None
+
+
 class ParseApplicationRequest(BaseModel):
     # 둘 중 하나만 · 비었는지 · 20000자는 app/parse_application.py check_request 가 본다
     text: str | None = None
@@ -495,9 +507,11 @@ class LLMParseApplicationOutput(BaseModel):
     organizationType: OrganizationType | None
     jobRole: JobRole | None
     questions: Annotated[list[Annotated[NonBlank, Field(max_length=5000)]], Field(max_length=10)]
+    postingLines: Annotated[list[PostingLine], Field(max_length=40)]
 
 
 class ParseApplicationResponse(LLMParseApplicationOutput):
+    readFrom: Literal["TEXT", "URL", "IMAGE"]
     model: str | None
 
 
