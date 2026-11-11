@@ -41,6 +41,7 @@ docker build -t woowang-ai . && docker run --rm --env-file .env -p 8000:8000 woo
 - `GET /health` → `{"status":"ok"}` (LLM 을 부르지 않는다 — 이미지 HEALTHCHECK 도 이것)
 - `POST /extract` → `{"sourceName": "회고.md", "text": "..."}`
 - `POST /match` → `{"question": {"organization": null, "text": "..."}, "experiences": [...]}` — 모양은 ETC `docs/contracts/ai-api.md`
+- `POST /posting-match` → `{"jobRole": "BACKEND", "lines": [{"id": 901, "section": "REQUIRED", "text": "...", "ksa": "SKILL"}], "experiences": [...]}` — 공고 요건 줄(1 ~ 40)마다 근거 있음 · 일부 · 자료에서 확인 안 됨과 받치는 경험 1 ~ 3개, 일부인 줄의 경험에 되묻기 0 ~ 3개(S-93). 줄 하나씩 · ID · 팀 경험만으로 근거 있음 아님 · 되묻기 자리는 코드가 본다. 경험이 `[]` 면 LLM 없이 전부 「확인 안 됨」
 - `POST /draft` → `{"question": {...}, "experiences": [고른 경험 1 ~ 3개]}` — 문장마다 근거 · 보완이 붙은 초안(`sentences`)과 받칠 게 없어 쓰지 않은 것(`omitted` — 경험에 붙는 빈칸엔 `experienceId` · `question`)
 - `POST /ground-check` → `{"text": "내가 쓴 답", "experiences": [경험 전부]}` — 코드가 나눈 문장마다 원문 · 내가 입력 · 근거 없음 · 생각 판정(`sentences`)
 - `POST /new-facts` → `{"text": "확정 답", "experiences": [경험 전부], "activities": [활동 전부], "excludedSentences": [초안 문장 · 저장 안 함 한 문장]}` — 빼야 할 문장을 코드가 걷고, 남은 문장 중 새로 쓴 사실만 경험 후보 0 ~ 5개(`candidates`)
@@ -130,6 +131,7 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest -q
 | `app/main.py` | 엔드포인트 · 오류 응답 모양 |
 | `app/extract.py` | 추출 프롬프트 · LLM 출력 검사 · 응답 만들기 |
 | `app/match.py` | 매칭 프롬프트 · 경험 · 근거 · 보완 ID 가 요청에 있는지 검사 · 응답 만들기 |
+| `app/posting_match.py` | 공고 기준 경험 찾기 프롬프트 · 줄 하나씩 · 경험 ID · 되묻기 자리 검사 · 응답 만들기(경험 목록 블록은 `match.py` 것을 쓴다) |
 | `app/draft.py` | 초안 프롬프트 · 근거 ID · 문장 속 숫자 검사 · 응답 만들기 |
 | `app/ground_check.py` | 근거 점검 — 문장 나누기 · 판정 프롬프트 · ID · 모양 검사 · 숫자 대조 · 응답 만들기 |
 | `app/new_facts.py` | 새 경험 후보 — 빼는 문장 · 고르는 프롬프트 · 번호 검사 · 숫자 대조 · 지어낸 활동 막기 |
@@ -145,6 +147,7 @@ uv run ruff check . && uv run ruff format --check . && uv run pytest -q
 | `scripts/eval_extract.py` | 추출 시험 자료 채점 — 숫자의 뜻은 파일 머리말 |
 | `scripts/eval_draft.py` | 초안 시험 자료 채점 — 숫자의 뜻은 파일 머리말 |
 | `scripts/eval_match.py` | 매칭 · 되묻기 시험 자료 채점 — 숫자의 뜻은 파일 머리말 |
+| `scripts/eval_posting_match.py` | 공고 기준 경험 찾기 채점(백엔드 · 마케팅 공고 × 경험 더미 2종) — 숫자의 뜻은 파일 머리말 |
 | `scripts/eval_route.py` | 홈 입력 가르기 시험 입력 채점 — 숫자의 뜻은 파일 머리말 |
 | `scripts/eval_parse.py` | 지원 나누기 시험 글 채점 — 숫자의 뜻은 파일 머리말 |
 | `scripts/eval_capture.py` · `scripts/make_captures.py` | 캡처 읽기 채점 · 지어낸 캡처 그리기 — 숫자의 뜻은 파일 머리말 |

@@ -22,6 +22,7 @@ from app.match import match
 from app.mcp_client import McpConnect, connect_mcp
 from app.new_facts import new_facts
 from app.parse_application import parse_application
+from app.posting_match import posting_match
 from app.route import route
 from app.schemas import (
     AgentRequest,
@@ -43,6 +44,8 @@ from app.schemas import (
     NewFactsResponse,
     ParseApplicationRequest,
     ParseApplicationResponse,
+    PostingMatchRequest,
+    PostingMatchResponse,
     RouteRequest,
     RouteResponse,
 )
@@ -145,6 +148,16 @@ async def post_match(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> MatchResponse:
     return await match(req, llm, settings)
+
+
+@app.post("/posting-match", response_model=PostingMatchResponse)
+async def post_posting_match(
+    req: PostingMatchRequest,
+    llm: Annotated[JsonLLM, Depends(get_match_llm)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> PostingMatchResponse:
+    # BE 비동기 작업이 부른다 — 모델 순서 · 시간은 /match 와 같다(계약)
+    return await posting_match(req, llm, settings)
 
 
 @app.post("/ground-check", response_model=GroundCheckResponse)
