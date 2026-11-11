@@ -312,3 +312,86 @@ def test_bare_reason_catches_restated_experience():
         "일정이 밀리자 기능을 나눈 판단이 팀 일정 조율을 보여 줍니다. 다만 팀원과 맞춘 방식은 자료에 없습니다.",
         exp,
     )
+
+
+# SAMPLE(match-materials): 실제 사람의 기록이 아닌 지어낸 소재 규칙 사례.
+def test_material_sample_requests_and_answer_ids(monkeypatch):
+    from scripts import eval_match
+
+    monkeypatch.setattr(eval_match, "DATA", eval_match.ROOT / "samples" / "match-materials")
+    exps, questions = eval_match.load_data(None)
+    assert len(questions) == 6
+    assert sorted(q["questionType"] for q in questions) == sorted(
+        ["FAILURE", "COLLABORATION", "CONFLICT"] * 2
+    )
+    for q in questions:
+        pool = [e for e in exps if e["id"] in q["pool"]]
+        MatchRequest.model_validate({"question": {"text": q["text"]}, "experiences": pool})
+        assert set(q["good"] + q["ok"] + q["bad"]) <= set(q["pool"])
+        assert set(map(int, q["materialAskPatterns"])) <= set(q["pool"])
+        assert set(q["eventualSuccess"]) <= set(q["pool"])
+        for pattern in q["materialAskPatterns"].values():
+            re.compile(pattern)
+
+
+def test_material_score_counts_success_first_and_question_alignment():
+    q = {
+        **Q["failure-learning"],
+        "eventualSuccess": [101],
+        "materialAskPatterns": {"101": "배웠|배운"},
+    }
+    data = _response(
+        [("실패", "PARTIAL", [101])],
+        [_rec(101, "재시도한 경험")],
+        [(101, "시연 실패에서 배운 점은 무엇인가요?"), (101, "어떻게 확인했나요?")],
+    )
+    result = score(q, EXPS, data)
+    assert result.success_first == ["failure-learning: 101"]
+    assert (result.material_followed, result.material_asks) == (1, 2)
+    assert (result.material_covered, result.material_questions) == (1, 1)
+    assert len(result.material_missed) == 1
+
+
+def test_material_score_empty_questions_do_not_count_as_coverage():
+    q = {**Q["failure-learning"], "materialAskPatterns": {"101": "배웠"}}
+    data = _response([("실패", "PARTIAL", [101])], [_rec(101, "r")])
+    result = score(q, EXPS, data)
+    assert (result.material_followed, result.material_asks) == (0, 0)
+    assert (result.material_covered, result.material_questions) == (0, 1)
+
+
+def test_material_evaluation_sends_only_the_question_pool(monkeypatch, tmp_path):
+    import asyncio
+
+    import dotenv
+
+    from app import llm
+    from scripts import eval_match
+    from tests.conftest import FakeLLM
+
+    seen = []
+
+    class Spy(FakeLLM):
+        async def generate_json(self, system, user, schema, deadline):
+            seen.append((system, user))
+            return await super().generate_json(system, user, schema, deadline)
+
+    fake = Spy(
+        {
+            "questionType": "OTHER",
+            "requirements": [{"text": "요건", "status": "NOT_FOUND", "experienceIds": []}],
+            "recommendations": [],
+            "clarifications": [],
+        }
+    )
+    monkeypatch.setattr(llm, "build_llm", lambda settings: fake)
+    monkeypatch.setattr(dotenv, "load_dotenv", lambda *args, **kwargs: False)
+    q = {**Q["tech-problem"], "pool": [101]}
+    asyncio.run(
+        eval_match.run(["openai:fake"], ["generic"], ["with"], EXPERIENCES, [q], [], tmp_path)
+    )
+    assert len(seen) == 1
+    assert seen[0][0] == eval_match.GENERIC_PROMPT
+    assert "[경험 101]" in seen[0][1]
+    assert "[경험 102]" not in seen[0][1]
+    assert (tmp_path / "openai_fake" / "generic" / "run-1" / "tech-problem.json").is_file()

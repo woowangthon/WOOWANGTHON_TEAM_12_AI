@@ -372,3 +372,28 @@ def test_prompt_shows_activity_id(client_with):
     exps = _many(2, activity=lambda i: 7)
     client_with(Spy(_recommend_all(exps))).post("/match", json={**BODY, "experiences": exps})
     assert "(활동 7)" in seen["user"]
+
+
+def test_material_rules_use_the_same_match_call_without_filtering_candidates(client_with):
+    # 실패로 끝난 자료가 없어도 관련된 성공 경험을 코드가 지우지 않는다(S-20).
+    from app.match import MATERIAL_RULES
+
+    seen = {}
+
+    class Spy(FakeLLM):
+        async def generate_json(self, system, user, schema, deadline):
+            seen["system"] = system
+            return await super().generate_json(system, user, schema, deadline)
+
+    exp = _exp(501, "첫 시연 오류를 고치고 재시연에 성공했다", "ME", [(601, "재시연 성공")])
+    out = _recommend_all([exp])
+    out["questionType"] = "FAILURE"
+    llm = Spy(out)
+    res = client_with(llm).post(
+        "/match",
+        json={"question": {"text": "실패 경험에서 배운 점은?"}, "experiences": [exp]},
+    )
+    assert res.status_code == 200
+    assert llm.calls == 1
+    assert seen["system"].endswith(MATERIAL_RULES)
+    assert res.json()["recommendations"][0]["experienceId"] == 501
