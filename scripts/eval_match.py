@@ -8,6 +8,8 @@
     uv run python scripts/eval_match.py --prompts tuned --runs 2   # 같은 문항을 두 번씩 — 칸에 회차별 `a · b`
     uv run python scripts/eval_match.py --data samples/match-materials --prompts tuned --variants with --runs 2
     uv run python scripts/eval_match.py --system-prompt-file eval-runs/before-system.txt --prompts tuned
+    uv run python scripts/eval_match.py --data samples/match-context --prompts tuned --variants with --runs 2
+    # 전: 위 명령에 --without-job-context, 후: 선택 맥락을 그대로 실어 비교한다
     uv run python scripts/eval_match.py --rescore eval-runs/match-<시각>   # 저장한 응답만 다시 채점(LLM 안 부름)
     uv run python scripts/eval_match.py --env ../다른-클론/.env         # 키를 다른 .env 에서(worktree)
 
@@ -164,6 +166,9 @@ class Score:
     material_followed: int = 0
     success_first: list[str] = field(default_factory=list)
     material_missed: list[str] = field(default_factory=list)
+    role_right: int = 0
+    role_total: int = 0
+    unrelated_requirements: list[str] = field(default_factory=list)
 
     def add(self, other: "Score") -> None:
         for name, value in vars(other).items():
@@ -307,6 +312,13 @@ def score(
     elif ids:
         s.forced.append(f"{qid}: {ids}")
     s.wrong_picks += [f"{qid}: {i}" for i in ids if i in question["bad"]]
+    if "roleActivityIds" in question:
+        s.role_total = 1
+        s.role_right = int(bool(ids) and by_id[ids[0]].activityId in question["roleActivityIds"])
+    # 문항에 없는 공고 기술이 요구사항으로 옮겨졌나 — 후보는 원문과 나란히 읽는다.
+    for requirement in data.requirements:
+        if any(re.search(p, requirement.text) for p in question.get("forbiddenRequirements", [])):
+            s.unrelated_requirements.append(f"{qid}: {requirement.text}")
 
     s.req_total += 1
     right = {
@@ -460,6 +472,7 @@ async def run(
     type_questions: list[dict],
     out: Path,
     runs: int = 1,
+    job_context: bool = True,
 ) -> None:
     from dotenv import load_dotenv
 
@@ -486,7 +499,15 @@ async def run(
         exps = strip_supplements(pool) if variant == "without" else pool
         req = MatchRequest.model_validate(
             {
-                "question": {"organization": q["organization"], "text": q["text"]},
+                "question": {
+                    "organization": q["organization"],
+                    "text": q["text"],
+                    **(
+                        {k: q[k] for k in ("jobRole", "postingLines") if k in q}
+                        if job_context
+                        else {}
+                    ),
+                },
                 "experiences": exps,
             }
         )
@@ -536,6 +557,7 @@ def report(
         [],
         [],
     )
+    context_rows = []
     for model_dir in sorted(p for p in out.iterdir() if p.is_dir()):
         for prompt_dir in sorted(p for p in model_dir.iterdir() if p.is_dir()):
             for suffix, run_dir in run_dirs(prompt_dir):
@@ -612,7 +634,13 @@ def report(
                         f"| {name} | {len(t.success_first)} | {t.material_followed}/{t.material_asks} "
                         f"| {t.material_covered}/{t.material_questions} |"
                     )
+                if t.role_total:
+                    context_rows.append(
+                        f"| {name} | {t.role_right}/{t.role_total} "
+                        f"| {len(t.unrelated_requirements)} |"
+                    )
                 lines = [
+                    *(f"- 문항 밖 요구사항(후보) {x}" for x in t.unrelated_requirements),
                     *(f"- 결국 성공 1순위 {x}" for x in t.success_first),
                     *(f"- 소재 질문 불일치(후보) {x}" for x in t.material_missed),
                     *(f"- 정답 밖(후보) {x}" for x in t.unlabeled),
@@ -678,6 +706,11 @@ def report(
                 "| --- | --- | --- | --- |",
                 *merge_runs(material_rows),
             ],
+            [
+                "| 모델 · 프롬프트 | 1순위 활동 직무 일치 | 문항 밖 요구사항(후보) |\n"
+                "| --- | --- | --- |",
+                *merge_runs(context_rows),
+            ],
         )
         if len(t) > 1
     )
@@ -691,6 +724,11 @@ def main() -> None:
         "--data", type=Path, default=DATA, help="시험 자료 폴더(기본 samples/match)"
     )
     parser.add_argument("--system-prompt-file", type=Path, help="전후 비교용 tuned 프롬프트 파일")
+    parser.add_argument(
+        "--without-job-context",
+        action="store_true",
+        help="전후 비교: 직무 · 공고 선택 칸을 빼고 호출",
+    )
     parser.add_argument("--models", help="쉼표로 「제공사:모델」 — 기본은 MATCH_LLM_MODELS 첫 모델")
     parser.add_argument("--prompts", default="tuned,generic", help="tuned · generic")
     parser.add_argument(
@@ -743,7 +781,17 @@ def main() -> None:
         calls = n * len(models) * len(prompts) * args.runs
         print(f"LLM 호출 {calls}회(규칙 위반 시 더) → {out}")
         asyncio.run(
-            run(models, prompts, variants, experiences, questions, type_questions, out, args.runs)
+            run(
+                models,
+                prompts,
+                variants,
+                experiences,
+                questions,
+                type_questions,
+                out,
+                args.runs,
+                job_context=not args.without_job_context,
+            )
         )
 
     text = report(out, experiences, questions, type_questions)

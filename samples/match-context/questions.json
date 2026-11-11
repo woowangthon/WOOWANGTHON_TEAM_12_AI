@@ -1,0 +1,177 @@
+[
+  {
+    "organization": "[채점용] 가상 백엔드 인턴",
+    "text": "팀 프로젝트에서 문제를 직접 찾아 해결한 경험을 적어 주세요. (500자)",
+    "kind": "match",
+    "questionType": "PROBLEM_SOLVING",
+    "questionTypeOk": [],
+    "asksMyRole": true,
+    "good": [
+      902,
+      903
+    ],
+    "ok": [
+      901
+    ],
+    "bad": [
+      904,
+      905
+    ],
+    "roleActivityIds": [
+      92,
+      93
+    ],
+    "forbiddenRequirements": [
+      "(?i)Spring|트래픽|100만|백만|API 개발|자바|Java"
+    ],
+    "id": "backend-both",
+    "jobRole": "BACKEND",
+    "postingLines": [
+      {
+        "section": "REQUIRED",
+        "text": "Spring 기반 API 개발",
+        "ksa": "SKILL"
+      },
+      {
+        "section": "PREFERRED",
+        "text": "대규모 트래픽 100만 건 처리 경험",
+        "ksa": "SKILL"
+      }
+    ]
+  },
+  {
+    "organization": "[채점용] 가상 백엔드 인턴",
+    "text": "팀 프로젝트에서 문제를 직접 찾아 해결한 경험을 적어 주세요. (500자)",
+    "kind": "match",
+    "questionType": "PROBLEM_SOLVING",
+    "questionTypeOk": [],
+    "asksMyRole": true,
+    "good": [
+      902,
+      903
+    ],
+    "ok": [
+      901
+    ],
+    "bad": [
+      904,
+      905
+    ],
+    "roleActivityIds": [
+      92,
+      93
+    ],
+    "forbiddenRequirements": [
+      "(?i)Spring|트래픽|100만|백만|API 개발|자바|Java"
+    ],
+    "id": "backend-role",
+    "jobRole": "BACKEND"
+  },
+  {
+    "organization": "[채점용] 가상 백엔드 인턴",
+    "text": "팀 프로젝트에서 문제를 직접 찾아 해결한 경험을 적어 주세요. (500자)",
+    "kind": "match",
+    "questionType": "PROBLEM_SOLVING",
+    "questionTypeOk": [],
+    "asksMyRole": true,
+    "good": [
+      902,
+      903
+    ],
+    "ok": [
+      901
+    ],
+    "bad": [
+      904,
+      905
+    ],
+    "roleActivityIds": [
+      92,
+      93
+    ],
+    "forbiddenRequirements": [
+      "(?i)Spring|트래픽|100만|백만|API 개발|자바|Java"
+    ],
+    "id": "backend-posting",
+    "postingLines": [
+      {
+        "section": "REQUIRED",
+        "text": "Spring 기반 API 개발",
+        "ksa": "SKILL"
+      },
+      {
+        "section": "PREFERRED",
+        "text": "대규모 트래픽 100만 건 처리 경험",
+        "ksa": "SKILL"
+      }
+    ]
+  },
+  {
+    "organization": "[채점용] 가상 백엔드 인턴",
+    "text": "팀 프로젝트에서 팀원과 함께 일한 방식과 본인이 맡은 업무를 적어 주세요.",
+    "kind": "match",
+    "questionType": "COLLABORATION",
+    "questionTypeOk": [],
+    "asksMyRole": true,
+    "good": [
+      904
+    ],
+    "ok": [
+      901,
+      902,
+      903
+    ],
+    "bad": [
+      905
+    ],
+    "roleActivityIds": [
+      92,
+      93
+    ],
+    "forbiddenRequirements": [
+      "(?i)Spring|트래픽|100만|백만|API 개발|자바|Java"
+    ],
+    "id": "collaboration-context",
+    "jobRole": "BACKEND",
+    "postingLines": [
+      {
+        "section": "REQUIRED",
+        "text": "Spring 기반 API 개발",
+        "ksa": "SKILL"
+      },
+      {
+        "section": "PREFERRED",
+        "text": "대규모 트래픽 100만 건 처리 경험",
+        "ksa": "SKILL"
+      }
+    ]
+  },
+  {
+    "organization": "[채점용] 가상 마케팅 인턴",
+    "id": "marketing-none",
+    "text": "광고 캠페인의 고객 전환율을 개선한 경험을 적어 주세요.",
+    "kind": "none",
+    "questionType": "JOB_SKILL",
+    "questionTypeOk": [
+      "PROBLEM_SOLVING"
+    ],
+    "asksMyRole": true,
+    "good": [],
+    "ok": [],
+    "bad": [
+      901,
+      902,
+      903,
+      904,
+      905
+    ],
+    "jobRole": "MARKETING",
+    "postingLines": [
+      {
+        "section": "REQUIRED",
+        "text": "광고 캠페인 집행 및 고객 전환율 개선",
+        "ksa": "SKILL"
+      }
+    ]
+  }
+]

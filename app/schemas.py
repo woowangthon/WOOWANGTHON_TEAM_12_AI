@@ -186,6 +186,9 @@ QUESTION_TYPES: tuple[str, ...] = get_args(QuestionType)
 class MatchQuestion(BaseModel):
     organization: str | None = None
     text: str | None = None
+    # 선택 맥락(S-20 · S-42). 값 목록 · 공고 줄은 아래 공통 모양을 재사용한다.
+    jobRole: "JobRole | None" = None
+    postingLines: "Annotated[list[PostingLine], Field(max_length=40)]" = []
 
 
 class MatchPeriod(BaseModel):
@@ -553,6 +556,8 @@ class LinkSuggestionsResponse(LLMLinkSuggestionsOutput):
 ExistingActivity.model_rebuild()
 ExtractRequest.model_rebuild()
 DraftQuestion.model_rebuild()
+MatchQuestion.model_rebuild()
+MatchRequest.model_rebuild()
 DraftRequest.model_rebuild()
 
 

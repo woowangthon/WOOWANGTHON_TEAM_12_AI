@@ -1,0 +1,77 @@
+[
+  {
+    "id": 901,
+    "activityId": 91,
+    "activityName": "운영체제 수업 팀 과제",
+    "content": "C 프로세스 실습에서 자식 프로세스가 남는 문제를 발견하고 waitpid 호출 위치를 바꿔 해결했다",
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 1901,
+        "quote": "C 프로세스 실습에서 자식 프로세스가 남는 문제를 발견하고 waitpid 호출 위치를 바꿔 해결했다"
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 902,
+    "activityId": 92,
+    "activityName": "바꿔요 — Spring 중고거래 앱",
+    "content": "Spring Boot 팀 프로젝트에서 채팅 API의 메시지 중복을 발견하고 요청 식별자 검사를 추가했다",
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 1902,
+        "quote": "Spring Boot 팀 프로젝트에서 채팅 API의 메시지 중복을 발견하고 요청 식별자 검사를 추가했다"
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 903,
+    "activityId": 93,
+    "activityName": "모아봄 — Spring 일정 서비스",
+    "content": "Spring MVC 팀 프로젝트에서 조회 API가 같은 데이터를 반복 조회하는 원인을 찾고 쿼리를 합쳤다",
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 1903,
+        "quote": "Spring MVC 팀 프로젝트에서 조회 API가 같은 데이터를 반복 조회하는 원인을 찾고 쿼리를 합쳤다"
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 904,
+    "activityId": 92,
+    "activityName": "바꿔요 — Spring 중고거래 앱",
+    "content": "Spring Boot 팀 프로젝트의 API 응답 형식을 팀원과 함께 정하고 변경 목록을 공유했다",
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 1904,
+        "quote": "Spring Boot 팀 프로젝트의 API 응답 형식을 팀원과 함께 정하고 변경 목록을 공유했다"
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 905,
+    "activityId": 93,
+    "activityName": "모아봄 — Spring 일정 서비스",
+    "content": "팀원이 배포 환경을 설정했다. 담당자의 구현 방법은 기록에 없다",
+    "actor": "TEAM",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 1905,
+        "quote": "팀원이 배포 환경을 설정했다. 담당자의 구현 방법은 기록에 없다"
+      }
+    ],
+    "supplements": []
+  }
+]
