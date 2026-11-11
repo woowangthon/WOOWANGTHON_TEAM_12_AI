@@ -5,15 +5,16 @@
     uv run python scripts/eval_match.py --prompts tuned    # 우리 프롬프트만
     uv run python scripts/eval_match.py --variants with    # 보완을 뺀 자료 · 유형만 보는 문항은 돌리지 않음
     uv run python scripts/eval_match.py --variants types   # 문항 유형(S-41)만 — 자주 나오는 꼴 문항
+    uv run python scripts/eval_match.py --prompts tuned --runs 2   # 같은 문항을 두 번씩 — 칸에 회차별 `a · b`
     uv run python scripts/eval_match.py --rescore eval-runs/match-<시각>   # 저장한 응답만 다시 채점(LLM 안 부름)
     uv run python scripts/eval_match.py --env ../다른-클론/.env         # 키를 다른 .env 에서(worktree)
 
-LLM 호출 수 = (문항 수 + 보완 없음 문항 수 + 유형 문항 수) × 모델 수 × 프롬프트 수
+LLM 호출 수 = (문항 수 + 보완 없음 문항 수 + 유형 문항 수) × 모델 수 × 프롬프트 수 × runs
 (규칙 위반이면 문항마다 최대 LLM_MAX_ATTEMPTS 번) — 기본 (10 + 3 + 15) × 1 × 2 = 56회. 「보완 없음」은 보완이 실린 경험이 정답(good · ok)인 문항만, 경험에서 보완을 모두 빼고
 한 번 더 돌린다 — 문항 A 에서 답하기 전(데모 4)과 답한 뒤(데모 6 · S-25)를 견준다. 폴더 이름 끝 -nosupp.
 「유형 문항」은 samples/match/question-types.json — 「자주 나오는 문항」(FE src/lib/common-questions.ts) 꼴을 본떠
 지어낸 문항이다. 같은 경험으로 /match 를 그대로 부르되 문항 유형만 채점한다. 폴더 이름 끝 -types.
-응답은 --out 폴더(기본 eval-runs/match-<시각>, 커밋하지 않음)에 저장한다. 모델 폴백 없이 고른 모델만 부른다.
+응답은 --out 폴더(기본 eval-runs/match-<시각>, 커밋하지 않음)의 <모델>/<프롬프트>/run-<N>/ 에 저장한다. 모델 폴백 없이 고른 모델만 부른다.
 
 자료: samples/match/experiences.json(지어낸 사용자 한 명의 경험 · 근거 · 보완 — /match 요청 모양 그대로)과
 samples/match/questions.json(문항마다 손으로 적은 정답). 정답 칸:
@@ -78,6 +79,7 @@ sys.path.insert(0, str(ROOT))
 
 from app.match import SYSTEM_PROMPT  # noqa: E402
 from app.schemas import MatchExperience, MatchResponse  # noqa: E402
+from scripts.eval_runs import merge_runs, run_dirs, run_path  # noqa: E402
 
 DATA = ROOT / "samples" / "match"
 
@@ -435,6 +437,7 @@ async def run(
     questions: list[dict],
     type_questions: list[dict],
     out: Path,
+    runs: int = 1,
 ) -> None:
     from dotenv import load_dotenv
 
@@ -455,7 +458,7 @@ async def run(
         settings = replace(base, llm_models=parse_models(model))
         clients[model] = (settings, build_llm(settings))
 
-    async def one(model: str, prompt: str, variant: str, q: dict) -> None:
+    async def one(model: str, prompt: str, variant: str, n: int, q: dict) -> None:
         settings, llm = clients[model]
         exps = strip_supplements(experiences) if variant == "without" else experiences
         req = MatchRequest.model_validate(
@@ -473,11 +476,12 @@ async def run(
                 record = {"error": f"{e.code}: {e.message}"}
             record["seconds"] = round(time.monotonic() - started, 1)
         name = prompt + {"with": "", "without": NOSUPP, "types": TYPES}[variant]
-        path = out / _slug(model) / name / f"{q['id']}.json"
+        path = run_path(out / _slug(model) / name, n) / f"{q['id']}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
         print(
-            f"  {model} · {name} · {q['id']} — {record.get('error') or 'ok'} ({record['seconds']}초)"
+            f"  {model} · {name} · run-{n} · {q['id']} — {record.get('error') or 'ok'} "
+            f"({record['seconds']}초)"
         )
 
     jobs = [("with", q) for q in questions] if "with" in variants else []
@@ -485,7 +489,15 @@ async def run(
         jobs += [("without", q) for q in nosupp_questions(experiences, questions)]
     if "types" in variants:
         jobs += [("types", q) for q in type_questions]
-    await asyncio.gather(*(one(m, p, v, q) for m in models for p in prompts for v, q in jobs))
+    await asyncio.gather(
+        *(
+            one(m, p, v, n, q)
+            for m in models
+            for p in prompts
+            for n in range(1, runs + 1)
+            for v, q in jobs
+        )
+    )
 
 
 def report(
@@ -495,103 +507,104 @@ def report(
     rows, clar_rows, type_rows, count_rows, emph_rows, details = [], [], [], [], [], []
     for model_dir in sorted(p for p in out.iterdir() if p.is_dir()):
         for prompt_dir in sorted(p for p in model_dir.iterdir() if p.is_dir()):
-            stripped = prompt_dir.name.endswith(NOSUPP)
-            exps = [
-                MatchExperience.model_validate(e)
-                for e in (strip_supplements(experiences) if stripped else experiences)
-            ]
-            only_type = prompt_dir.name.endswith(TYPES)
-            t = Score()
-            for q in type_questions if only_type else questions:
-                path = prompt_dir / f"{q['id']}.json"
-                if not path.exists():
+            for suffix, run_dir in run_dirs(prompt_dir):
+                stripped = prompt_dir.name.endswith(NOSUPP)
+                exps = [
+                    MatchExperience.model_validate(e)
+                    for e in (strip_supplements(experiences) if stripped else experiences)
+                ]
+                only_type = prompt_dir.name.endswith(TYPES)
+                t = Score()
+                for q in type_questions if only_type else questions:
+                    path = run_dir / f"{q['id']}.json"
+                    if not path.exists():
+                        continue
+                    record = json.loads(path.read_text(encoding="utf-8"))
+                    t.seconds += record.get("seconds", 0.0)
+                    if "error" in record:
+                        t.questions += 1
+                        t.errors.append(f"{q['id']}: {record['error']}")
+                        continue
+                    data = MatchResponse.model_validate(record["response"])
+                    if only_type:
+                        t.add(score_type(q, data))
+                    else:
+                        t.add(score(q, exps, data, known, stripped))
+                if not t.questions:
                     continue
-                record = json.loads(path.read_text(encoding="utf-8"))
-                t.seconds += record.get("seconds", 0.0)
-                if "error" in record:
-                    t.questions += 1
-                    t.errors.append(f"{q['id']}: {record['error']}")
-                    continue
-                data = MatchResponse.model_validate(record["response"])
+                name = f"{model_dir.name} · {prompt_dir.name}{suffix}"
+                if t.type_total or only_type:
+                    type_rows.append(
+                        f"| {name} | {t.type_right}/{t.type_total} | {t.type_ok}/{t.type_total} "
+                        f"| {len(t.errors)}/{t.questions} |"
+                    )
                 if only_type:
-                    t.add(score_type(q, data))
-                else:
-                    t.add(score(q, exps, data, known, stripped))
-            if not t.questions:
-                continue
-            name = f"{model_dir.name} · {prompt_dir.name}"
-            if t.type_total or only_type:
-                type_rows.append(
-                    f"| {name} | {t.type_right}/{t.type_total} | {t.type_ok}/{t.type_total} "
+                    lines = [
+                        *(f"- 유형 다름 {x}" for x in t.type_wrong),
+                        *(f"- 오류 {x}" for x in t.errors),
+                    ]
+                    details.append(f"\n### {name}\n\n" + "\n".join(lines))
+                    continue
+                answered = t.questions - len(t.errors)
+                gap = f"{t.gap_asked}/{t.gap_chances}" if stripped else "-"
+                clar_rows.append(
+                    f"| {name} | {len(t.clarifications)}({t.clar_empty}/{answered}) "
+                    f"| {len(t.repeats)}/{t.repeat_chances} | {gap} "
+                    f"| {len(t.leading)} | {len(t.vague)} | {len(t.compound)} "
+                    f"| {t.share_asked}/{t.share_chances} "
+                    f"| {t.ask_mine} · {t.ask_why} · {t.ask_check} · {len(t.ask_other)} "
                     f"| {len(t.errors)}/{t.questions} |"
                 )
-            if only_type:
+                rows.append(
+                    f"| {name} | {t.picked_right}/{t.picked_total} | {len(t.wrong_picks)} "
+                    f"| {len(t.forced)} | {t.req_right}/{t.req_total} | {len(t.made_up_numbers)} "
+                    f"| {len(t.team_as_mine)} | {t.supplement_used}/{t.supplement_recs} "
+                    f"| {len(t.errors)}/{t.questions} | {t.seconds:.0f}초 |"
+                )
+                count_rows.append(
+                    f"| {name} | {t.rec_count} | {t.activity_count} | {len(t.unlabeled)} "
+                    f"| {len(t.whole_activity)} |"
+                )
+                pairs = [
+                    (exp_id, a, b)
+                    for exp_id, said in sorted(t.emph_by_exp.items())
+                    for i, a in enumerate(said)
+                    for b in said[i + 1 :]
+                ]
+                same = [p for p in pairs if same_angle(p[1][1], p[2][1])]
+                emph_rows.append(
+                    f"| {name} | {len(t.emph_echo)}/{t.rec_count} | {len(same)}/{len(pairs)} "
+                    f"| {len(t.reason_echo)}/{t.rec_count} |"
+                )
                 lines = [
-                    *(f"- 유형 다름 {x}" for x in t.type_wrong),
+                    *(f"- 정답 밖(후보) {x}" for x in t.unlabeled),
+                    *(f"- 활동 통째(후보) {x}" for x in t.whole_activity),
+                    *(f"- 본문 되풀이(후보) {x}" for x in t.emph_echo),
+                    *(f"- 이유 본문 되풀이(후보) {x}" for x in t.reason_echo),
+                    *(
+                        f"- 문항마다 같음(후보) 경험 {e}: {a[0]} 「{a[1]}」 · {b[0]} 「{b[1]}」"
+                        for e, a, b in same
+                    ),
+                    *(
+                        f"- 문항별 강조점 경험 {e}: " + " · ".join(f"{q} 「{x}」" for q, x in said)
+                        for e, said in sorted(t.emph_by_exp.items())
+                        if len(said) > 1
+                    ),
+                    *(f"- 엉뚱한 추천 {x}" for x in t.wrong_picks),
+                    *(f"- 억지 추천 {x}" for x in t.forced),
+                    *(f"- 요구사항 판정 틀림 {x}" for x in t.req_wrong),
+                    *(f"- 지어낸 수치 {x}" for x in t.made_up_numbers),
+                    *(f"- 팀 일을 내 일로(후보) {x}" for x in t.team_as_mine),
                     *(f"- 오류 {x}" for x in t.errors),
+                    *(f"- 유형 다름 {x}" for x in t.type_wrong),
+                    *(f"- 이미 있는 사실 다시 물음(후보) {x}" for x in t.repeats),
+                    *(f"- 수치 · 답 유도(후보) {x}" for x in t.leading),
+                    *(f"- 막연한 질문(후보) {x}" for x in t.vague),
+                    *(f"- 갈래 그 밖(후보) {x}" for x in t.ask_other),
+                    *(f"- 고른 것 {x}" for x in t.picks),
+                    *(f"- 되묻기 {x}" for x in t.clarifications),
                 ]
                 details.append(f"\n### {name}\n\n" + "\n".join(lines))
-                continue
-            answered = t.questions - len(t.errors)
-            gap = f"{t.gap_asked}/{t.gap_chances}" if stripped else "-"
-            clar_rows.append(
-                f"| {name} | {len(t.clarifications)}({t.clar_empty}/{answered}) "
-                f"| {len(t.repeats)}/{t.repeat_chances} | {gap} "
-                f"| {len(t.leading)} | {len(t.vague)} | {len(t.compound)} "
-                f"| {t.share_asked}/{t.share_chances} "
-                f"| {t.ask_mine} · {t.ask_why} · {t.ask_check} · {len(t.ask_other)} "
-                f"| {len(t.errors)}/{t.questions} |"
-            )
-            rows.append(
-                f"| {name} | {t.picked_right}/{t.picked_total} | {len(t.wrong_picks)} "
-                f"| {len(t.forced)} | {t.req_right}/{t.req_total} | {len(t.made_up_numbers)} "
-                f"| {len(t.team_as_mine)} | {t.supplement_used}/{t.supplement_recs} "
-                f"| {len(t.errors)}/{t.questions} | {t.seconds:.0f}초 |"
-            )
-            count_rows.append(
-                f"| {name} | {t.rec_count} | {t.activity_count} | {len(t.unlabeled)} "
-                f"| {len(t.whole_activity)} |"
-            )
-            pairs = [
-                (exp_id, a, b)
-                for exp_id, said in sorted(t.emph_by_exp.items())
-                for i, a in enumerate(said)
-                for b in said[i + 1 :]
-            ]
-            same = [p for p in pairs if same_angle(p[1][1], p[2][1])]
-            emph_rows.append(
-                f"| {name} | {len(t.emph_echo)}/{t.rec_count} | {len(same)}/{len(pairs)} "
-                f"| {len(t.reason_echo)}/{t.rec_count} |"
-            )
-            lines = [
-                *(f"- 정답 밖(후보) {x}" for x in t.unlabeled),
-                *(f"- 활동 통째(후보) {x}" for x in t.whole_activity),
-                *(f"- 본문 되풀이(후보) {x}" for x in t.emph_echo),
-                *(f"- 이유 본문 되풀이(후보) {x}" for x in t.reason_echo),
-                *(
-                    f"- 문항마다 같음(후보) 경험 {e}: {a[0]} 「{a[1]}」 · {b[0]} 「{b[1]}」"
-                    for e, a, b in same
-                ),
-                *(
-                    f"- 문항별 강조점 경험 {e}: " + " · ".join(f"{q} 「{x}」" for q, x in said)
-                    for e, said in sorted(t.emph_by_exp.items())
-                    if len(said) > 1
-                ),
-                *(f"- 엉뚱한 추천 {x}" for x in t.wrong_picks),
-                *(f"- 억지 추천 {x}" for x in t.forced),
-                *(f"- 요구사항 판정 틀림 {x}" for x in t.req_wrong),
-                *(f"- 지어낸 수치 {x}" for x in t.made_up_numbers),
-                *(f"- 팀 일을 내 일로(후보) {x}" for x in t.team_as_mine),
-                *(f"- 오류 {x}" for x in t.errors),
-                *(f"- 유형 다름 {x}" for x in t.type_wrong),
-                *(f"- 이미 있는 사실 다시 물음(후보) {x}" for x in t.repeats),
-                *(f"- 수치 · 답 유도(후보) {x}" for x in t.leading),
-                *(f"- 막연한 질문(후보) {x}" for x in t.vague),
-                *(f"- 갈래 그 밖(후보) {x}" for x in t.ask_other),
-                *(f"- 고른 것 {x}" for x in t.picks),
-                *(f"- 되묻기 {x}" for x in t.clarifications),
-            ]
-            details.append(f"\n### {name}\n\n" + "\n".join(lines))
     head = (
         "| 모델 · 프롬프트 | 첫 추천 맞음 | 엉뚱한 추천 | 억지 추천 | 요구사항 판정 | 지어낸 수치 "
         "| 팀 일을 내 일로(후보) | 보완 씀 | 오류 | 시간 합 |\n"
@@ -617,11 +630,11 @@ def report(
     tables = "\n\n".join(
         "\n".join(t)
         for t in (
-            [head, *rows],
-            [count_head, *count_rows],
-            [emph_head, *emph_rows],
-            [clar_head, *clar_rows],
-            [type_head, *type_rows],
+            [head, *merge_runs(rows)],
+            [count_head, *merge_runs(count_rows)],
+            [emph_head, *merge_runs(emph_rows)],
+            [clar_head, *merge_runs(clar_rows)],
+            [type_head, *merge_runs(type_rows)],
         )
         if len(t) > 1
     )
@@ -637,6 +650,7 @@ def main() -> None:
         default="with,without,types",
         help="with(자료 그대로) · without(보완을 뺀 자료) · types(유형만 보는 문항)",
     )
+    parser.add_argument("--runs", type=int, default=1, help="같은 문항을 몇 번씩")
     parser.add_argument("--questions", help="쉼표로 문항 id(유형 문항 포함) — 기본은 전부")
     parser.add_argument("--out", type=Path, help="응답 저장 폴더")
     parser.add_argument("--rescore", type=Path, help="저장한 응답만 다시 채점(LLM 안 부름)")
@@ -675,9 +689,11 @@ def main() -> None:
         n = len(questions) * ("with" in variants)
         n += len(nosupp_questions(experiences, questions)) * ("without" in variants)
         n += len(type_questions) * ("types" in variants)
-        calls = n * len(models) * len(prompts)
+        calls = n * len(models) * len(prompts) * args.runs
         print(f"LLM 호출 {calls}회(규칙 위반 시 더) → {out}")
-        asyncio.run(run(models, prompts, variants, experiences, questions, type_questions, out))
+        asyncio.run(
+            run(models, prompts, variants, experiences, questions, type_questions, out, args.runs)
+        )
 
     text = report(out, experiences, questions, type_questions)
     (out / "summary.md").write_text(text, encoding="utf-8")

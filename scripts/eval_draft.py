@@ -2,10 +2,11 @@
 
     uv run python scripts/eval_draft.py                    # MATCH_LLM_MODELS 첫 모델로, 우리 프롬프트 · 범용 프롬프트
     uv run python scripts/eval_draft.py --models openai:gpt-6-luna --prompts tuned
+    uv run python scripts/eval_draft.py --prompts tuned --runs 2   # 같은 쌍을 두 번씩 — 칸에 회차별 `a · b`
     uv run python scripts/eval_draft.py --rescore eval-runs/draft-<시각>   # 저장한 응답만 다시 채점(LLM 안 부름)
 
-LLM 호출 수 = 쌍 수 × 모델 수 × 프롬프트 수 — 기본 33 × 1 × 2 = 66회(규칙 위반이면 쌍마다 최대 LLM_MAX_ATTEMPTS 번).
-응답은 --out 폴더(기본 eval-runs/draft-<시각>, 커밋하지 않음)에 저장한다. 모델 폴백 없이 고른 모델만 부른다.
+LLM 호출 수 = 쌍 수 × 모델 수 × 프롬프트 수 × runs — 기본 33 × 1 × 2 × 1 = 66회(규칙 위반이면 쌍마다 최대 LLM_MAX_ATTEMPTS 번).
+응답은 --out 폴더(기본 eval-runs/draft-<시각>, 커밋하지 않음)의 <모델>/<프롬프트>/run-<N>/ 에 저장한다. 모델 폴백 없이 고른 모델만 부른다.
 
 자료: samples/match/experiences.json · samples/draft/experiences.json(지어낸 경험)과
 samples/draft/pairs.json(문항 + 고른 경험 + 손으로 적은 정답). 「이미 있는 사실」은 samples/match/clarify.json 과
@@ -109,6 +110,7 @@ from scripts.eval_match import (  # noqa: E402
     _slug,
     load_known,
 )
+from scripts.eval_runs import merge_runs, run_dirs, run_path  # noqa: E402
 
 DATA = ROOT / "samples" / "draft"
 EXPERIENCES = ROOT / "samples" / "match" / "experiences.json"
@@ -713,7 +715,9 @@ async def run(
     pairs: list[dict],
     out: Path,
     env: Path = ROOT / ".env",
+    runs: int | None = None,
 ) -> None:
+    """runs 를 주면 회차 폴더(run-N)에, 안 주면(eval_draft_guided · eval_frame_cards) 프롬프트 폴더에 바로 쓴다."""
     from dotenv import load_dotenv
 
     from app.config import load_settings, parse_models
@@ -730,7 +734,7 @@ async def run(
         settings = replace(base, llm_models=parse_models(model))
         clients[model] = (settings, build_llm(settings))
 
-    async def one(model: str, prompt: str, pair: dict) -> None:
+    async def one(model: str, prompt: str, n: int | None, pair: dict) -> None:
         settings, llm = clients[model]
         req = DraftRequest.model_validate(
             {
@@ -763,13 +767,18 @@ async def run(
             except ApiError as e:
                 record = {"error": f"{e.code}: {e.message}"}
             record["seconds"] = round(time.monotonic() - started, 1)
-        path = out / _slug(model) / prompt / f"{pair['id']}.json"
+        folder = out / _slug(model) / prompt
+        path = (folder if n is None else run_path(folder, n)) / f"{pair['id']}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
         status = record.get("error") or "ok"
-        print(f"  {model} · {prompt} · {pair['id']} — {status} ({record['seconds']}초)")
+        name = prompt if n is None else f"{prompt} · run-{n}"
+        print(f"  {model} · {name} · {pair['id']} — {status} ({record['seconds']}초)")
 
-    await asyncio.gather(*(one(m, p, q) for m in models for p in prompts for q in pairs))
+    numbers = [None] if runs is None else range(1, runs + 1)
+    await asyncio.gather(
+        *(one(m, p, n, q) for m in models for p in prompts for n in numbers for q in pairs)
+    )
 
 
 def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
@@ -778,123 +787,124 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
     guess_rows = []
     for model_dir in sorted(p for p in out.iterdir() if p.is_dir()):
         for prompt_dir in sorted(p for p in model_dir.iterdir() if p.is_dir()):
-            t = Score()
-            for pair in pairs:
-                path = prompt_dir / f"{pair['id']}.json"
-                if not path.exists():
+            for suffix, run_dir in run_dirs(prompt_dir):
+                t = Score()
+                for pair in pairs:
+                    path = run_dir / f"{pair['id']}.json"
+                    if not path.exists():
+                        continue
+                    record = json.loads(path.read_text(encoding="utf-8"))
+                    t.pairs += 1
+                    t.seconds += record.get("seconds", 0.0)
+                    if "error" in record:
+                        t.errors.append(f"{pair['id']}: {record['error']}")
+                        continue
+                    t.retried += record.get("attempt", 1) > 1
+                    exps = [MatchExperience.model_validate(e) for e in picked(pair, experiences)]
+                    ctx = [MatchExperience.model_validate(e) for e in context_of(pair, experiences)]
+                    data = LLMDraftOutput.model_validate(record["response"])
+                    t.add(score(pair, exps, data, facts, ctx))
+                if not t.pairs:
                     continue
-                record = json.loads(path.read_text(encoding="utf-8"))
-                t.pairs += 1
-                t.seconds += record.get("seconds", 0.0)
-                if "error" in record:
-                    t.errors.append(f"{pair['id']}: {record['error']}")
-                    continue
-                t.retried += record.get("attempt", 1) > 1
-                exps = [MatchExperience.model_validate(e) for e in picked(pair, experiences)]
-                ctx = [MatchExperience.model_validate(e) for e in context_of(pair, experiences)]
-                data = LLMDraftOutput.model_validate(record["response"])
-                t.add(score(pair, exps, data, facts, ctx))
-            if not t.pairs:
-                continue
-            name = f"{model_dir.name} · {prompt_dir.name}"
-            rows.append(
-                f"| {name} | {len(t.sentences)} | {t.retried} | {len(t.errors)}/{t.pairs} "
-                f"| {len(t.fake_ids)} | {len(t.bad_numbers)} | {len(t.invented)} "
-                f"| {len(t.team_as_mine)} | {len(t.unknown_actor)} | {t.omit_hit}/{t.omit_chances} "
-                f"| {t.expect_hit}/{t.expect_chances} "
-                f"| {len(t.unused)}/{t.picked_total} "
-                f"| {t.chars // max(t.pairs - len(t.errors), 1)} "
-                f"| {t.order_hit}/{t.order_total} | {len(t.repeated)} | {t.seconds:.0f}초 |"
-            )
-            question_rows.append(
-                f"| {name} | {len(t.asked)}({t.omitted_total}) | {len(t.bad_pairs)} "
-                f"| {t.gap_asked}/{t.gap_chances} | {len(t.forced)} | {len(t.leading)} "
-                f"| {len(t.vague)} | {len(t.compound)} "
-                f"| {len(t.known_asked)}/{t.known_chances} "
-                f"| {t.fill_hit}/{t.fill_chances} | {len(t.fill_reasked)} |"
-            )
-            opinion_rows.append(
-                f"| {name} | {len(t.opinions)} | {len(t.kind_broken)} "
-                f"| {len(t.opinion_happened)} | {len(t.opinion_invented)} "
-                f"| {len(t.opinion_flattery)} | {len(t.titles)} | {len(t.title_broken)} "
-                f"| {len(t.title_invented)} | {len(t.title_flattery)} | {len(t.title_category)} "
-                f"| {len(t.vow_open)} | {len(t.vow_end)} |"
-            )
-            hint_rows.append(
-                f"| {name} | {t.lead_hit}/{t.lead_chances} | {len(t.hinted_invented)} "
-                f"| {len(t.stale_reasked)} |"
-            )
-            essay_rows.append(
-                f"| {name} | {len(t.listed)}/{t.list_chances} | {t.deep_hit}/{t.deep_chances} "
-                f"| {len(t.elaborated)} | {len(t.elab_heavy)} | {len(t.elab_invented)} "
-                f"| {len(t.elab_judged)} | {len(t.unknown_mine)} | {len(t.marks)} "
-                f"| {t.target_hit}/{t.target_chances} | {t.context_used}/{t.context_chances} "
-                f"| {len(t.context_heavy)} |"
-            )
-            guess_rows.append(
-                f"| {name} | {len(t.passive)} | {len(t.supposed)}({t.specific}) "
-                f"| {len(t.guess_heavy)} | {len(t.specific_miss)} | {len(t.guess_unpaired)} "
-                f"| {len(t.guess_over_fact)} | {len(t.guess_mine)} | {len(t.guess_employer)} |"
-            )
-            lines = [
-                *(f"- 오류 {x}" for x in t.errors),
-                *(f"- 수동형(후보) {x}" for x in t.passive),
-                *(f"- specific 누락(후보) {x}" for x in t.specific_miss),
-                *(f"- 가정 짝 위반 {x}" for x in t.guess_unpaired),
-                *(f"- 가정이 사실 덮음(후보) {x}" for x in t.guess_over_fact),
-                *(f"- 가정 팀 「제가」(후보) {x}" for x in t.guess_mine),
-                *(f"- 지원처 가정(후보) {x}" for x in t.guess_employer),
-                *(f"- 가정 > 사실 {x}" for x in t.guess_heavy),
-                *(f"- AI 가정 {x}" for x in t.supposed),
-                *(f"- 나열 {x}" for x in t.listed),
-                *(f"- 대표 얕음 {x}" for x in t.shallow),
-                *(f"- 보탬 > 사실 {x}" for x in t.elab_heavy),
-                *(f"- 보탬 지어냄(후보) {x}" for x in t.elab_invented),
-                *(f"- 보탬 판단 · 감정(후보) {x}" for x in t.elab_judged),
-                *(f"- 모름에 「제가」 {x}" for x in t.unknown_mine),
-                *(f"- 목표 어긋남 {x}" for x in t.target_miss),
-                *(f"- 보조가 뼈대 {x}" for x in t.context_heavy),
-                *(f"- 첫 문장 {x}" for x in t.firsts),
-                *(f"- AI 보탬 {x}" for x in t.elaborated),
-                *(f"- 빈칸 {x}" for x in t.marks),
-                *(f"- 강조 뒤로 {x}" for x in t.lead_miss),
-                *(f"- 강조 쌍 지어냄(후보) {x}" for x in t.hinted_invented),
-                *(f"- 지난 빈칸 또 물음(후보) {x}" for x in t.stale_reasked),
-                *(f"- 종류 위반 {x}" for x in t.kind_broken),
-                *(f"- 사실로 뺌(후보) {x}" for x in t.opinion_happened),
-                *(f"- 없는 사실(후보) {x}" for x in t.opinion_invented),
-                *(f"- 감정 · 칭찬 · 단정(후보) {x}" for x in t.opinion_flattery),
-                *(f"- 소제목 위반 {x}" for x in t.title_broken),
-                *(f"- 소제목 지어냄(후보) {x}" for x in t.title_invented),
-                *(f"- 소제목 칭찬(후보) {x}" for x in t.title_flattery),
-                *(f"- 분류명 소제목 {x}" for x in t.title_category),
-                *(f"- 다짐 첫 문장(후보) {x}" for x in t.vow_open),
-                *(f"- 다짐 맺음(후보) {x}" for x in t.vow_end),
-                *(f"- 소제목 {x}" for x in t.titles),
-                *(f"- 없는 ID {x}" for x in t.fake_ids),
-                *(f"- 없는 숫자 {x}" for x in t.bad_numbers),
-                *(f"- 지어냄(후보) {x}" for x in t.invented),
-                *(f"- 팀 일을 내 일로(후보) {x}" for x in t.team_as_mine),
-                *(f"- 모름에 주체(후보) {x}" for x in t.unknown_actor),
-                *(f"- omitted 안 씀 {x}" for x in t.omit_miss),
-                *(f"- 근거 다름 {x}" for x in t.expect_miss),
-                *(f"- 고른 경험 안 씀 {x}" for x in t.unused),
-                *(f"- 구성 순서 어긋남 {x}" for x in t.order_miss),
-                *(f"- 되풀이(후보) {x}" for x in t.repeated),
-                *(f"- 짝 위반 {x}" for x in t.bad_pairs),
-                *(f"- 질문 없는 빈칸 {x}" for x in t.gap_miss),
-                *(f"- 억지 질문 {x}" for x in t.forced),
-                *(f"- 수치 유도(후보) {x}" for x in t.leading),
-                *(f"- 막연함(후보) {x}" for x in t.vague),
-                *(f"- 두 가지(후보) {x}" for x in t.compound),
-                *(f"- 있는 사실 물음(후보) {x}" for x in t.known_asked),
-                *(f"- 보완 안 씀 {x}" for x in t.fill_miss),
-                *(f"- 보완 또 물음(후보) {x}" for x in t.fill_reasked),
-                *(f"- 생각 {x}" for x in t.opinions),
-                *(f"- 문장 {x}" for x in t.sentences),
-                *(f"- omitted {x}" for x in t.omitted),
-            ]
-            details.append(f"\n### {name}\n\n" + "\n".join(lines))
+                name = f"{model_dir.name} · {prompt_dir.name}{suffix}"
+                rows.append(
+                    f"| {name} | {len(t.sentences)} | {t.retried} | {len(t.errors)}/{t.pairs} "
+                    f"| {len(t.fake_ids)} | {len(t.bad_numbers)} | {len(t.invented)} "
+                    f"| {len(t.team_as_mine)} | {len(t.unknown_actor)} | {t.omit_hit}/{t.omit_chances} "
+                    f"| {t.expect_hit}/{t.expect_chances} "
+                    f"| {len(t.unused)}/{t.picked_total} "
+                    f"| {t.chars // max(t.pairs - len(t.errors), 1)} "
+                    f"| {t.order_hit}/{t.order_total} | {len(t.repeated)} | {t.seconds:.0f}초 |"
+                )
+                question_rows.append(
+                    f"| {name} | {len(t.asked)}({t.omitted_total}) | {len(t.bad_pairs)} "
+                    f"| {t.gap_asked}/{t.gap_chances} | {len(t.forced)} | {len(t.leading)} "
+                    f"| {len(t.vague)} | {len(t.compound)} "
+                    f"| {len(t.known_asked)}/{t.known_chances} "
+                    f"| {t.fill_hit}/{t.fill_chances} | {len(t.fill_reasked)} |"
+                )
+                opinion_rows.append(
+                    f"| {name} | {len(t.opinions)} | {len(t.kind_broken)} "
+                    f"| {len(t.opinion_happened)} | {len(t.opinion_invented)} "
+                    f"| {len(t.opinion_flattery)} | {len(t.titles)} | {len(t.title_broken)} "
+                    f"| {len(t.title_invented)} | {len(t.title_flattery)} | {len(t.title_category)} "
+                    f"| {len(t.vow_open)} | {len(t.vow_end)} |"
+                )
+                hint_rows.append(
+                    f"| {name} | {t.lead_hit}/{t.lead_chances} | {len(t.hinted_invented)} "
+                    f"| {len(t.stale_reasked)} |"
+                )
+                essay_rows.append(
+                    f"| {name} | {len(t.listed)}/{t.list_chances} | {t.deep_hit}/{t.deep_chances} "
+                    f"| {len(t.elaborated)} | {len(t.elab_heavy)} | {len(t.elab_invented)} "
+                    f"| {len(t.elab_judged)} | {len(t.unknown_mine)} | {len(t.marks)} "
+                    f"| {t.target_hit}/{t.target_chances} | {t.context_used}/{t.context_chances} "
+                    f"| {len(t.context_heavy)} |"
+                )
+                guess_rows.append(
+                    f"| {name} | {len(t.passive)} | {len(t.supposed)}({t.specific}) "
+                    f"| {len(t.guess_heavy)} | {len(t.specific_miss)} | {len(t.guess_unpaired)} "
+                    f"| {len(t.guess_over_fact)} | {len(t.guess_mine)} | {len(t.guess_employer)} |"
+                )
+                lines = [
+                    *(f"- 오류 {x}" for x in t.errors),
+                    *(f"- 수동형(후보) {x}" for x in t.passive),
+                    *(f"- specific 누락(후보) {x}" for x in t.specific_miss),
+                    *(f"- 가정 짝 위반 {x}" for x in t.guess_unpaired),
+                    *(f"- 가정이 사실 덮음(후보) {x}" for x in t.guess_over_fact),
+                    *(f"- 가정 팀 「제가」(후보) {x}" for x in t.guess_mine),
+                    *(f"- 지원처 가정(후보) {x}" for x in t.guess_employer),
+                    *(f"- 가정 > 사실 {x}" for x in t.guess_heavy),
+                    *(f"- AI 가정 {x}" for x in t.supposed),
+                    *(f"- 나열 {x}" for x in t.listed),
+                    *(f"- 대표 얕음 {x}" for x in t.shallow),
+                    *(f"- 보탬 > 사실 {x}" for x in t.elab_heavy),
+                    *(f"- 보탬 지어냄(후보) {x}" for x in t.elab_invented),
+                    *(f"- 보탬 판단 · 감정(후보) {x}" for x in t.elab_judged),
+                    *(f"- 모름에 「제가」 {x}" for x in t.unknown_mine),
+                    *(f"- 목표 어긋남 {x}" for x in t.target_miss),
+                    *(f"- 보조가 뼈대 {x}" for x in t.context_heavy),
+                    *(f"- 첫 문장 {x}" for x in t.firsts),
+                    *(f"- AI 보탬 {x}" for x in t.elaborated),
+                    *(f"- 빈칸 {x}" for x in t.marks),
+                    *(f"- 강조 뒤로 {x}" for x in t.lead_miss),
+                    *(f"- 강조 쌍 지어냄(후보) {x}" for x in t.hinted_invented),
+                    *(f"- 지난 빈칸 또 물음(후보) {x}" for x in t.stale_reasked),
+                    *(f"- 종류 위반 {x}" for x in t.kind_broken),
+                    *(f"- 사실로 뺌(후보) {x}" for x in t.opinion_happened),
+                    *(f"- 없는 사실(후보) {x}" for x in t.opinion_invented),
+                    *(f"- 감정 · 칭찬 · 단정(후보) {x}" for x in t.opinion_flattery),
+                    *(f"- 소제목 위반 {x}" for x in t.title_broken),
+                    *(f"- 소제목 지어냄(후보) {x}" for x in t.title_invented),
+                    *(f"- 소제목 칭찬(후보) {x}" for x in t.title_flattery),
+                    *(f"- 분류명 소제목 {x}" for x in t.title_category),
+                    *(f"- 다짐 첫 문장(후보) {x}" for x in t.vow_open),
+                    *(f"- 다짐 맺음(후보) {x}" for x in t.vow_end),
+                    *(f"- 소제목 {x}" for x in t.titles),
+                    *(f"- 없는 ID {x}" for x in t.fake_ids),
+                    *(f"- 없는 숫자 {x}" for x in t.bad_numbers),
+                    *(f"- 지어냄(후보) {x}" for x in t.invented),
+                    *(f"- 팀 일을 내 일로(후보) {x}" for x in t.team_as_mine),
+                    *(f"- 모름에 주체(후보) {x}" for x in t.unknown_actor),
+                    *(f"- omitted 안 씀 {x}" for x in t.omit_miss),
+                    *(f"- 근거 다름 {x}" for x in t.expect_miss),
+                    *(f"- 고른 경험 안 씀 {x}" for x in t.unused),
+                    *(f"- 구성 순서 어긋남 {x}" for x in t.order_miss),
+                    *(f"- 되풀이(후보) {x}" for x in t.repeated),
+                    *(f"- 짝 위반 {x}" for x in t.bad_pairs),
+                    *(f"- 질문 없는 빈칸 {x}" for x in t.gap_miss),
+                    *(f"- 억지 질문 {x}" for x in t.forced),
+                    *(f"- 수치 유도(후보) {x}" for x in t.leading),
+                    *(f"- 막연함(후보) {x}" for x in t.vague),
+                    *(f"- 두 가지(후보) {x}" for x in t.compound),
+                    *(f"- 있는 사실 물음(후보) {x}" for x in t.known_asked),
+                    *(f"- 보완 안 씀 {x}" for x in t.fill_miss),
+                    *(f"- 보완 또 물음(후보) {x}" for x in t.fill_reasked),
+                    *(f"- 생각 {x}" for x in t.opinions),
+                    *(f"- 문장 {x}" for x in t.sentences),
+                    *(f"- omitted {x}" for x in t.omitted),
+                ]
+                details.append(f"\n### {name}\n\n" + "\n".join(lines))
     head = (
         "| 모델 · 프롬프트 | 문장 | 다시 부름 | 오류 | 없는 ID | 없는 숫자 | 지어냄(후보) "
         "| 팀 일을 내 일로(후보) | 모름에 주체(후보) | omitted 씀 | 맞는 근거 | 고른 경험 안 씀 | 글자(쌍 평균) | 구성 순서 | 되풀이(후보) | 시간 합 |\n"
@@ -928,12 +938,12 @@ def report(out: Path, experiences: list[dict], pairs: list[dict]) -> str:
     tables = "\n\n".join(
         "\n".join(part)
         for part in (
-            [head, *rows],
-            [question_head, *question_rows],
-            [opinion_head, *opinion_rows],
-            [hint_head, *hint_rows],
-            [essay_head, *essay_rows],
-            [guess_head, *guess_rows],
+            [head, *merge_runs(rows)],
+            [question_head, *merge_runs(question_rows)],
+            [opinion_head, *merge_runs(opinion_rows)],
+            [hint_head, *merge_runs(hint_rows)],
+            [essay_head, *merge_runs(essay_rows)],
+            [guess_head, *merge_runs(guess_rows)],
         )
     )
     return tables + "\n" + "".join(details) + "\n"
@@ -943,6 +953,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--models", help="쉼표로 「제공사:모델」 — 기본은 MATCH_LLM_MODELS 첫 모델")
     parser.add_argument("--prompts", default="tuned,generic", help="tuned · generic")
+    parser.add_argument("--runs", type=int, default=1, help="같은 쌍을 몇 번씩")
     parser.add_argument("--pairs", help="쉼표로 쌍 id — 기본은 전부")
     parser.add_argument("--out", type=Path, help="응답 저장 폴더")
     parser.add_argument("--rescore", type=Path, help="저장한 응답만 다시 채점(LLM 안 부름)")
@@ -970,8 +981,10 @@ def main() -> None:
                 parser.error(f"프롬프트는 {list(PROMPTS)} 중 — {p!r}")
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         out = args.out or ROOT / "eval-runs" / f"draft-{stamp}"
-        print(f"LLM 호출 {len(pairs) * len(models) * len(prompts)}회(규칙 위반 시 더) → {out}")
-        asyncio.run(run(models, prompts, experiences, pairs, out, args.env))
+        print(
+            f"LLM 호출 {len(pairs) * len(models) * len(prompts) * args.runs}회(규칙 위반 시 더) → {out}"
+        )
+        asyncio.run(run(models, prompts, experiences, pairs, out, args.env, args.runs))
 
     text = report(out, experiences, pairs)
     (out / "summary.md").write_text(text, encoding="utf-8")

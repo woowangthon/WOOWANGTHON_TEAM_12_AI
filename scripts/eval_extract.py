@@ -3,12 +3,13 @@
     uv run python scripts/eval_extract.py                    # LLM_MODELS 첫 모델로, 우리 프롬프트 · 범용 프롬프트
     uv run python scripts/eval_extract.py --models openai:gpt-6-luna,openai:gpt-5.4-mini
     uv run python scripts/eval_extract.py --prompts tuned    # 우리 프롬프트만
+    uv run python scripts/eval_extract.py --prompts tuned --runs 2   # 같은 자료를 두 번씩 — 칸에 회차별 `a · b`
     uv run python scripts/eval_extract.py --rescore eval-runs/<폴더>   # LLM 을 다시 부르지 않고 저장한 응답만 다시 채점
     uv run python scripts/eval_extract.py --prompts tuned --existing samples/same/existing-100.json
                                      # 기존 활동 목록(S-44)을 실어도 활동 · 경험을 빠뜨리지 않나
 
-LLM 호출 수 = 자료 수 × 모델 수 × 프롬프트 수(규칙 위반이면 자료마다 최대 LLM_MAX_ATTEMPTS 번) — 기본 10 × 1 × 2 = 20회.
-응답은 --out 폴더(기본 eval-runs/<시각>, 커밋하지 않음)에 저장한다. 모델 폴백 없이 고른 모델만 부른다.
+LLM 호출 수 = 자료 수 × 모델 수 × 프롬프트 수 × runs(규칙 위반이면 자료마다 최대 LLM_MAX_ATTEMPTS 번) — 기본 10 × 1 × 2 × 1 = 20회.
+응답은 --out 폴더(기본 eval-runs/<시각>, 커밋하지 않음)의 <모델>/<프롬프트>/run-<N>/ 에 저장한다. 모델 폴백 없이 고른 모델만 부른다.
 
 정답은 samples/answers/<자료 이름>.json — 손으로 적은 활동 · 경험 · 수행 주체. 경험은 원문 구절(anchor)로 적는다.
 LLM 경험 하나를 정답 구절 하나에 짝짓는다: 발췌문이 품은(또는 6글자 이상이고 구절 안에 든) 구절 중 content 와
@@ -48,6 +49,7 @@ sys.path.insert(0, str(ROOT))
 from app.citations import normalize  # noqa: E402
 from app.extract import SYSTEM_PROMPT  # noqa: E402
 from app.schemas import ExtractResponse  # noqa: E402
+from scripts.eval_runs import merge_runs, run_dirs, run_path  # noqa: E402
 
 SAMPLES = ROOT / "samples"
 ANSWERS = SAMPLES / "answers"
@@ -232,6 +234,7 @@ async def run(
     out: Path,
     existing: list[dict],
     env: Path,
+    runs: int = 1,
 ) -> None:
     from dotenv import load_dotenv
 
@@ -252,7 +255,7 @@ async def run(
         settings = replace(base, llm_models=parse_models(model))
         clients[model] = (settings, build_llm(settings))
 
-    async def one(model: str, prompt: str, stem: str, source: str) -> None:
+    async def one(model: str, prompt: str, n: int, stem: str, source: str) -> None:
         settings, llm = clients[model]
         req = ExtractRequest.model_validate(
             {"sourceName": f"{stem}.md", "text": source, "existingActivities": existing}
@@ -265,18 +268,18 @@ async def run(
             except ApiError as e:
                 record = {"error": f"{e.code}: {e.message}"}
             record["seconds"] = round(time.monotonic() - started, 1)
-        path = out / _slug(model) / prompt / f"{stem}.json"
+        path = run_path(out / _slug(model) / prompt, n) / f"{stem}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
-        print(
-            f"  {model} · {prompt} · {stem} — {record.get('error') or 'ok'} ({record['seconds']}초)"
-        )
+        status = record.get("error") or "ok"
+        print(f"  {model} · {prompt} · run-{n} · {stem} — {status} ({record['seconds']}초)")
 
     await asyncio.gather(
         *(
-            one(m, p, stem, source)
+            one(m, p, n, stem, source)
             for m in models
             for p in prompts
+            for n in range(1, runs + 1)
             for stem, (source, _) in samples.items()
         )
     )
@@ -286,50 +289,51 @@ def report(out: Path, samples: dict[str, tuple[str, dict]]) -> str:
     rows, details = [], []
     for model_dir in sorted(p for p in out.iterdir() if p.is_dir()):
         for prompt_dir in sorted(p for p in model_dir.iterdir() if p.is_dir()):
-            total = Score()
-            for stem, (source, answer) in samples.items():
-                path = prompt_dir / f"{stem}.json"
-                if not path.exists():
-                    continue
-                record = json.loads(path.read_text(encoding="utf-8"))
-                total.seconds += record.get("seconds", 0.0)
-                if "error" in record:
-                    total.files += 1
-                    total.errors.append(f"{stem}: {record['error']}")
-                    continue
-                data = ExtractResponse.model_validate(record["response"])
-                total.add(score(stem, source, answer, data))
-            name = f"{model_dir.name} · {prompt_dir.name}"
-            t = total
-            rows.append(
-                f"| {name} | {t.matched}/{t.quotes} | {t.confirmed}/{t.experiences} "
-                f"| {len(t.made_up_numbers)} | {len(t.actor_wrong)} ({t.actor_wrong_me}) "
-                f"| {t.found}/{t.required} | {len(t.not_experiences)} "
-                f"| {t.activities_found}/{t.activities_required} | {len(t.not_activities)} "
-                f"| {t.activities_got} ({t.activities_expected}) | {t.mixed} / {t.split} "
-                f"| {len(t.same_as)} | {t.category_right}/{t.categories} | {t.category_null} "
-                f"| {len(t.errors)}/{t.files} | {t.seconds:.0f}초 |"
-            )
-            lines = [
-                *(f"- 지어낸 수치 {x}" for x in t.made_up_numbers),
-                *(f"- 주체 틀림 {x}" for x in t.actor_wrong),
-                *(f"- 경험 아닌 것 {x}" for x in t.not_experiences),
-                *(f"- 놓친 경험 {x}" for x in t.missed),
-                *(f"- 놓친 활동 {x}" for x in t.missed_activities),
-                *(f"- 활동 아닌 것 {x}" for x in t.not_activities),
-                *(f"- 활동 수 {x}" for x in t.activity_counts),
-                *(f"- 같은 활동 제안 {x}" for x in t.same_as),
-                *(f"- 분류 틀림 {x}" for x in t.category_wrong),
-                *(f"- 오류 {x}" for x in t.errors),
-            ]
-            if lines:
-                details.append(f"\n### {name}\n\n" + "\n".join(lines))
+            for suffix, run_dir in run_dirs(prompt_dir):
+                total = Score()
+                for stem, (source, answer) in samples.items():
+                    path = run_dir / f"{stem}.json"
+                    if not path.exists():
+                        continue
+                    record = json.loads(path.read_text(encoding="utf-8"))
+                    total.seconds += record.get("seconds", 0.0)
+                    if "error" in record:
+                        total.files += 1
+                        total.errors.append(f"{stem}: {record['error']}")
+                        continue
+                    data = ExtractResponse.model_validate(record["response"])
+                    total.add(score(stem, source, answer, data))
+                name = f"{model_dir.name} · {prompt_dir.name}{suffix}"
+                t = total
+                rows.append(
+                    f"| {name} | {t.matched}/{t.quotes} | {t.confirmed}/{t.experiences} "
+                    f"| {len(t.made_up_numbers)} | {len(t.actor_wrong)} ({t.actor_wrong_me}) "
+                    f"| {t.found}/{t.required} | {len(t.not_experiences)} "
+                    f"| {t.activities_found}/{t.activities_required} | {len(t.not_activities)} "
+                    f"| {t.activities_got} ({t.activities_expected}) | {t.mixed} / {t.split} "
+                    f"| {len(t.same_as)} | {t.category_right}/{t.categories} | {t.category_null} "
+                    f"| {len(t.errors)}/{t.files} | {t.seconds:.0f}초 |"
+                )
+                lines = [
+                    *(f"- 지어낸 수치 {x}" for x in t.made_up_numbers),
+                    *(f"- 주체 틀림 {x}" for x in t.actor_wrong),
+                    *(f"- 경험 아닌 것 {x}" for x in t.not_experiences),
+                    *(f"- 놓친 경험 {x}" for x in t.missed),
+                    *(f"- 놓친 활동 {x}" for x in t.missed_activities),
+                    *(f"- 활동 아닌 것 {x}" for x in t.not_activities),
+                    *(f"- 활동 수 {x}" for x in t.activity_counts),
+                    *(f"- 같은 활동 제안 {x}" for x in t.same_as),
+                    *(f"- 분류 틀림 {x}" for x in t.category_wrong),
+                    *(f"- 오류 {x}" for x in t.errors),
+                ]
+                if lines:
+                    details.append(f"\n### {name}\n\n" + "\n".join(lines))
     head = (
         "| 모델 · 프롬프트 | 근거 일치 | 원문에서 확인된 경험 | 지어낸 수치 | 주체 틀림 (ME 로) "
         "| 경험 찾음 | 경험 아닌 것 | 활동 찾음 | 활동 아닌 것 | 활동 수 (정답) | 섞임 / 쪼개짐 "
         "| 같은 활동 제안 | 분류 맞음 | 분류 null | 오류 | 시간 합 |\n" + "| --- " * 16 + "|"
     )
-    return "\n".join([head, *rows]) + "\n" + "".join(details) + "\n"
+    return "\n".join([head, *merge_runs(rows)]) + "\n" + "".join(details) + "\n"
 
 
 def main() -> None:
@@ -339,6 +343,7 @@ def main() -> None:
     parser.add_argument("--samples", help="쉼표로 자료 이름(확장자 없이) — 기본은 정답이 있는 전부")
     parser.add_argument("--out", type=Path, help="응답 저장 폴더")
     parser.add_argument("--rescore", type=Path, help="저장한 응답만 다시 채점(LLM 안 부름)")
+    parser.add_argument("--runs", type=int, default=1, help="같은 자료를 몇 번씩")
     parser.add_argument("--existing", type=Path, help="요청마다 실을 기존 활동 목록 JSON(S-44)")
     parser.add_argument("--env", type=Path, default=ROOT / ".env", help="키를 읽을 .env")
     args = parser.parse_args()
@@ -362,10 +367,10 @@ def main() -> None:
             if p not in PROMPTS:
                 parser.error(f"프롬프트는 {list(PROMPTS)} 중 — {p!r}")
         out = args.out or ROOT / "eval-runs" / datetime.now().strftime("%Y%m%d-%H%M%S")
-        calls = len(samples) * len(models) * len(prompts)
+        calls = len(samples) * len(models) * len(prompts) * args.runs
         print(f"LLM 호출 {calls}회(규칙 위반 시 더) → {out}")
         existing = json.loads(args.existing.read_text(encoding="utf-8")) if args.existing else []
-        asyncio.run(run(models, prompts, samples, out, existing, args.env))
+        asyncio.run(run(models, prompts, samples, out, existing, args.env, args.runs))
 
     text = report(out, samples)
     (out / "summary.md").write_text(text, encoding="utf-8")
