@@ -1062,8 +1062,13 @@ def test_prompt_and_schema_know_supposed():
     assert "SUPPOSED" in item["properties"]["kind"]["enum"]
     assert "specific" in item["required"]
     assert LLM_JSON_SCHEMA["properties"]["omitted"]["maxItems"] == 10
-    for must in ("SUPPOSED", "specific", "지원처", "주제문", "또한"):
+    for must in ("SUPPOSED", "specific", "지원처", "주제문"):
         assert must in SYSTEM_PROMPT
+    from app.draft import CONTEXT_RULE
+
+    assert (
+        "또한" in CONTEXT_RULE
+    )  # 보조 재료를 덧붙이지 않는다(규칙 12) — 보조 재료가 있을 때만 붙는다
 
 
 # ---- 첫 줄 소제목(S-86) ----
@@ -1118,3 +1123,125 @@ def test_title_in_llm_schema():
 
     assert "title" in LLM_JSON_SCHEMA["required"]
     assert LLM_JSON_SCHEMA["properties"]["title"] == {"type": ["string", "null"]}
+
+
+# ---- 입력이 있을 때만 붙는 규칙(AI#112) ----
+
+
+def _system(question=None, experiences=None, guidelines=(), context=()):
+    from app.draft import system_prompt
+    from app.schemas import DraftExperience, DraftGuideline, DraftQuestion
+
+    return system_prompt(
+        DraftQuestion.model_validate(question or QUESTION),
+        [DraftExperience.model_validate(e) for e in experiences or [EXP_101]],
+        [DraftGuideline.model_validate(g) for g in guidelines],
+        [MatchExperience.model_validate(e) for e in context],
+    )
+
+
+def test_no_optional_input_keeps_base_prompt_exactly():
+    from app.draft import CONTEXT_RULE, HINT_RULE, LENGTH_RULE, STYLE_RULE, SYSTEM_PROMPT
+
+    system = _system()
+    assert system == SYSTEM_PROMPT
+    for rule in (HINT_RULE, STYLE_RULE, CONTEXT_RULE, LENGTH_RULE):
+        assert rule not in system
+    for head in ("9. <매칭 단서>", "10. <구성 틀>", "12. <보조 재료>", "13. <목표 글자 수>"):
+        assert head not in system
+
+
+@pytest.mark.parametrize(
+    "kwargs,rule",
+    [
+        ({"question": HINTED["question"], "experiences": [HINTED_101]}, "HINT_RULE"),
+        ({"experiences": [{**EXP_101, "emphasis": "판단"}]}, "HINT_RULE"),
+        ({"question": {**QUESTION, "frame": "STAR"}}, "STYLE_RULE"),
+        ({"guidelines": [{"id": 1, "text": "결론부터 쓴다"}]}, "STYLE_RULE"),
+        ({"context": [EXP_102]}, "CONTEXT_RULE"),
+        ({"question": {**QUESTION, "targetLength": 700}}, "LENGTH_RULE"),
+    ],
+    ids=["매칭 단서", "강조점만", "구성 틀", "작성 지침", "보조 재료", "목표 글자 수"],
+)
+def test_optional_input_appends_only_its_rule(kwargs, rule):
+    from app import draft
+
+    system = _system(**kwargs)
+    # 앞부분이 늘 같다 — 프롬프트 캐시가 산다
+    assert system.startswith(draft.SYSTEM_PROMPT + draft.EXTRA_HEAD)
+    assert system.endswith(getattr(draft, rule))
+    others = {"HINT_RULE", "STYLE_RULE", "CONTEXT_RULE", "LENGTH_RULE"} - {rule}
+    for other in others:
+        assert getattr(draft, other) not in system
+
+
+def test_frame_none_is_no_frame():
+    # NONE 은 규칙 1 의 기본 순서라 <구성 틀>도 규칙 10 도 싣지 않는다
+    from app.draft import SYSTEM_PROMPT
+
+    assert _system(question={**QUESTION, "frame": "NONE"}) == SYSTEM_PROMPT
+
+
+def test_all_optional_rules_in_number_order():
+    from app import draft
+
+    system = _system(
+        question={**HINTED["question"], "frame": "CARL", "targetLength": 700},
+        experiences=[HINTED_101],
+        guidelines=[{"id": 1, "text": "결론부터 쓴다"}],
+        context=[EXP_102],
+    )
+    rules = (draft.HINT_RULE, draft.STYLE_RULE, draft.CONTEXT_RULE, draft.LENGTH_RULE)
+    assert system == draft.SYSTEM_PROMPT + draft.EXTRA_HEAD + "".join(rules)
+
+
+def test_rule_numbers_still_point_to_rules():
+    # 번호를 그대로 둔다 — 늘 붙는 본문 · 붙는 규칙 · 사용자 메시지가 가리키는 번호가 프롬프트에 있다
+    import re
+
+    from app import draft
+
+    base = set(re.findall(r"^(\d+)\. ", draft.SYSTEM_PROMPT, re.M))
+    assert base == {"1", "2", "3", "4", "5", "6", "7", "8", "11", "14", "15"}
+    for rule, number in (
+        (draft.HINT_RULE, "9"),
+        (draft.STYLE_RULE, "10"),
+        (draft.CONTEXT_RULE, "12"),
+        (draft.LENGTH_RULE, "13"),
+    ):
+        assert rule.startswith(f"{number}. ")
+    # 어느 규칙이 가리키는 번호든 늘 붙는 본문이나 붙는 규칙 중 하나다(규칙 13 의 「보조 재료(규칙 12)」처럼
+    # 붙는 규칙끼리 가리키는 것은 그 입력이 같이 있을 때만 쓰인다)
+    numbered = base | {"9", "10", "12", "13"}
+    for text in (
+        draft.SYSTEM_PROMPT,
+        draft.HINT_RULE,
+        draft.STYLE_RULE,
+        draft.CONTEXT_RULE,
+        draft.LENGTH_RULE,
+    ):
+        cited = {
+            n for group in re.findall(r"규칙 ([\d ·]+)", text) for n in re.findall(r"\d+", group)
+        }
+        assert cited <= numbered, cited - numbered
+    q = {**QUESTION, "targetLength": 700}
+    from app.schemas import DraftExperience, DraftQuestion
+
+    message = build_draft_message(
+        DraftQuestion.model_validate(q), [DraftExperience.model_validate(EXP_101)]
+    )
+    assert "규칙 13" in message and draft.LENGTH_RULE in _system(question=q)
+
+
+def test_endpoint_sends_composed_prompt(client_with):
+    from app.draft import HINT_RULE
+
+    seen = {}
+
+    class Spy(FakeLLM):
+        async def generate_json(self, system, user, schema, deadline):
+            seen["system"] = system
+            return await super().generate_json(system, user, schema, deadline)
+
+    client_with(Spy(GOOD)).post("/draft", json=HINTED)
+    assert seen["system"].endswith(HINT_RULE)
