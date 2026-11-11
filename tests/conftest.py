@@ -16,6 +16,7 @@ from app.main import (
     get_route_llm,
     get_settings,
     get_sync_match_llm,
+    get_vision_llm,
 )
 
 
@@ -23,9 +24,11 @@ class FakeLLM:
     def __init__(self, *outputs):
         self.outputs = list(outputs)
         self.calls = 0
+        self.seen: list[dict] = []  # 부를 때 받은 것 — 프롬프트 · 이미지를 시험에서 본다
 
-    async def generate_json(self, system, user, schema, deadline):
+    async def generate_json(self, system, user, schema, deadline, images=()):
         self.calls += 1
+        self.seen.append({"system": system, "user": user, "images": list(images)})
         out = self.outputs.pop(0)
         if isinstance(out, Exception):
             raise out
@@ -41,6 +44,7 @@ def client_with():
         app.dependency_overrides[get_route_llm] = lambda: llm
         app.dependency_overrides[get_sync_match_llm] = lambda: llm
         app.dependency_overrides[get_agent_llm] = lambda: llm
+        app.dependency_overrides[get_vision_llm] = lambda: llm
         app.dependency_overrides[get_settings] = lambda: replace(load_settings(), **settings)
         return TestClient(app)
 

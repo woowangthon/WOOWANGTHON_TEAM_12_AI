@@ -30,6 +30,11 @@ DEFAULT_ROUTE_MODELS = (
 # 차곡이 도구 루프(/agent) — 함수 호출은 OpenAI 만 쓴다(Gemini 는 메시지 모양이 달라 넣지 않았다). 순서는 시험 부탁 18개
 # 2회씩(scripts/eval_agent.py, AI#41)으로 골랐다 — terra 36/36 · 다시 부름 0, luna 36/36 · 2, mini 32/36 · 문항 없는 지원을 confirm
 AGENT_DEFAULT_MODELS = "openai:gpt-6.1-terra,openai:gpt-6-luna,openai:gpt-5.4-mini"
+# 캡처 읽기(/parse-application `images`, S-92) — 이미지를 받는 모델만. 지금 쓰는 OpenAI 계열이 모두 이미지를 받는다.
+# 순서는 지어낸 캡처 8벌 2회씩(scripts/eval_capture.py, AI#121)으로 골랐다 — terra 문항 12/12 · 줄 33/33 · 만들어 낸 줄 0,
+# luna 12/12 · 32/33(가운뎃점 띄어쓰기 1줄) · 0, 자료 하나에 3 ~ 9초. terra 가 비싸다(자료당 약 $0.005 · luna $0.0006).
+# Gemini 는 키가 있을 때만 — 캡처로 채점하지 않았다
+DEFAULT_VISION_MODELS = "openai:gpt-6.1-terra,openai:gpt-6-luna,gemini:gemini-3.5-flash"
 
 
 @dataclass(frozen=True)
@@ -45,12 +50,17 @@ class Settings:
     route_models: tuple[tuple[str, str], ...]
     # /agent 에 쓰는 순서 — 규칙은 llm_models 와 같다
     agent_models: tuple[tuple[str, str], ...]
+    # /parse-application 캡처(images)에 쓰는 순서 — 이미지를 받는 모델만. 규칙은 llm_models 와 같다
+    vision_models: tuple[tuple[str, str], ...]
     # BE 제한 시간(제안 120초)보다 짧게 — 폴백 · 다시 시도까지 합친 전체 시간
     llm_timeout_seconds: float
     # 입구 셋(/route …) · /link-suggestions — 사용자가 기다리는 동기 호출. BE 제한 시간(AI_SYNC_TIMEOUT_SECONDS 60초)보다 짧게
     llm_sync_timeout_seconds: float
     # 동기 호출에서 모델 하나를 한 번 부를 때 제한 — 한 모델이 멈춰도 50초 안에 다음 모델로 넘어가게 짧게
     llm_sync_call_timeout_seconds: float
+    # 캡처(images) 읽기에서 모델 하나를 한 번 부를 때 제한 — 5장이면 terra 12 ~ 18초 · luna 18 ~ 20초+ 라(AI#121)
+    # 동기 20초보다 길게, 두 모델이 50초 안에 들어가게
+    llm_vision_call_timeout_seconds: float
     # 모델 하나를 한 번 부를 때 제한 시간 — 한 모델이 전체 시간을 다 먹지 않게
     llm_call_timeout_seconds: float
     # 차곡이 일 전체 — BE 가 끊는 시간(CHAGOK_TIMEOUT_SECONDS 120초)보다 짧게
@@ -85,9 +95,13 @@ def load_settings() -> Settings:
         match_models=parse_models(os.environ.get("MATCH_LLM_MODELS", DEFAULT_MATCH_MODELS)),
         route_models=parse_models(os.environ.get("ROUTE_LLM_MODELS", DEFAULT_ROUTE_MODELS)),
         agent_models=parse_models(os.environ.get("AGENT_LLM_MODELS", AGENT_DEFAULT_MODELS)),
+        vision_models=parse_models(os.environ.get("VISION_LLM_MODELS", DEFAULT_VISION_MODELS)),
         llm_timeout_seconds=float(os.environ.get("LLM_TIMEOUT_SECONDS", "100")),
         llm_sync_timeout_seconds=float(os.environ.get("LLM_SYNC_TIMEOUT_SECONDS", "50")),
         llm_sync_call_timeout_seconds=float(os.environ.get("LLM_SYNC_CALL_TIMEOUT_SECONDS", "20")),
+        llm_vision_call_timeout_seconds=float(
+            os.environ.get("LLM_VISION_CALL_TIMEOUT_SECONDS", "25")
+        ),
         llm_call_timeout_seconds=float(os.environ.get("LLM_CALL_TIMEOUT_SECONDS", "45")),
         agent_timeout_seconds=float(os.environ.get("AGENT_TIMEOUT_SECONDS", "110")),
         max_text_chars=int(os.environ.get("MAX_TEXT_CHARS", "50000")),

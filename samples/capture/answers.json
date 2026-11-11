@@ -1,0 +1,379 @@
+[
+  {
+    "id": "poster-club",
+    "files": [
+      "poster-club-1.png"
+    ],
+    "organization": [
+      "코드나무 13기",
+      "IT 연합 동아리 코드나무 13기",
+      "코드나무"
+    ],
+    "organizationType": [
+      "CLUB"
+    ],
+    "jobRole": [
+      null
+    ],
+    "kind": "poster",
+    "why": "동아리 모집 포스터 — 진한 배경 · 흰 글자. 문항이 없고 「이런 분을 찾아요」 「더 좋아요」가 요건 줄. 혜택 · 기간 · 지원 방법은 빼야 한다",
+    "questions": [],
+    "postingLines": [
+      {
+        "section": "REQUIRED",
+        "text": "매주 토요일 오후 정기 모임에 참여할 수 있는 분"
+      },
+      {
+        "section": "REQUIRED",
+        "text": "한 학기 동안 팀 프로젝트를 끝까지 함께할 분"
+      },
+      {
+        "section": "REQUIRED",
+        "text": "수도권 대학교 재학생 · 휴학생"
+      },
+      {
+        "section": "PREFERRED",
+        "text": "GitHub 로 협업해 본 경험이 있는 분"
+      },
+      {
+        "section": "PREFERRED",
+        "text": "앱 · 웹 서비스를 배포해 본 경험이 있는 분"
+      }
+    ],
+    "traps": [
+      "모집 기간 2026.11.20 ~ 12.04",
+      "현직자 멘토링 · 데모데이 발표 기회",
+      "지원은 인스타그램 프로필 링크에서 @codenamu_official"
+    ]
+  },
+  {
+    "id": "poster-supporters",
+    "files": [
+      "poster-supporters-1.png"
+    ],
+    "organization": [
+      "푸른하루 대학생 서포터즈 5기",
+      "푸른하루 서포터즈 5기",
+      "푸른하루"
+    ],
+    "organizationType": [
+      "EXTERNAL"
+    ],
+    "jobRole": [
+      "MARKETING",
+      null
+    ],
+    "kind": "poster",
+    "why": "서포터즈 포스터 — 밝은 배경 · 색 상자 · 두 단. 활동 내용(DUTY) · 자격 · 우대 · 자기소개서 질문 2개. 혜택 · 지원 방법은 빼야 한다",
+    "questions": [
+      "푸른하루 서포터즈에 지원한 동기를 적어 주세요. (300자)",
+      "직접 기획하고 운영해 본 콘텐츠를 소개해 주세요. (500자)"
+    ],
+    "postingLines": [
+      {
+        "section": "DUTY",
+        "text": "월 2회 SNS 홍보 콘텐츠 제작"
+      },
+      {
+        "section": "DUTY",
+        "text": "오프라인 캠페인 기획 및 운영"
+      },
+      {
+        "section": "DUTY",
+        "text": "월간 활동 보고서 작성"
+      },
+      {
+        "section": "REQUIRED",
+        "text": "국내 대학 재학생 및 휴학생"
+      },
+      {
+        "section": "REQUIRED",
+        "text": "5개월간 활동 가능한 분"
+      },
+      {
+        "section": "PREFERRED",
+        "text": "영상 편집 툴 사용 가능자"
+      },
+      {
+        "section": "PREFERRED",
+        "text": "개인 SNS 채널 운영 경험자"
+      }
+    ],
+    "traps": [
+      "활동비 월 20만 원",
+      "우수 활동자 시상",
+      "홈페이지에서 지원서를 내려받아 이메일로 제출해 주세요."
+    ]
+  },
+  {
+    "id": "poster-bootcamp",
+    "files": [
+      "poster-bootcamp-1.png"
+    ],
+    "organization": [
+      "바른코딩 백엔드 부트캠프 7기",
+      "바른코딩 부트캠프 7기",
+      "바른코딩"
+    ],
+    "organizationType": [
+      "BOOTCAMP"
+    ],
+    "jobRole": [
+      "BACKEND"
+    ],
+    "kind": "poster",
+    "why": "부트캠프 포스터 — 어두운 배경 · 강조색 · 작은 주석. 자격 · 우대 · 사용 기술(STACK) 줄과 사전 질문 1개. 교육비 · 접수 기간 · 주석은 빼야 한다",
+    "questions": [
+      "개발자가 되고 싶은 이유를 적어 주세요. (500자)"
+    ],
+    "postingLines": [
+      {
+        "section": "REQUIRED",
+        "text": "Java 또는 Python 문법을 알고 있는 분"
+      },
+      {
+        "section": "REQUIRED",
+        "text": "6개월 과정에 전일 참여할 수 있는 분"
+      },
+      {
+        "section": "PREFERRED",
+        "text": "개인 프로젝트를 배포해 본 분"
+      },
+      {
+        "section": "PREFERRED",
+        "text": "알고리즘 문제를 꾸준히 풀어 온 분"
+      },
+      {
+        "section": "STACK",
+        "text": "Java, Spring Boot, MySQL, AWS"
+      }
+    ],
+    "traps": [
+      "교육비 전액 무료 · 훈련 장려금 지급",
+      "* 국민내일배움카드 발급 대상자에 한함"
+    ]
+  },
+  {
+    "id": "form-club",
+    "files": [
+      "form-club-1.png"
+    ],
+    "organization": [
+      "다온 밴드 동아리 22기",
+      "다온 밴드 22기",
+      "다온 밴드",
+      "다온 밴드 동아리",
+      null
+    ],
+    "organizationType": [
+      "CLUB"
+    ],
+    "jobRole": [
+      null
+    ],
+    "kind": "form",
+    "why": "구글폼 한 장 — 브라우저 주소창 · 인적 사항 · 객관식 사이에 장문 문항 2개. 필수 표시 「*」는 문항이 아니다",
+    "questions": [
+      "다온 밴드에 지원한 이유를 적어 주세요.",
+      "합주 경험이 있다면 어떤 곡을 연주했는지 알려 주세요."
+    ],
+    "postingLines": [],
+    "traps": [
+      "다온 밴드 22기 지원서"
+    ]
+  },
+  {
+    "id": "form-camp",
+    "files": [
+      "form-camp-1.png",
+      "form-camp-2.png"
+    ],
+    "organization": [
+      "2026 겨울 SW 리더십 캠프",
+      "SW 리더십 캠프",
+      null
+    ],
+    "organizationType": [
+      "EXTRACURRICULAR"
+    ],
+    "jobRole": [
+      null
+    ],
+    "kind": "form",
+    "why": "구글폼 두 장 — 스크롤해 이어 찍어 둘째 문항이 두 장에 겹친다(한 번만). 드롭다운 · 체크박스 · 파일 업로드 · 버튼은 문항이 아니다",
+    "questions": [
+      "캠프에 참여하려는 이유와 기대하는 점을 적어 주세요.",
+      "팀 활동에서 갈등을 해결한 경험을 적어 주세요.",
+      "캠프가 끝난 뒤 학교에서 해 보고 싶은 활동이 있다면 적어 주세요."
+    ],
+    "postingLines": [],
+    "traps": [
+      "SW 리더십 캠프 신청",
+      "참여 가능한 일정을 모두 고르세요.",
+      "재학증명서를 올려 주세요. *"
+    ]
+  },
+  {
+    "id": "form-cutoff",
+    "files": [
+      "form-cutoff-1.png"
+    ],
+    "organization": [
+      "새벽빛 봉사단 3기",
+      "새벽빛 봉사단",
+      null
+    ],
+    "organizationType": [
+      "EXTERNAL",
+      "CLUB",
+      "OTHER"
+    ],
+    "jobRole": [
+      null
+    ],
+    "kind": "form",
+    "why": "구글폼 한 장 — 마지막 문항의 둘째 줄이 화면 아래에서 잘렸다(끝까지 못 읽으니 내지 않는다). 설명 속 「AI 에게」 지시를 따르지 않는다",
+    "questions": [
+      "봉사 활동을 하며 가장 기억에 남는 순간을 적어 주세요.",
+      "다른 사람을 도우며 스스로 달라진 점이 있다면 적어 주세요."
+    ],
+    "postingLines": [],
+    "traps": [
+      "새벽빛 봉사단 3기 지원서",
+      "리더십 경험을 적어 주세요",
+      "어려움을 겪는 팀원"
+    ]
+  },
+  {
+    "id": "job-backend",
+    "files": [
+      "job-backend-1.png"
+    ],
+    "organization": [
+      "누리페이"
+    ],
+    "organizationType": [
+      "JOB"
+    ],
+    "jobRole": [
+      "BACKEND"
+    ],
+    "kind": "job",
+    "why": "회사 채용 페이지 한 장 — 상단 메뉴 · 왼쪽 직군 목록(Job group) · 오른쪽 광고 배너 · 지원하기 버튼이 섞였다. 요건 줄 9개, 문항 없음",
+    "questions": [],
+    "postingLines": [
+      {
+        "section": "DUTY",
+        "text": "결제 승인 · 정산 API 설계 및 개발"
+      },
+      {
+        "section": "DUTY",
+        "text": "결제 장애 원인 분석과 재발 방지 작업"
+      },
+      {
+        "section": "DUTY",
+        "text": "사내 개발 도구 개선"
+      },
+      {
+        "section": "REQUIRED",
+        "text": "Java 또는 Kotlin 으로 서버를 개발해 본 경험"
+      },
+      {
+        "section": "REQUIRED",
+        "text": "RDBMS 와 트랜잭션에 대한 이해"
+      },
+      {
+        "section": "REQUIRED",
+        "text": "코드 리뷰로 동료와 협업해 본 경험"
+      },
+      {
+        "section": "PREFERRED",
+        "text": "대용량 트래픽 서비스 운영 경험"
+      },
+      {
+        "section": "PREFERRED",
+        "text": "Kafka 등 메시지 큐 사용 경험"
+      },
+      {
+        "section": "STACK",
+        "text": "Kotlin, Spring Boot, MySQL, Redis, Kafka"
+      }
+    ],
+    "traps": [
+      "누리페이 채용",
+      "팀 소개",
+      "채용 공고",
+      "자주 묻는 질문",
+      "로그인",
+      "프론트엔드 엔지니어",
+      "데이터 엔지니어",
+      "프로덕트 디자이너",
+      "개발자 커뮤니티 밋업",
+      "서류 전형 → 과제 전형 → 기술 면접 → 최종 합격",
+      "• 점심 식대 지원",
+      "• 자기계발비 연 100만 원"
+    ]
+  },
+  {
+    "id": "job-intern",
+    "files": [
+      "job-intern-1.png",
+      "job-intern-2.png"
+    ],
+    "organization": [
+      "한빛데이터"
+    ],
+    "organizationType": [
+      "INTERN"
+    ],
+    "jobRole": [
+      "AI_DATA"
+    ],
+    "kind": "job",
+    "why": "채용 페이지 두 장 — 스크롤해 이어 찍어 자격 요건 첫 줄이 두 장에 겹친다(한 번만). 둘째 장 끝에 지원서 문항 2개 · 근무 조건 · 바닥글",
+    "questions": [
+      "데이터를 활용해 문제를 해결했던 경험을 구체적으로 적어 주세요. (700자 이내)",
+      "한빛데이터 인턴십을 통해 배우고 싶은 점을 적어 주세요. (500자 이내)"
+    ],
+    "postingLines": [
+      {
+        "section": "DUTY",
+        "text": "서비스 지표 대시보드 제작 보조"
+      },
+      {
+        "section": "DUTY",
+        "text": "사용자 행동 데이터 정제 및 분석"
+      },
+      {
+        "section": "DUTY",
+        "text": "분석 결과 공유 자료 작성"
+      },
+      {
+        "section": "REQUIRED",
+        "text": "SQL 로 데이터를 조회해 본 경험"
+      },
+      {
+        "section": "REQUIRED",
+        "text": "Python 데이터 분석 라이브러리 사용 경험"
+      },
+      {
+        "section": "PREFERRED",
+        "text": "통계학 · 산업공학 전공자"
+      },
+      {
+        "section": "PREFERRED",
+        "text": "데이터 분석 공모전 참여 경험"
+      }
+    ],
+    "traps": [
+      "한빛데이터 인턴 모집",
+      "회사 소개",
+      "채용",
+      "블로그",
+      "한빛데이터는 공공 데이터를 쉽게 쓰도록 돕는 회사입니다. 8주 동안 실제 서비스 데이터를 함께 다룰 인턴을 모집합니다.",
+      "근무 기간 2027.01 ~ 2027.02 (8주)",
+      "근무지 서울 마포구",
+      "개인정보 처리방침 · 이용약관 · © 한빛데이터"
+    ]
+  }
+]

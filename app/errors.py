@@ -51,3 +51,17 @@ class UrlBlocked(UrlError):
 
 class UrlUnreadable(UrlError):
     code = "URL_UNREADABLE"
+
+
+class InvalidImage(ApiError):
+    """캡처(S-92) 장 수 · 형식 · 크기. message 에 이미지 데이터를 싣지 않는다."""
+
+    status = 400
+    code = "INVALID_IMAGE"
+
+
+class ImageUnreadable(ApiError):
+    """캡처에서 글자를 거의 못 읽음. message 는 화면에 그대로 보인다(BE 가 넘긴다)."""
+
+    status = 422
+    code = "IMAGE_UNREADABLE"

@@ -78,6 +78,13 @@ def get_route_llm() -> JsonLLM:
 
 
 @lru_cache
+def get_vision_llm() -> JsonLLM:
+    # /parse-application 캡처(S-92) — 이미지를 받는 모델 순서, 시간은 동기 호출(50초)
+    settings = get_settings()
+    return build_llm(settings, settings.vision_models, settings.llm_vision_call_timeout_seconds)
+
+
+@lru_cache
 def get_sync_match_llm() -> JsonLLM:
     # /link-suggestions · /ask · /guidelines — 모델은 매칭과 같은 순서, 시간은 동기 호출(계약 — 50초 안에 답하거나 LLM_TIMEOUT)
     settings = get_settings()
@@ -106,7 +113,9 @@ async def _api_error(_: Request, exc: ApiError) -> JSONResponse:
 
 @app.exception_handler(RequestValidationError)
 async def _invalid_request(_: Request, exc: RequestValidationError) -> JSONResponse:
-    return _error(400, "INVALID_REQUEST", f"요청 모양이 맞지 않습니다: {exc.errors()[:1]}")
+    # 받은 값(input)은 빼고 위치 · 이유만 — 캡처 base64 · 사용자 글이 응답 · BE 로그로 새지 않게(S-92)
+    first = [{k: v for k, v in e.items() if k != "input"} for e in exc.errors()[:1]]
+    return _error(400, "INVALID_REQUEST", f"요청 모양이 맞지 않습니다: {first}")
 
 
 @app.exception_handler(Exception)
@@ -178,9 +187,10 @@ async def post_route(
 async def post_parse_application(
     req: ParseApplicationRequest,
     llm: Annotated[JsonLLM, Depends(get_route_llm)],
+    vision_llm: Annotated[JsonLLM, Depends(get_vision_llm)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> ParseApplicationResponse:
-    return await parse_application(req, llm, settings)
+    return await parse_application(req, llm, settings, vision_llm=vision_llm)
 
 
 @app.post("/link-suggestions", response_model=LinkSuggestionsResponse)
