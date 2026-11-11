@@ -10,12 +10,16 @@ null 로 바꿔 「같은 활동 없음」처럼 보이게 하지 않는다. 판
 활동에 자료 더하기(F-01 / S-60): targetActivityId 가 있을 때만 규칙 13(TARGET_RULE) · <대상 활동> 을 더한다 —
 대상이 없으면 프롬프트가 한 글자도 달라지지 않아 S-44 판단이 그대로다. 응답 모양은 같다(대상 id 도 sameAsActivityId).
 
+작업 로그 묶기(AI#109 · AI#113): 자료 글에 FE 의 GitHub 가져오기(S-64) 절 제목이 있을 때만 규칙 14(WORK_LOG_RULE)를
+더한다 — 커밋 제목 줄을 같은 일끼리 경험 하나로 묶는다. 다른 자료(이력 목록 · 회고 · 붙여 넣은 커밋 메모)엔 붙지 않는다.
+
 활동 분류(S-57): 활동마다 category 하나 또는 null 을 같은 호출로 받는다. 원문 사실이 아니라 AI 해석이다.
 목록 밖 값은 app.schemas.LLMActivity 가 막아 다시 부른 뒤 LLM_INVALID_OUTPUT — null 로 바꾸지 않는다.
 """
 
 import copy
 import logging
+import re
 from typing import Any
 
 from app.citations import SourceIndex
@@ -81,15 +85,6 @@ SYSTEM_PROMPT = """\
    단순한 소개 · 기술 목록 · 일정만 있는 문장은 경험이 아니다.
    링크 · 노트 제목 · 파일 이름만 있는 줄(「[[…회고]]」「지원서: [[…]]」「수료증.pdf」)도 경험이 아니다 —
    그 활동이 있었다는 단서일 뿐, 거기서 무슨 일을 했는지는 적혀 있지 않다.
-   작업 로그(커밋 제목 · PR 제목 · 날짜별 할 일처럼 짧은 줄이 이어진 목록)는 줄 하나를 경험 하나로 옮기지 않는다:
-   - 같은 일(같은 기능 · 같은 문제 · 같은 작업을 고치거나 다시 시도하거나 확인한 줄)을 말하는 줄들은 경험 하나로 묶고,
-     그 줄들을 quotes 에 하나씩 따로 붙인다. 커밋과 그 일의 PR 도 같은 일이다.
-   - 무엇을 했는지 알 수 없는 줄(「수정」「fix」「try」「오타」「init」「readme 수정」, 파일 · 설정 · 클래스 이름 + 수정 ·
-     작업 · 점검)은 홀로 경험이 되지 않는다. 같은 일을 말하는 다른 줄이 있으면 그 경험의 quotes 로만 붙이고, 없으면 버린다.
-   - 서로 다른 일(다른 기능 · 다른 문제)은 줄이 짧아도 따로 둔다. 묶은 줄 수를 content 에 쓰지 않는다.
-   - 이력서처럼 활동 이름 · 기간만 적힌 목록(「2024.12 SQLD 자격증 취득」)은 작업 로그가 아니다 — 9번을 따른다.
-   - 묶기는 작업 로그에만 한다. 문장으로 쓴 글(회고 · 노트 · README 본문)은 위 첫 줄대로 한 가지 일씩 나눈다.
-     수행 주체(4번)가 다를 수 있는 줄은 묶지 않는다.
 3. 지어내지 않는다: content 는 원문에 적힌 사실로만 쓴다.
    원문에 없는 수치 · 역할 · 결과 · 기술 이름 · 평가(「성공적으로」「크게 기여」「효율을 높였다」)를 더하지 않는다.
    원문에 수치가 없으면 content 에도 수치가 없다. 원문에 결과가 없으면 결과를 쓰지 않는다.
@@ -304,6 +299,28 @@ def check_request(req: ExtractRequest, settings: Settings) -> str:
     return req.text
 
 
+# GitHub 가져오기 자료(S-64)에만 SYSTEM_PROMPT 뒤에 붙인다(AI#113). 늘 붙어 있을 땐 이력 목록 · 회고로 번져
+# UNKNOWN 문장을 ME 경험에 묶었다(AI#109). 알아보는 법은 FE 가 자료 글에 쓰는 절 제목 —
+# 서로 맞물림: FE src/lib/source-file/github.ts 의 「## 내가 쓴 커밋 제목」 · 「## 내가 연 PR 제목」
+WORK_LOG_MARK = re.compile(r"^## 내가 (?:쓴 커밋|연 PR) 제목", re.MULTILINE)
+WORK_LOG_RULE = """\
+14. 작업 로그(2번에 더한다): 이 자료는 GitHub 레포에서 가져온 것이다. 「내가 쓴 커밋 제목」 · 「내가 연 PR 제목」 절 같은
+   작업 로그(커밋 제목 · PR 제목 · 날짜별 할 일처럼 짧은 줄이 이어진 목록)는 줄 하나를 경험 하나로 옮기지 않는다:
+   - 같은 일(같은 기능 · 같은 문제 · 같은 작업을 고치거나 다시 시도하거나 확인한 줄)을 말하는 줄들은 경험 하나로 묶고,
+     그 줄들을 quotes 에 하나씩 따로 붙인다. 커밋과 그 일의 PR 도 같은 일이다.
+   - 무엇을 했는지 알 수 없는 줄(「수정」「fix」「try」「오타」「init」「readme 수정」, 파일 · 설정 · 클래스 이름 + 수정 ·
+     작업 · 점검)은 홀로 경험이 되지 않는다. 같은 일을 말하는 다른 줄이 있으면 그 경험의 quotes 로만 붙이고, 없으면 버린다.
+   - 서로 다른 일(다른 기능 · 다른 문제)은 줄이 짧아도 따로 둔다. 묶은 줄 수를 content 에 쓰지 않는다.
+   - 이력서처럼 활동 이름 · 기간만 적힌 목록(「2024.12 SQLD 자격증 취득」)은 작업 로그가 아니다 — 9번을 따른다.
+   - 묶기는 작업 로그에만 한다. 문장으로 쓴 글(회고 · 노트 · README 본문)은 2번 첫 줄대로 한 가지 일씩 나눈다.
+     수행 주체(4번)가 다를 수 있는 줄은 묶지 않는다.
+"""
+
+
+def is_work_log(text: str) -> bool:
+    return WORK_LOG_MARK.search(text) is not None
+
+
 def _target(req: ExtractRequest) -> ExistingActivity | None:
     return next((a for a in req.existingActivities if a.id == req.targetActivityId), None)
 
@@ -318,6 +335,8 @@ async def extract(
     user = build_user_message(req.sourceName, text, existing, target)
     if target is not None:
         system += TARGET_RULE
+    if is_work_log(text):
+        system += WORK_LOG_RULE
 
     def parse(raw: str) -> LLMOutput:
         return check_output(LLMOutput.model_validate_json(raw), existing)
