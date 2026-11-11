@@ -48,7 +48,10 @@ from app.schemas import (
     PostingMatchResponse,
     RouteRequest,
     RouteResponse,
+    StarRequest,
+    StarResponse,
 )
+from app.star import star
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("app")
@@ -158,6 +161,16 @@ async def post_posting_match(
 ) -> PostingMatchResponse:
     # BE 비동기 작업이 부른다 — 모델 순서 · 시간은 /match 와 같다(계약)
     return await posting_match(req, llm, settings)
+
+
+@app.post("/star", response_model=StarResponse)
+async def post_star(
+    req: StarRequest,
+    llm: Annotated[JsonLLM, Depends(get_match_llm)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> StarResponse:
+    # BE 가 새 자료 분석 뒤 · 「STAR 로 정리」에서 부른다 — 모델 순서 · 시간은 /match 와 같다(계약)
+    return await star(req, llm, settings)
 
 
 @app.post("/ground-check", response_model=GroundCheckResponse)

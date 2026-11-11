@@ -686,3 +686,59 @@ class LLMPostingMatchOutput(BaseModel):
 
 class PostingMatchResponse(LLMPostingMatchOutput):
     model: str | None
+
+
+# ==== POST /star — ETC docs/contracts/ai-api.md 「POST /star」(S-95) ====
+
+StarSlotName = Literal["S", "T", "A", "R"]
+STAR_SLOTS: tuple[str, ...] = get_args(StarSlotName)
+
+
+# 개수(1 ~ 30) · 경험 id 중복 · 글자 수는 app/star.py check_request 가 본다
+class StarExperience(BaseModel):
+    id: int
+    content: str
+    actor: Actor
+    competencies: list[str] = []
+    citations: list[MatchCitation] = []
+    supplements: list[MatchSupplement] = []
+
+
+class StarRequest(BaseModel):
+    experiences: list[StarExperience] | None = None
+
+
+class StarSlot(BaseModel):
+    slot: StarSlotName
+    sourceType: EvidenceType | None
+    sourceId: int | None
+    text: str | None
+    question: str | None
+
+
+class StarExperienceSlots(BaseModel):
+    id: int
+    slots: list[StarSlot]
+
+
+class StarResponse(BaseModel):
+    experiences: list[StarExperienceSlots]
+    model: str | None
+
+
+# LLM 이 내는 모양 — 칸 하나하나는 느슨하게 받는다. 칸 규칙은 app/star.py 가 보고, 끝까지 어긴 칸만 빈칸으로 내린다
+class LLMStarSlot(BaseModel):
+    slot: str
+    sourceType: str | None = None
+    sourceId: int | None = None
+    text: str | None = None
+    question: str | None = None
+
+
+class LLMStarExperience(BaseModel):
+    id: int
+    slots: list[LLMStarSlot]
+
+
+class LLMStarOutput(BaseModel):
+    experiences: list[LLMStarExperience]
