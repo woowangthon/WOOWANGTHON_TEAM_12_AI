@@ -41,6 +41,8 @@ samples/match/questions.json(문항마다 손으로 적은 정답). 정답 칸:
 - 본문 되풀이(후보): emphasis 낱말의 70% 이상이 그 경험의 활동 · 본문에 있는 추천 수 / 추천 수. 조사 · 어미가 붙어도
   같은 낱말로 치고(「목록」 ↔ 「목록을」 · 「조율」 ↔ 「조율했다」), 「행동 · 과정 · 부분」 같은 꼴 낱말과 한 글자 낱말은 뺀다
   — 「공연장 대관 일정 조율」 「…을 바꾼 행동」 꼴. 「재구성 ↔ 다시 짰다」 같은 말 바꾸기는 못 거른다
+- 이유 본문 되풀이(후보): reason 에 같은 기준을 쓰거나, 「…한 경험입니다.」 한 문장뿐인 추천 수(AI#107) — 문항과 잇는 말이 없는 꼴.
+  「경험입니다 · 있습니다」 같은 끝말도 꼴 낱말로 뺀다
 - 문항마다 같음(후보): 한 실행에서 같은 경험이 두 문항에 추천됐을 때 짧은 쪽 emphasis 낱말의 60% 이상이 다른 쪽에 있는 쌍
   / 그런 쌍
   — S-21 「문항마다 다른 각도」를 어겼나 본다. 낱말로 거른 것이라 목록(문항별 강조점)을 사람이 읽는다
@@ -151,6 +153,7 @@ class Score:
     ask_other: list[str] = field(default_factory=list)
     emph_echo: list[str] = field(default_factory=list)
     emph_by_exp: dict[int, list[tuple[str, str]]] = field(default_factory=dict)
+    reason_echo: list[str] = field(default_factory=list)
 
     def add(self, other: "Score") -> None:
         for name, value in vars(other).items():
@@ -192,7 +195,22 @@ FILLER = {
     "통해",
     "위한",
     "위해",
+    # 이유(reason) 끝말 — 「…한 경험입니다」(AI#107)
+    "경험입니다",
+    "경험으로",
+    "입니다",
+    "있습니다",
+    "사례입니다",
+    "경험이다",
 }
+
+# 「…한 경험입니다.」 한 문장으로 끝나는 이유 — 문항과 잇는 말이 없는 꼴(AI#107)
+BARE_REASON = re.compile(r"^[^.]*(?:경험|사례|일)(?:입니다|이다)\.?$")
+
+
+def bare_reason(reason: str, exp: MatchExperience) -> bool:
+    """이유가 본문 되풀이거나, 「…한 경험입니다」 한 문장뿐이다(후보)."""
+    return echoes_body(reason, exp) or bool(BARE_REASON.match(reason.strip()))
 
 
 def _content_words(text: str) -> list[str]:
@@ -317,6 +335,8 @@ def score(
         if echoes_body(rec.emphasis, exp):
             s.emph_echo.append(f"{qid}: 경험 {exp.id} 「{rec.emphasis}」 ← 본문 「{exp.content}」")
         s.emph_by_exp.setdefault(exp.id, []).append((qid, rec.emphasis))
+        if bare_reason(rec.reason, exp):
+            s.reason_echo.append(f"{qid}: 경험 {exp.id} 「{rec.reason}」 ← 본문 「{exp.content}」")
         if exp.supplements:
             s.supplement_recs += 1
             s.supplement_used += any(e.type == "SUPPLEMENT" for e in rec.evidence)
@@ -540,12 +560,14 @@ def report(
             ]
             same = [p for p in pairs if same_angle(p[1][1], p[2][1])]
             emph_rows.append(
-                f"| {name} | {len(t.emph_echo)}/{t.rec_count} | {len(same)}/{len(pairs)} |"
+                f"| {name} | {len(t.emph_echo)}/{t.rec_count} | {len(same)}/{len(pairs)} "
+                f"| {len(t.reason_echo)}/{t.rec_count} |"
             )
             lines = [
                 *(f"- 정답 밖(후보) {x}" for x in t.unlabeled),
                 *(f"- 활동 통째(후보) {x}" for x in t.whole_activity),
                 *(f"- 본문 되풀이(후보) {x}" for x in t.emph_echo),
+                *(f"- 이유 본문 되풀이(후보) {x}" for x in t.reason_echo),
                 *(
                     f"- 문항마다 같음(후보) 경험 {e}: {a[0]} 「{a[1]}」 · {b[0]} 「{b[1]}」"
                     for e, a, b in same
@@ -583,8 +605,9 @@ def report(
         "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
     )
     emph_head = (
-        "| 모델 · 프롬프트 | 강조점 본문 되풀이(후보) | 같은 경험 · 문항마다 같음(후보) |\n"
-        "| --- | --- | --- |"
+        "| 모델 · 프롬프트 | 강조점 본문 되풀이(후보) | 같은 경험 · 문항마다 같음(후보) "
+        "| 이유 본문 되풀이(후보) |\n"
+        "| --- | --- | --- | --- |"
     )
     type_head = "| 모델 · 프롬프트 | 문항 유형 정답 | 허용 포함 | 오류 |\n| --- | --- | --- | --- |"
     count_head = (

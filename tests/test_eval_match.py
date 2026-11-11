@@ -293,3 +293,22 @@ def test_score_collects_emphasis_by_experience():
     )
     s = score(q, EXPS, data)
     assert s.emph_by_exp == {101: [("tech-problem", "가")]}
+
+
+def test_bare_reason_catches_restated_experience():
+    # 이유 본문 되풀이(AI#107) — 「…한 경험입니다」 한 문장 · 본문 되풀이는 걸리고, 문항과 잇는 이유는 안 걸린다
+    from scripts.eval_match import bare_reason
+
+    exp = _exp(
+        "중간 발표 전 일정이 밀리자 남은 기능을 꼭 할 것과 미룰 것으로 나눠 일정표를 다시 짰다"
+    )
+    assert bare_reason(
+        "일정이 밀린 상황에서 기능의 우선순위를 나누고 일정표를 다시 짠 경험입니다.", exp
+    )
+    assert bare_reason(
+        "스터디 참여가 줄어든 뒤 출석 체크를 바꾼 경험이다.", _exp("출석 체크를 바꿨다")
+    )
+    assert not bare_reason(
+        "일정이 밀리자 기능을 나눈 판단이 팀 일정 조율을 보여 줍니다. 다만 팀원과 맞춘 방식은 자료에 없습니다.",
+        exp,
+    )
