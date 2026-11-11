@@ -1,0 +1,165 @@
+[
+  {
+    "id": "failure-ended",
+    "organization": null,
+    "text": "목표를 이루지 못하고 실패로 끝난 경험에서 본인이 한 노력과 배운 점을 적어 주세요.",
+    "kind": "match",
+    "questionType": "FAILURE",
+    "questionTypeOk": [],
+    "asksMyRole": true,
+    "pool": [
+      801,
+      802
+    ],
+    "good": [
+      801
+    ],
+    "ok": [
+      802
+    ],
+    "bad": [],
+    "materialAskPatterns": {
+      "801": "배웠|배운|배움|깨달|교훈|다음.*(기준|주의|다르)|돌아보",
+      "802": "배웠|배운|배움|깨달|교훈|다음.*(기준|주의|다르)|돌아보"
+    },
+    "eventualSuccess": [
+      802
+    ]
+  },
+  {
+    "id": "failure-learning",
+    "organization": null,
+    "text": "실패한 경험과 그 실패에서 배운 점을 적어 주세요.",
+    "kind": "match",
+    "questionType": "FAILURE",
+    "questionTypeOk": [],
+    "asksMyRole": true,
+    "pool": [
+      802,
+      803,
+      804,
+      805
+    ],
+    "good": [
+      803
+    ],
+    "ok": [
+      802,
+      804,
+      805
+    ],
+    "bad": [],
+    "materialAskPatterns": {
+      "803": "배웠|배운|배움|깨달|교훈|다음.*(기준|주의|다르)|돌아보",
+      "802": "배웠|배운|배움|깨달|교훈|다음.*(기준|주의|다르)|돌아보",
+      "804": "배웠|배운|배움|깨달|교훈|다음.*(기준|주의|다르)|돌아보",
+      "805": "배웠|배운|배움|깨달|교훈|다음.*(기준|주의|다르)|돌아보|업무|분담|맡.*(일|부분|작업)|담당.*(일|부분|작업)|직접.*(일|부분|작업)|어떤 일"
+    },
+    "eventualSuccess": [
+      802
+    ]
+  },
+  {
+    "id": "collaboration-work",
+    "organization": null,
+    "text": "전시회를 함께 준비하면서 공동 목표를 위해 협업한 경험을 적어 주세요.",
+    "kind": "match",
+    "questionType": "COLLABORATION",
+    "questionTypeOk": [],
+    "asksMyRole": true,
+    "pool": [
+      811,
+      821
+    ],
+    "good": [
+      811
+    ],
+    "ok": [
+      821
+    ],
+    "bad": [],
+    "materialAskPatterns": {
+      "811": "업무|분담|맡.*(일|부분|작업)|담당.*(일|부분|작업)|직접.*(일|부분|작업)|어떤 일",
+      "821": "업무|분담|맡.*(일|부분|작업)|담당.*(일|부분|작업)|직접.*(일|부분|작업)|어떤 일"
+    },
+    "eventualSuccess": []
+  },
+  {
+    "id": "collaboration-title",
+    "organization": null,
+    "text": "팀 프로젝트에서 공동 목표를 위해 협업한 경험과 맡은 역할을 적어 주세요.",
+    "kind": "match",
+    "questionType": "COLLABORATION",
+    "questionTypeOk": [],
+    "asksMyRole": true,
+    "pool": [
+      813,
+      814,
+      824
+    ],
+    "good": [
+      813,
+      814
+    ],
+    "ok": [
+      824
+    ],
+    "bad": [],
+    "materialAskPatterns": {
+      "813": "업무|분담|맡.*(일|부분|작업)|담당.*(일|부분|작업)|직접.*(일|부분|작업)|어떤 일",
+      "814": "업무|분담|맡.*(일|부분|작업)|담당.*(일|부분|작업)|직접.*(일|부분|작업)|어떤 일",
+      "824": "업무|분담|맡.*(일|부분|작업)|담당.*(일|부분|작업)|직접.*(일|부분|작업)|어떤 일"
+    },
+    "eventualSuccess": []
+  },
+  {
+    "id": "conflict-perspective",
+    "organization": null,
+    "text": "팀 안에서 의견 갈등을 조율한 경험을 적어 주세요.",
+    "kind": "match",
+    "questionType": "CONFLICT",
+    "questionTypeOk": [],
+    "asksMyRole": true,
+    "pool": [
+      821,
+      823
+    ],
+    "good": [
+      821
+    ],
+    "ok": [
+      823
+    ],
+    "bad": [],
+    "materialAskPatterns": {
+      "821": "상대|다른 팀원|팀원.*(입장|걱정|중요|원했)|서로|양쪽|함께 받아|대안|절충",
+      "823": "상대|다른 팀원|팀원.*(입장|걱정|중요|원했)|서로|양쪽|함께 받아|대안|절충"
+    },
+    "eventualSuccess": []
+  },
+  {
+    "id": "conflict-alternative",
+    "organization": null,
+    "text": "팀 안에서 업무 방식에 관한 의견 차이를 해결한 경험을 적어 주세요.",
+    "kind": "match",
+    "questionType": "CONFLICT",
+    "questionTypeOk": [],
+    "asksMyRole": true,
+    "pool": [
+      822,
+      824
+    ],
+    "good": [
+      822
+    ],
+    "ok": [
+      824
+    ],
+    "bad": [],
+    "materialAskPatterns": {
+      "822": "상대|다른 팀원|팀원.*(입장|걱정|중요|원했)|서로|양쪽|함께 받아|대안|절충",
+      "824": "상대|다른 팀원|팀원.*(입장|걱정|중요|원했)|서로|양쪽|함께 받아|대안|절충"
+    },
+    "eventualSuccess": []
+  }
+]

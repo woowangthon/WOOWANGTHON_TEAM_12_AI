@@ -6,6 +6,8 @@
     uv run python scripts/eval_match.py --variants with    # 보완을 뺀 자료 · 유형만 보는 문항은 돌리지 않음
     uv run python scripts/eval_match.py --variants types   # 문항 유형(S-41)만 — 자주 나오는 꼴 문항
     uv run python scripts/eval_match.py --prompts tuned --runs 2   # 같은 문항을 두 번씩 — 칸에 회차별 `a · b`
+    uv run python scripts/eval_match.py --data samples/match-materials --prompts tuned --variants with --runs 2
+    uv run python scripts/eval_match.py --system-prompt-file eval-runs/before-system.txt --prompts tuned
     uv run python scripts/eval_match.py --rescore eval-runs/match-<시각>   # 저장한 응답만 다시 채점(LLM 안 부름)
     uv run python scripts/eval_match.py --env ../다른-클론/.env         # 키를 다른 .env 에서(worktree)
 
@@ -156,6 +158,12 @@ class Score:
     emph_echo: list[str] = field(default_factory=list)
     emph_by_exp: dict[int, list[tuple[str, str]]] = field(default_factory=dict)
     reason_echo: list[str] = field(default_factory=list)
+    material_questions: int = 0
+    material_covered: int = 0
+    material_asks: int = 0
+    material_followed: int = 0
+    success_first: list[str] = field(default_factory=list)
+    material_missed: list[str] = field(default_factory=list)
 
     def add(self, other: "Score") -> None:
         for name, value in vars(other).items():
@@ -392,6 +400,20 @@ def score(
             s.share_asked += any(
                 c.experienceId == exp.id and SHARE.search(c.question) for c in clars
             )
+    # 소재 규칙(AI#124): 정규식 일치도 후보일 뿐, 질문 전체를 사람이 읽는다.
+    if "materialAskPatterns" in question:
+        s.material_questions = 1
+        patterns = question["materialAskPatterns"]
+        s.material_asks = len(clars)
+        for c in clars:
+            pattern = patterns.get(str(c.experienceId))
+            if pattern and re.search(pattern, c.question):
+                s.material_followed += 1
+            else:
+                s.material_missed.append(f"{qid}: 경험 {c.experienceId} 「{c.question}」")
+        s.material_covered = int(s.material_followed > 0)
+        if ids and ids[0] in question.get("eventualSuccess", ()):
+            s.success_first.append(f"{qid}: {ids[0]}")
     return s
 
 
@@ -460,7 +482,8 @@ async def run(
 
     async def one(model: str, prompt: str, variant: str, n: int, q: dict) -> None:
         settings, llm = clients[model]
-        exps = strip_supplements(experiences) if variant == "without" else experiences
+        pool = [e for e in experiences if e["id"] in q["pool"]] if "pool" in q else experiences
+        exps = strip_supplements(pool) if variant == "without" else pool
         req = MatchRequest.model_validate(
             {
                 "question": {"organization": q["organization"], "text": q["text"]},
@@ -504,7 +527,15 @@ def report(
     out: Path, experiences: list[dict], questions: list[dict], type_questions: list[dict]
 ) -> str:
     known = load_known()
-    rows, clar_rows, type_rows, count_rows, emph_rows, details = [], [], [], [], [], []
+    rows, clar_rows, type_rows, count_rows, emph_rows, material_rows, details = (
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+    )
     for model_dir in sorted(p for p in out.iterdir() if p.is_dir()):
         for prompt_dir in sorted(p for p in model_dir.iterdir() if p.is_dir()):
             for suffix, run_dir in run_dirs(prompt_dir):
@@ -576,7 +607,14 @@ def report(
                     f"| {name} | {len(t.emph_echo)}/{t.rec_count} | {len(same)}/{len(pairs)} "
                     f"| {len(t.reason_echo)}/{t.rec_count} |"
                 )
+                if t.material_questions:
+                    material_rows.append(
+                        f"| {name} | {len(t.success_first)} | {t.material_followed}/{t.material_asks} "
+                        f"| {t.material_covered}/{t.material_questions} |"
+                    )
                 lines = [
+                    *(f"- 결국 성공 1순위 {x}" for x in t.success_first),
+                    *(f"- 소재 질문 불일치(후보) {x}" for x in t.material_missed),
                     *(f"- 정답 밖(후보) {x}" for x in t.unlabeled),
                     *(f"- 활동 통째(후보) {x}" for x in t.whole_activity),
                     *(f"- 본문 되풀이(후보) {x}" for x in t.emph_echo),
@@ -635,6 +673,11 @@ def report(
             [emph_head, *merge_runs(emph_rows)],
             [clar_head, *merge_runs(clar_rows)],
             [type_head, *merge_runs(type_rows)],
+            [
+                "| 모델 · 프롬프트 | 결국 성공 경험이 실패 문항 1순위 | 소재 질문 일치(후보) | 소재 질문 있는 문항 |\n"
+                "| --- | --- | --- | --- |",
+                *merge_runs(material_rows),
+            ],
         )
         if len(t) > 1
     )
@@ -642,7 +685,12 @@ def report(
 
 
 def main() -> None:
+    global DATA
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--data", type=Path, default=DATA, help="시험 자료 폴더(기본 samples/match)"
+    )
+    parser.add_argument("--system-prompt-file", type=Path, help="전후 비교용 tuned 프롬프트 파일")
     parser.add_argument("--models", help="쉼표로 「제공사:모델」 — 기본은 MATCH_LLM_MODELS 첫 모델")
     parser.add_argument("--prompts", default="tuned,generic", help="tuned · generic")
     parser.add_argument(
@@ -657,6 +705,9 @@ def main() -> None:
     parser.add_argument("--env", type=Path, default=ROOT / ".env", help="키를 읽을 .env")
     args = parser.parse_args()
 
+    DATA = args.data
+    if args.system_prompt_file:
+        PROMPTS["tuned"] = args.system_prompt_file.read_text(encoding="utf-8")
     only = args.questions.split(",") if args.questions else None
     experiences, questions = load_data(only)
     type_questions = load_types(only)
