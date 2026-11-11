@@ -1,5 +1,6 @@
 """매칭 시험 자료(samples/match)와 채점 — LLM 없이."""
 
+import json
 import re
 
 import pytest
@@ -358,6 +359,48 @@ def test_material_score_empty_questions_do_not_count_as_coverage():
     result = score(q, EXPS, data)
     assert (result.material_followed, result.material_asks) == (0, 0)
     assert (result.material_covered, result.material_questions) == (0, 1)
+
+
+@pytest.mark.parametrize(
+    "question, follows",
+    [
+        ("제출 마감을 넘겨 참가하지 못한 경험에서 무엇을 배우셨나요?", True),
+        ("첫 시연에서 앱이 멈춘 경험을 통해 무엇을 배우셨나요?", True),
+        ("제출하지 못한 경험에서 배우신 점은 무엇인가요?", True),
+        ("시연 실패에서 배운 점은 무엇인가요?", True),
+        ("그 실패에서 무엇을 배웠나요?", True),
+        ("그 실패의 교훈은 무엇인가요?", True),
+        ("그 대회는 언제 열렸나요?", False),
+        ("마감을 넘겼다는 것을 어떻게 확인했나요?", False),
+        ("발표 자료를 어떻게 압축하셨나요?", False),
+        ("다음 대회에서는 어떤 기술을 배우고 싶으신가요?", False),
+        ("그 공연에서 배우로 출연하셨나요?", False),
+    ],
+)
+def test_material_learning_patterns_score_polite_forms_without_broadening(question, follows):
+    from scripts import eval_match
+
+    material_dir = eval_match.ROOT / "samples" / "match-materials"
+    experiences = [
+        MatchExperience.model_validate(e)
+        for e in json.loads((material_dir / "experiences.json").read_text(encoding="utf-8"))
+    ]
+    questions = json.loads((material_dir / "questions.json").read_text(encoding="utf-8"))
+    # 실제 정답 자료와 score 집계까지 통과시켜, 실패 두 문항의 경험 모두를 확인한다.
+    for q in questions:
+        if q["questionType"] != "FAILURE":
+            continue
+        for exp_id in map(int, q["materialAskPatterns"]):
+            response = _response(
+                [("실패", "PARTIAL", [exp_id])],
+                [_rec(exp_id, "r")],
+                [(exp_id, question)],
+                exps=experiences,
+            )
+            result = score(q, experiences, response)
+            assert (result.material_followed, result.material_asks) == (int(follows), 1)
+            assert (result.material_covered, result.material_questions) == (int(follows), 1)
+            assert len(result.material_missed) == int(not follows)
 
 
 @pytest.mark.parametrize("job_context", [True, False])
