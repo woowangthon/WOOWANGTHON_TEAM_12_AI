@@ -721,7 +721,13 @@ async def run(
     from dotenv import load_dotenv
 
     from app.config import load_settings, parse_models
-    from app.draft import build_draft_message, check_output, check_request, schema_for
+    from app.draft import (
+        build_draft_message,
+        check_output,
+        check_request,
+        schema_for,
+        system_prompt,
+    )
     from app.errors import ApiError
     from app.llm import build_llm, generate_valid
     from app.schemas import DraftRequest
@@ -756,7 +762,7 @@ async def run(
             try:
                 got = await generate_valid(
                     llm,
-                    PROMPTS[prompt],
+                    system_prompt(q, exps, gs, ctx) if prompt == "tuned" else PROMPTS[prompt],
                     build_draft_message(q, exps, gs, ctx),
                     schema_for(gs),
                     parse,
