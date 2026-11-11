@@ -1,0 +1,29 @@
+{
+  "activities": [
+    {
+      "name": "recipe-box",
+      "category": ["PROJECT"],
+      "keys": ["recipe-box"],
+      "experiences": [
+        { "anchor": "query n+1 문제 해결 (fetch join)", "actor": ["ME"] },
+        { "anchor": "db schema 오류 발견 — 재료 테이블 FK 누락", "actor": ["ME"] },
+        { "anchor": "ec2 배포", "actor": ["ME"] },
+        { "anchor": "rds 적용", "actor": ["ME"] },
+        { "anchor": "jwt 로그인 구현", "actor": ["ME"] },
+        { "anchor": "레시피 검색 api — 재료 여러 개로 찾기", "actor": ["ME"] },
+        { "anchor": "s3 이미지 업로드", "actor": ["ME"] },
+        { "anchor": "북마크 추가 api", "actor": ["ME"] },
+        { "anchor": "레시피 서비스 단위 테스트 추가", "actor": ["ME"] },
+        { "anchor": "카카오 로그인 연동", "actor": ["ME"], "optional": true },
+        { "anchor": "재료 이름 정규화 (공백, 단위 제거)", "actor": ["ME"], "optional": true },
+        { "anchor": "레시피 entity 설계", "actor": ["ME"], "optional": true },
+        { "anchor": "예외 처리 핸들러", "actor": ["ME"], "optional": true },
+        { "anchor": "공통 응답 형식 추가", "actor": ["ME"], "optional": true }
+      ]
+    }
+  ],
+  "notExperiences": [
+    "Spring Boot · MySQL · React",
+    "팀원 4명 (프론트 2, 백엔드 2)"
+  ]
+}
