@@ -610,11 +610,49 @@ def test_none_answer_rule_only_for_none_like_supplements(client_with, answer, at
 
 
 def test_optional_rules_order(client_with):
-    from app.match import ASKED_RULE, JOB_CONTEXT_RULE, NONE_ANSWER_RULE, SYSTEM_PROMPT
+    from app.match import (
+        ASKED_RULE,
+        JOB_CONTEXT_RULE,
+        NONE_ANSWER_RULE,
+        STRENGTH_RULE,
+        SYSTEM_PROMPT,
+    )
 
     body = _with_asked(ASKED)
     body["experiences"][1]["supplements"] = [{"id": 302, "question": "q", "answer": "딱히 없음"}]
-    body["question"] = {**BODY["question"], "jobRole": "BACKEND"}
+    body["question"] = {
+        **BODY["question"],
+        "text": "본인 성격의 강점과 약점을 실제 사례를 포함해 적어 주세요.",
+        "jobRole": "BACKEND",
+    }
     llm = FakeLLM({**GOOD, "clarifications": []})
     assert client_with(llm).post("/match", json=body).status_code == 200
-    assert llm.seen[0]["system"] == SYSTEM_PROMPT + JOB_CONTEXT_RULE + NONE_ANSWER_RULE + ASKED_RULE
+    assert (
+        llm.seen[0]["system"]
+        == SYSTEM_PROMPT + JOB_CONTEXT_RULE + STRENGTH_RULE + NONE_ANSWER_RULE + ASKED_RULE
+    )
+
+
+@pytest.mark.parametrize(
+    "text,attached",
+    [
+        ("본인 성격의 강/약점에 대해서 실제 사례를 포함하여 작성해 주세요.", True),
+        ("본인의 장점과 단점을 하나씩 들어 주세요.", True),
+        ("본인의 장단점을 적어 주세요.", True),
+        ("본인의 강점을 보여 주는 경험을 적어 주세요.", True),
+        # 유형이 정해지는 건 같은 호출이라 넓게 건다 — 직무 강점 문항에도 붙고, 규칙 첫 줄이 거른다
+        ("지원 직무와 관련해 강점으로 가진 역량을 적어 주세요.", True),
+        ("팀 프로젝트에서 맡은 역할과, 팀과 함께 일한 방식을 적어 주세요.", False),
+        ("실패했던 경험과 그 경험에서 배운 점을 적어 주세요.", False),
+        ("지원 동기를 적어 주세요.", False),
+    ],
+)
+def test_strength_rule_only_for_strength_questions(client_with, text, attached):
+    from app.match import STRENGTH_RULE, SYSTEM_PROMPT
+
+    body = {**BODY, "question": {**BODY["question"], "text": text}}
+    llm = FakeLLM(GOOD)
+    assert client_with(llm).post("/match", json=body).status_code == 200
+    # 걸리지 않는 문항은 프롬프트가 예전과 글자 하나 다르지 않다 — 앞부분이 같아 캐시도 산다
+    expected = SYSTEM_PROMPT + STRENGTH_RULE if attached else SYSTEM_PROMPT
+    assert llm.seen[0]["system"] == expected

@@ -51,6 +51,10 @@ samples/match/questions.json(문항마다 손으로 적은 정답). 정답 칸:
 - 문항마다 같음(후보): 한 실행에서 같은 경험이 두 문항에 추천됐을 때 짧은 쪽 emphasis 낱말의 60% 이상이 다른 쪽에 있는 쌍
   / 그런 쌍
   — S-21 「문항마다 다른 각도」를 어겼나 본다. 낱말로 거른 것이라 목록(문항별 강조점)을 사람이 읽는다
+- 이유 얼버무림(후보, AI#140): reason 이 「…와 연결될지는 확인이 필요합니다」처럼 문항과 어떻게 잇는지를 사용자에게 미룬 추천 수
+
+장단점 문항(AI#140, samples/match-strength — 문항의 sideByExp 가 있을 때만):
+- 재료 표시: sideByExp 에 있는 경험을 추천했을 때 reason 이 「약점 재료」 · 「강점 재료」 중 기대한 쪽으로 시작한 수 / 그런 추천 수
 
 되묻기(S-22 · S-25) — samples/match/clarify.json 의 「경험에 이미 있는 사실」과 그걸 묻는 정규식으로 센다.
 정규식 · 낱말로 거른 것은 전부 후보다 — 목록을 사람이 읽고 판단한다(질문 전체도 찍는다):
@@ -113,6 +117,12 @@ VAGUE = re.compile(
     r"(자세히|자세하게|구체적으로|좀 더|더|추가로)\s*(알려|설명|말씀|이야기|적어|들려|공유)"
 )
 SHARE = re.compile(r"맡|직접|본인|몫|역할|기여|담당|하신 일|한 일|참여")
+# 문항과 어떻게 잇는지를 사용자에게 미룬 이유(AI#140) — 「어떤 강점과 연결될지는 확인이 필요합니다」 꼴
+# 「… 장점은 자료에 없습니다」「… 단점은 명시되지 않았습니다」 꼴도 같다
+HEDGE = re.compile(
+    r"확인이 필요|확인해야|(연결될|연결할|연결되는|볼|이어질)지는"
+    r"|(강점|약점|장점|단점|성향)[^.]*(자료에 없|명시되지)"
+)
 NOSUPP = "-nosupp"
 TYPES = "-types"
 
@@ -169,6 +179,10 @@ class Score:
     role_right: int = 0
     role_total: int = 0
     unrelated_requirements: list[str] = field(default_factory=list)
+    hedged: list[str] = field(default_factory=list)
+    side_total: int = 0
+    side_right: int = 0
+    side_wrong: list[str] = field(default_factory=list)
 
     def add(self, other: "Score") -> None:
         for name, value in vars(other).items():
@@ -359,6 +373,15 @@ def score(
         s.emph_by_exp.setdefault(exp.id, []).append((qid, rec.emphasis))
         if bare_reason(rec.reason, exp):
             s.reason_echo.append(f"{qid}: 경험 {exp.id} 「{rec.reason}」 ← 본문 「{exp.content}」")
+        if HEDGE.search(rec.reason):
+            s.hedged.append(f"{qid}: 경험 {exp.id} 「{rec.reason}」")
+        side = question.get("sideByExp", {}).get(str(exp.id))
+        if side:
+            s.side_total += 1
+            if rec.reason.lstrip().startswith(f"{side} 재료"):
+                s.side_right += 1
+            else:
+                s.side_wrong.append(f"{qid}: 경험 {exp.id}(기대 {side}) 「{rec.reason}」")
         if exp.supplements:
             s.supplement_recs += 1
             s.supplement_used += any(e.type == "SUPPLEMENT" for e in rec.evidence)
@@ -557,7 +580,7 @@ def report(
         [],
         [],
     )
-    context_rows = []
+    context_rows, side_rows = [], []
     for model_dir in sorted(p for p in out.iterdir() if p.is_dir()):
         for prompt_dir in sorted(p for p in model_dir.iterdir() if p.is_dir()):
             for suffix, run_dir in run_dirs(prompt_dir):
@@ -627,8 +650,10 @@ def report(
                 same = [p for p in pairs if same_angle(p[1][1], p[2][1])]
                 emph_rows.append(
                     f"| {name} | {len(t.emph_echo)}/{t.rec_count} | {len(same)}/{len(pairs)} "
-                    f"| {len(t.reason_echo)}/{t.rec_count} |"
+                    f"| {len(t.reason_echo)}/{t.rec_count} | {len(t.hedged)}/{t.rec_count} |"
                 )
+                if t.side_total or any("sideByExp" in q for q in questions):
+                    side_rows.append(f"| {name} | {t.side_right}/{t.side_total} |")
                 if t.material_questions:
                     material_rows.append(
                         f"| {name} | {len(t.success_first)} | {t.material_followed}/{t.material_asks} "
@@ -640,6 +665,8 @@ def report(
                         f"| {len(t.unrelated_requirements)} |"
                     )
                 lines = [
+                    *(f"- 재료 표시 다름 {x}" for x in t.side_wrong),
+                    *(f"- 이유 얼버무림(후보) {x}" for x in t.hedged),
                     *(f"- 문항 밖 요구사항(후보) {x}" for x in t.unrelated_requirements),
                     *(f"- 결국 성공 1순위 {x}" for x in t.success_first),
                     *(f"- 소재 질문 불일치(후보) {x}" for x in t.material_missed),
@@ -685,8 +712,8 @@ def report(
     )
     emph_head = (
         "| 모델 · 프롬프트 | 강조점 본문 되풀이(후보) | 같은 경험 · 문항마다 같음(후보) "
-        "| 이유 본문 되풀이(후보) |\n"
-        "| --- | --- | --- | --- |"
+        "| 이유 본문 되풀이(후보) | 이유 얼버무림(후보) |\n"
+        "| --- | --- | --- | --- | --- |"
     )
     type_head = "| 모델 · 프롬프트 | 문항 유형 정답 | 허용 포함 | 오류 |\n| --- | --- | --- | --- |"
     count_head = (
@@ -710,6 +737,10 @@ def report(
                 "| 모델 · 프롬프트 | 1순위 활동 직무 일치 | 문항 밖 요구사항(후보) |\n"
                 "| --- | --- | --- |",
                 *merge_runs(context_rows),
+            ],
+            [
+                "| 모델 · 프롬프트 | 장단점 재료 표시 |\n| --- | --- |",
+                *merge_runs(side_rows),
             ],
         )
         if len(t) > 1
