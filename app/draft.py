@@ -26,7 +26,12 @@ from app.citations import numbers, unsupported_numbers
 from app.config import Settings
 from app.errors import InvalidRequest, TextTooLong
 from app.llm import JsonLLM, generate_valid
-from app.match import build_user_message, experience_chars, experience_lines
+from app.match import (
+    build_user_message,
+    experience_chars,
+    experience_lines,
+    has_none_answer,
+)
 from app.match import check_request as check_match_request
 from app.schemas import (
     DraftExperience,
@@ -463,6 +468,14 @@ LENGTH_RULE = """\
    ⑤ 문항으로 잇는 생각 문장(규칙 4).
    같은 말을 되풀이해 늘리지 않는다. 문장 수 상한(15) · 생각 문장 수 규칙은 그대로다.
 """
+NONE_ANSWER_RULE = """\
+16. 보완의 「없다」는 답(ETC#354) — 보완의 답이 「딱히 없음」「기억 안 남」「없어요」처럼 질문이 물은 사실이 없거나
+   모른다는 말이면, 그 사실이 없다는 사용자의 확인이다.
+   - 그 사실이 있었다고 FACT · ELABORATED 로 쓰지 않고, 그 보완을 그 사실의 evidence 로 붙이지 않는다.
+   - SUPPOSED 로도 쓰지 않는다 — 빠진 단계를 메우거나 목표 글자 수를 채우려고 그 사실을 그럴 법하게 지어내지 않는다.
+     분량은 다른 단계 · 다른 사실로 채운다.
+   - 같은 것을 omitted 에 다시 적거나 말만 바꿔 묻지 않는다.
+"""
 
 
 def system_prompt(
@@ -477,6 +490,7 @@ def system_prompt(
         *([STYLE_RULE] if style_lines(question, list(guidelines)) else []),
         *([CONTEXT_RULE] if context else []),
         *([LENGTH_RULE] if length_lines(question) else []),
+        *([NONE_ANSWER_RULE] if has_none_answer([*experiences, *context]) else []),
     ]
     return SYSTEM_PROMPT + EXTRA_HEAD + "".join(extra) if extra else SYSTEM_PROMPT
 

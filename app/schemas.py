@@ -220,6 +220,8 @@ class MatchExperience(BaseModel):
     sourceStatus: str | None = None
     citations: list[MatchCitation] = []
     supplements: list[MatchSupplement] = []
+    # 같은 지원서의 다른 문항에서 이미 낸, 아직 답 없는 되묻기(ETC#354). /match · /posting-match 만 읽는다
+    askedQuestions: list[str] | None = None
 
 
 class MatchRequest(BaseModel):
