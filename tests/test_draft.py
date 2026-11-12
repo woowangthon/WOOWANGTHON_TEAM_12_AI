@@ -1245,3 +1245,40 @@ def test_endpoint_sends_composed_prompt(client_with):
 
     client_with(Spy(GOOD)).post("/draft", json=HINTED)
     assert seen["system"].endswith(HINT_RULE)
+
+
+# ==== 「딱히 없음」 보완(ETC#354 · AI#138) ====
+
+NONE_101 = {
+    **EXP_101,
+    "supplements": [
+        *EXP_101["supplements"],
+        {"id": 302, "question": "고친 뒤 어떻게 확인했나요?", "answer": "딱히 없음"},
+    ],
+}
+
+
+def test_none_answer_appends_only_its_rule():
+    from app import draft
+
+    system = _system(experiences=[NONE_101])
+    assert system == draft.SYSTEM_PROMPT + draft.EXTRA_HEAD + draft.NONE_ANSWER_RULE
+
+
+def test_none_answer_in_context_also_appends():
+    from app import draft
+
+    context = {**EXP_102, "supplements": [{"id": 303, "question": "q", "answer": "기억 안 남"}]}
+    system = _system(context=[context])
+    assert system.endswith(draft.CONTEXT_RULE + draft.NONE_ANSWER_RULE)
+
+
+def test_draft_does_not_show_asked_questions():
+    # 이미 낸 되묻기는 /match · /posting-match 만 읽는다
+    from app.draft import build_draft_message
+    from app.schemas import DraftExperience, DraftQuestion
+
+    exp = DraftExperience.model_validate({**EXP_101, "askedQuestions": ["무엇을 맡았나요?"]})
+    assert "이미 낸 되묻기" not in build_draft_message(
+        DraftQuestion.model_validate(QUESTION), [exp]
+    )

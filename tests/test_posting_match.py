@@ -224,3 +224,37 @@ def test_llm_errors(client_with, error, status, code):
     res = client_with(FakeLLM(exc)).post("/posting-match", json=BODY)
     assert res.status_code == status
     assert res.json()["error"]["code"] == code
+
+
+# ==== 같은 지원서에서 이미 낸 되묻기(ETC#354 · AI#138) ====
+
+ASKED = "채팅이 늦게 도착하던 문제를 처음 어떻게 알아차렸나요?"
+
+
+def _with_asked(*questions):
+    exps = json.loads(json.dumps(EXPERIENCES))
+    exps[0]["askedQuestions"] = list(questions)
+    return {**BODY, "experiences": exps}
+
+
+def test_asked_questions_shown_and_rule_appended(client_with):
+    from app.posting_match import ASKED_RULE
+
+    llm = FakeLLM({**GOOD, "clarifications": []})
+    assert client_with(llm).post("/posting-match", json=_with_asked(ASKED)).status_code == 200
+    assert llm.seen[0]["system"] == SYSTEM_PROMPT + ASKED_RULE
+    assert "이미 낸 되묻기" in llm.seen[0]["user"] and ASKED in llm.seen[0]["user"]
+
+
+def test_no_asked_questions_keeps_prompt(client_with):
+    llm = FakeLLM(GOOD)
+    assert client_with(llm).post("/posting-match", json=_with_asked()).status_code == 200
+    assert llm.seen[0]["system"] == SYSTEM_PROMPT
+    assert "이미 낸 되묻기" not in llm.seen[0]["user"]
+
+
+def test_same_text_as_asked_retries_then_errors(client_with):
+    llm = FakeLLM(GOOD, GOOD)  # GOOD 의 되묻기가 이미 낸 것과 같은 글
+    res = client_with(llm, max_attempts=2).post("/posting-match", json=_with_asked(ASKED))
+    assert res.status_code == 502
+    assert res.json()["error"]["code"] == "LLM_INVALID_OUTPUT"

@@ -524,3 +524,97 @@ def test_material_rules_use_the_same_match_call_without_filtering_candidates(cli
     assert llm.calls == 1
     assert seen["system"].endswith(MATERIAL_RULES)
     assert res.json()["recommendations"][0]["experienceId"] == 501
+
+
+# ==== 같은 지원서에서 이미 낸 되묻기 · 「딱히 없음」 보완(ETC#354 · AI#138) ====
+
+ASKED = "회고를 진행할 때 직접 맡은 일이 있었다면 무엇이었나요?"
+
+
+def _with_asked(*questions):
+    exps = json.loads(json.dumps(EXPERIENCES))
+    exps[1]["askedQuestions"] = list(questions)
+    return {**BODY, "experiences": exps}
+
+
+@pytest.mark.parametrize("asked", [None, []])
+def test_no_asked_questions_keeps_prompt(client_with, asked):
+    from app.match import ASKED_RULE, NONE_ANSWER_RULE, SYSTEM_PROMPT
+
+    body = _with_asked() if asked == [] else {**BODY}
+    if asked is None:
+        body["experiences"] = [{**e, "askedQuestions": None} for e in EXPERIENCES]
+    llm = FakeLLM(GOOD)
+    assert client_with(llm).post("/match", json=body).status_code == 200
+    system, user = llm.seen[0]["system"], llm.seen[0]["user"]
+    assert system == SYSTEM_PROMPT  # 보통 보완(STOMP)만으론 「없다」 규칙도 붙지 않는다
+    assert ASKED_RULE not in system and NONE_ANSWER_RULE not in system
+    assert "이미 낸 되묻기" not in user
+
+
+def test_asked_questions_shown_and_rule_appended(client_with):
+    from app.match import ASKED_RULE, SYSTEM_PROMPT
+
+    llm = FakeLLM({**GOOD, "clarifications": []})
+    res = client_with(llm).post("/match", json=_with_asked(ASKED))
+    assert res.status_code == 200
+    system, user = llm.seen[0]["system"], llm.seen[0]["user"]
+    assert system == SYSTEM_PROMPT + ASKED_RULE  # 앞부분이 같아 캐시가 산다
+    block = user.split("[경험 102]")[1].split("[경험 103]")[0]
+    assert "이미 낸 되묻기" in block and ASKED in block
+    assert res.json()["clarifications"] == []
+
+
+@pytest.mark.parametrize(
+    "question",
+    [ASKED, "회고를 진행할 때, 직접 맡은 일이 있었다면 무엇이었나요", " " + ASKED + " "],
+)
+def test_same_text_as_asked_retries_then_errors(client_with, question):
+    bad = {**GOOD, "clarifications": [{"experienceId": 102, "question": question}]}
+    llm = FakeLLM(bad, bad)
+    res = client_with(llm, max_attempts=2).post("/match", json=_with_asked(ASKED))
+    assert res.status_code == 502
+    assert res.json()["error"]["code"] == "LLM_INVALID_OUTPUT"
+    assert llm.calls == 2
+
+
+def test_asked_only_blocks_its_own_experience(client_with):
+    # 다른 경험(101)에 낸 같은 글은 막지 않는다 — 이미 낸 되묻기는 경험마다다
+    body = _with_asked(ASKED)
+    ok = {**GOOD, "clarifications": [{"experienceId": 101, "question": ASKED}]}
+    assert client_with(FakeLLM(ok)).post("/match", json=body).status_code == 200
+
+
+@pytest.mark.parametrize(
+    "answer,attached",
+    [
+        ("딱히 없음", True),
+        ("기억 안 남", True),
+        ("잘 모르겠어요", True),
+        ("따로 맡은 건 없었어요", True),
+        ("서버에 STOMP 엔드포인트를 만들었다", False),
+        ("품목별로 남은 양을 적었다", False),
+        ("시트에 적는 사람이 늘어 스터디가 끊기지 않았다", False),
+        ("없" + "가" * 80, False),  # 긴 답은 「없다는 말」이 아니라 사실을 적은 것으로 본다
+    ],
+)
+def test_none_answer_rule_only_for_none_like_supplements(client_with, answer, attached):
+    from app.match import NONE_ANSWER_RULE, SYSTEM_PROMPT
+
+    exps = json.loads(json.dumps(EXPERIENCES))
+    exps[1]["supplements"] = [{"id": 302, "question": ASKED, "answer": answer}]
+    llm = FakeLLM(GOOD)
+    assert client_with(llm).post("/match", json={**BODY, "experiences": exps}).status_code == 200
+    expected = SYSTEM_PROMPT + NONE_ANSWER_RULE if attached else SYSTEM_PROMPT
+    assert llm.seen[0]["system"] == expected
+
+
+def test_optional_rules_order(client_with):
+    from app.match import ASKED_RULE, JOB_CONTEXT_RULE, NONE_ANSWER_RULE, SYSTEM_PROMPT
+
+    body = _with_asked(ASKED)
+    body["experiences"][1]["supplements"] = [{"id": 302, "question": "q", "answer": "딱히 없음"}]
+    body["question"] = {**BODY["question"], "jobRole": "BACKEND"}
+    llm = FakeLLM({**GOOD, "clarifications": []})
+    assert client_with(llm).post("/match", json=body).status_code == 200
+    assert llm.seen[0]["system"] == SYSTEM_PROMPT + JOB_CONTEXT_RULE + NONE_ANSWER_RULE + ASKED_RULE

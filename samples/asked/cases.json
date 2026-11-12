@@ -1,0 +1,138 @@
+{
+  "experiences": {
+    "501": {
+      "id": 501,
+      "activityId": 50,
+      "activityName": "한소리 — 대학 연합 밴드 동아리",
+      "period": { "start": "2025-09", "end": "2025-11", "ongoing": false },
+      "content": "정기 공연을 위해 공연장 대관 일정을 조율했다",
+      "competencies": ["COLLABORATION", "OPERATION"],
+      "actor": "TEAM",
+      "sourceStatus": "SOURCE_CONFIRMED",
+      "citations": [
+        { "id": 5011, "quote": "운영진이 정기 공연을 앞두고 공연장 두 곳의 대관 일정을 조율했다." },
+        { "id": 5012, "quote": "첫 후보 날짜가 다른 동아리 공연과 겹쳐서 11월 셋째 주로 다시 잡았다." }
+      ],
+      "supplements": []
+    },
+    "502": {
+      "id": 502,
+      "activityId": 50,
+      "activityName": "한소리 — 대학 연합 밴드 동아리",
+      "period": { "start": "2025-09", "end": "2025-11", "ongoing": false },
+      "content": "정기 공연을 위해 공연장 대관 일정을 조율했다",
+      "competencies": ["COLLABORATION", "OPERATION"],
+      "actor": "TEAM",
+      "sourceStatus": "SOURCE_CONFIRMED",
+      "citations": [
+        { "id": 5021, "quote": "운영진이 정기 공연을 앞두고 공연장 두 곳의 대관 일정을 조율했다." },
+        { "id": 5022, "quote": "첫 후보 날짜가 다른 동아리 공연과 겹쳐서 11월 셋째 주로 다시 잡았다." }
+      ],
+      "supplements": [
+        { "id": 5023, "question": "공연장 대관 일정을 조율하면서 맡은 일이 있었다면 무엇이었나요?", "answer": "딱히 없음" }
+      ]
+    },
+    "503": {
+      "id": 503,
+      "activityId": 51,
+      "activityName": "동네 카페 아르바이트",
+      "period": { "start": "2024-07", "end": "2024-12", "ongoing": false },
+      "content": "주문이 몰리는 시간에 음료를 종류별로 묶어 만들도록 순서를 바꿨다",
+      "competencies": ["PROBLEM_SOLVING"],
+      "actor": "ME",
+      "sourceStatus": "SOURCE_CONFIRMED",
+      "citations": [
+        { "id": 5031, "quote": "점심시간에 손님이 몰려서 내가 음료를 종류별로 묶어 만들자고 제안해 순서를 바꿨다." }
+      ],
+      "supplements": [
+        { "id": 5032, "question": "순서를 바꾼 뒤 무엇이 달라졌는지 어떻게 확인했나요?", "answer": "기억이 안 나요" }
+      ]
+    },
+    "504": {
+      "id": 504,
+      "activityId": 52,
+      "activityName": "알고리즘 스터디",
+      "period": { "start": "2025-03", "end": null, "ongoing": true },
+      "content": "스터디 문제를 난이도별로 섞어 고르도록 방식을 바꿨다",
+      "competencies": ["OPERATION"],
+      "actor": "ME",
+      "sourceStatus": "SOURCE_CONFIRMED",
+      "citations": [{ "id": 5041, "quote": "내가 문제 고르는 방식을 난이도별로 섞어 고르게 바꿨다." }],
+      "supplements": [
+        { "id": 5042, "question": "왜 난이도별로 섞어 고르게 바꾸셨나요?", "answer": "글쎄요, 딱히 이유는 없었어요" }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "id": "dup-collab",
+      "endpoint": "match",
+      "about": "ETC#354 예시 그대로 — 다른 문항에서 「…조율하면서 맡은 일」을 이미 물었다",
+      "question": { "organization": "OO 문화재단 서포터즈", "text": "다른 사람과 함께 일정을 맞추며 협업한 경험과, 그 안에서 맡은 역할을 적어 주세요." },
+      "experienceIds": [501],
+      "asked": { "501": ["공연장 대관 일정을 조율하면서 맡은 일이 있었다면 무엇이었나요?"] },
+      "target": 501,
+      "reask": "맡|직접|역할|담당|몫|기여|하신 일|한 일"
+    },
+    {
+      "id": "dup-problem",
+      "endpoint": "match",
+      "about": "같은 경험 · 다른 문항(문제 해결) — 내 몫은 이미 물었으니 다른 것(원인 · 판단)만 묻거나 0개",
+      "question": { "organization": "OO 문화재단 서포터즈", "text": "예상하지 못한 문제가 생겼을 때 해결한 경험을 적어 주세요." },
+      "experienceIds": [501],
+      "asked": { "501": ["공연장 대관 일정을 조율하면서 맡은 일이 있었다면 무엇이었나요?"] },
+      "target": 501,
+      "reask": "맡|직접|역할|담당|몫|기여|하신 일|한 일"
+    },
+    {
+      "id": "none-role",
+      "endpoint": "match",
+      "about": "「맡은 일」에 「딱히 없음」 — 내가 조율했다고 쓰지도, 다시 묻지도 않는다",
+      "question": { "organization": "OO 문화재단 서포터즈", "text": "다른 사람과 함께 일정을 맞추며 협업한 경험과, 그 안에서 맡은 역할을 적어 주세요." },
+      "experienceIds": [502],
+      "target": 502,
+      "reask": "맡|직접|역할|담당|몫|기여|하신 일|한 일",
+      "claim": "제가|내가|직접 (조율|연락|정리)|주도|맡아"
+    },
+    {
+      "id": "none-check",
+      "endpoint": "match",
+      "about": "「어떻게 확인했나」에 「기억이 안 나요」 — 달라졌다고 쓰지도, 다시 묻지도 않는다",
+      "question": { "organization": "OO 유통", "text": "일하는 방식을 개선한 경험과 그 결과를 적어 주세요." },
+      "experienceIds": [503],
+      "target": 503,
+      "reask": "확인|달라|결과|변화|줄었|빨라|효과|반응",
+      "claim": "줄었|줄인|빨라|단축|늘었|개선되|확인했|달라졌|효율"
+    },
+    {
+      "id": "none-why",
+      "endpoint": "match",
+      "about": "「왜」에 「딱히 이유는 없었어요」 — 이유를 지어 쓰지도, 다시 묻지도 않는다",
+      "question": { "organization": "OO 교육 봉사단", "text": "스스로 판단해 방식을 바꾼 경험과 그렇게 판단한 이유를 적어 주세요." },
+      "experienceIds": [504],
+      "target": 504,
+      "reask": "왜|이유|계기|기준|까닭",
+      "claim": "위해|때문|이유로|계기|하려고|싶어"
+    },
+    {
+      "id": "draft-none-check",
+      "endpoint": "draft",
+      "about": "목표 글자 수가 커도 확인 · 결과를 가정(SUPPOSED)으로 채우지 않는다",
+      "question": { "organization": "OO 유통", "text": "일하는 방식을 개선한 경험과 그 결과를 적어 주세요.", "targetLength": 700 },
+      "experienceIds": [503],
+      "target": 503,
+      "reask": "확인|달라|결과|변화|줄었|빨라|효과|반응",
+      "claim": "줄었|줄어|빨라|단축|늘었|개선되|확인했|확인할 수|달라졌|효율|덜 기다"
+    },
+    {
+      "id": "draft-none-role",
+      "endpoint": "draft",
+      "about": "목표 글자 수가 커도 「제가 조율했다」를 가정으로도 쓰지 않는다",
+      "question": { "organization": "OO 문화재단 서포터즈", "text": "다른 사람과 함께 일정을 맞추며 협업한 경험과, 그 안에서 맡은 역할을 적어 주세요.", "targetLength": 600 },
+      "experienceIds": [502],
+      "target": 502,
+      "reask": "맡|직접|역할|담당|몫|기여|하신 일|한 일",
+      "claim": "제가|저는|직접 (조율|연락|정리)|주도|맡아|맡았"
+    }
+  ]
+}
