@@ -488,3 +488,38 @@ def test_context_samples_follow_contract(monkeypatch):
         assert set(q.get("roleActivityIds", [])) <= {e["activityId"] for e in exps}
         for pattern in q.get("forbiddenRequirements", []):
             re.compile(pattern)
+
+
+# SAMPLE(match-strength): 실제 사람의 기록이 아닌 지어낸 장단점 문항 사례(AI#140).
+def test_strength_sample_requests_and_answer_ids(monkeypatch):
+    from app.match import is_strength_question
+    from scripts import eval_match
+
+    monkeypatch.setattr(eval_match, "DATA", eval_match.ROOT / "samples" / "match-strength")
+    exps, questions = eval_match.load_data(None)
+    ids = {e["id"] for e in exps}
+    assert {q["kind"] for q in questions} == {"match", "none"}
+    for q in questions:
+        pool = [e for e in exps if e["id"] in q.get("pool", ids)]
+        MatchRequest.model_validate({"question": {"text": q["text"]}, "experiences": pool})
+        assert is_strength_question(q["text"])  # 이 자료는 전부 장단점 규칙이 붙는 문항이다
+        assert set(q["good"] + q["ok"] + q["bad"]) <= {e["id"] for e in pool}
+        assert set(map(int, q.get("sideByExp", {}))) <= set(q["good"] + q["ok"])
+        assert set(q.get("sideByExp", {}).values()) <= {"약점", "강점"}
+        for pattern in q.get("materialAskPatterns", {}).values():
+            re.compile(pattern)
+
+
+def test_score_counts_hedged_reasons_and_side_labels():
+    q = {**Q["tech-problem"], "sideByExp": {"101": "약점", "104": "강점"}}
+    data = _response(
+        [("성향", "PARTIAL", [101, 104])],
+        [
+            _rec(101, "약점 재료 — 확인보다 실행이 앞서는 편으로 볼 수 있습니다."),
+            _rec(104, "설계를 맡은 사례입니다. 어떤 강점과 연결될지는 확인이 필요합니다."),
+        ],
+    )
+    result = score(q, EXPS, data)
+    assert (result.side_right, result.side_total) == (1, 2)
+    assert len(result.side_wrong) == 1 and "104" in result.side_wrong[0]
+    assert len(result.hedged) == 1 and "104" in result.hedged[0]

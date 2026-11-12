@@ -1,0 +1,137 @@
+[
+  {
+    "id": 1001,
+    "activityId": 1001,
+    "activityName": "핀테크 스타트업 프론트엔드 인턴",
+    "content": "사내 디자인 시스템에 같은 버튼 컴포넌트가 있는지 확인하지 않고 새로 만들었다가, 코드 리뷰에서 기존 컴포넌트를 쓰라는 말을 듣고 고쳤다. 그 뒤로는 만들기 전에 디자인 시스템 문서부터 찾아본다.",
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 2001,
+        "quote": "사내 디자인 시스템에 같은 버튼 컴포넌트가 있는지 확인하지 않고 새로 만들었다가, 코드 리뷰에서 기존 컴포넌트를 쓰라는 말을 듣고 고쳤다. 그 뒤로는 만들기 전에 디자인 시스템 문서부터 찾아본다."
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 1002,
+    "activityId": 1002,
+    "activityName": "바꿔요 — 캠퍼스 중고거래 앱",
+    "content": "채팅이 몇 초씩 늦게 보이는 문제를 해결하려고 폴링을 WebSocket 으로 바꿨다.",
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 2002,
+        "quote": "채팅이 몇 초씩 늦게 보이는 문제를 해결하려고 폴링을 WebSocket 으로 바꿨다."
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 1003,
+    "activityId": 1003,
+    "activityName": "알고리즘 스터디",
+    "content": "스터디 일정이 바뀌자 구성원 다섯 명에게 가능한 날을 다시 묻고 바뀐 일정을 공지했다.",
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 2003,
+        "quote": "스터디 일정이 바뀌자 구성원 다섯 명에게 가능한 날을 다시 묻고 바뀐 일정을 공지했다."
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 1004,
+    "activityId": 1004,
+    "activityName": "신입생 학습 멘토",
+    "content": "신입생들의 C 과제 질문을 받을 때 답을 바로 알려 주지 않고, 막힌 줄을 먼저 같이 찾은 뒤 힌트만 줬다.",
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 2004,
+        "quote": "신입생들의 C 과제 질문을 받을 때 답을 바로 알려 주지 않고, 막힌 줄을 먼저 같이 찾은 뒤 힌트만 줬다."
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 1005,
+    "activityId": 1005,
+    "activityName": "IT 연합 동아리 웹 파트",
+    "content": "신입 부원 React 스터디 발표에서 부원들이 어려워한 상태 개념을 예제 하나로 다시 풀어 보여 줬다.",
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 2005,
+        "quote": "신입 부원 React 스터디 발표에서 부원들이 어려워한 상태 개념을 예제 하나로 다시 풀어 보여 줬다."
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 1006,
+    "activityId": 1006,
+    "activityName": "카페 아르바이트",
+    "content": "주문이 몰릴 때 여러 주문을 한꺼번에 맡았다가 음료 두 잔을 잘못 만들었고, 그 뒤로는 주문표를 한 장씩 끝내고 다음 것을 잡았다.",
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 2006,
+        "quote": "주문이 몰릴 때 여러 주문을 한꺼번에 맡았다가 음료 두 잔을 잘못 만들었고, 그 뒤로는 주문표를 한 장씩 끝내고 다음 것을 잡았다."
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 1007,
+    "activityId": 1007,
+    "activityName": "모여봄 — 동네 소모임 앱",
+    "content": "팀이 서비스를 AWS 에 배포했다.",
+    "actor": "TEAM",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 2007,
+        "quote": "팀이 서비스를 AWS 에 배포했다."
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 1008,
+    "activityId": 1008,
+    "activityName": "개인 프로젝트 — 가계부 웹앱",
+    "content": "가계부 웹앱의 차트 라이브러리를 Chart.js 에서 Recharts 로 바꿨다.",
+    "actor": "ME",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 2008,
+        "quote": "가계부 웹앱의 차트 라이브러리를 Chart.js 에서 Recharts 로 바꿨다."
+      }
+    ],
+    "supplements": []
+  },
+  {
+    "id": 1009,
+    "activityId": 1009,
+    "activityName": "교내 해커톤 팀",
+    "content": "팀은 마감 직전까지 기능만 붙이다가 발표 날 버그가 몰렸고, 회고에서 다음엔 테스트를 먼저 쓰기로 했다. 누가 무엇을 맡았는지는 기록에 없다.",
+    "actor": "TEAM",
+    "sourceStatus": "SOURCE_CONFIRMED",
+    "citations": [
+      {
+        "id": 2009,
+        "quote": "팀은 마감 직전까지 기능만 붙이다가 발표 날 버그가 몰렸고, 회고에서 다음엔 테스트를 먼저 쓰기로 했다. 누가 무엇을 맡았는지는 기록에 없다."
+      }
+    ],
+    "supplements": []
+  }
+]
