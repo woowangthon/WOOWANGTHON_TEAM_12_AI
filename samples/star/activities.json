@@ -585,5 +585,179 @@
         "learned": []
       }
     ]
+  },
+  {
+    "id": "edge142",
+    "name": "질문 넓히기 확인용 — 경험 종류가 섞인 활동(AI#142)",
+    "experiences": [
+      {
+        "id": 901,
+        "content": "sqld 자격증을 공부해 취득했다",
+        "actor": "UNKNOWN",
+        "competencies": [
+          "LEARNING"
+        ],
+        "citations": [
+          {
+            "id": 9011,
+            "quote": "sqld 자격증 공부를 해서 취득했다"
+          }
+        ],
+        "supplements": [],
+        "expect": {
+          "S": [],
+          "T": [],
+          "A": [
+            "C9011"
+          ],
+          "R": [
+            "C9011"
+          ]
+        },
+        "learned": []
+      },
+      {
+        "id": 902,
+        "content": "카페 아르바이트에서 마감 정리를 맡았다",
+        "actor": "ME",
+        "competencies": [
+          "COLLABORATION"
+        ],
+        "citations": [
+          {
+            "id": 9021,
+            "quote": "카페 아르바이트 — 마감 정리 담당"
+          }
+        ],
+        "supplements": [],
+        "expect": {
+          "S": [],
+          "T": [
+            "C9021"
+          ],
+          "A": [],
+          "R": []
+        },
+        "learned": []
+      },
+      {
+        "id": 903,
+        "content": "수업 팀 과제로 발표 자료를 만들었다",
+        "actor": "TEAM",
+        "competencies": [
+          "COMMUNICATION"
+        ],
+        "citations": [
+          {
+            "id": 9031,
+            "quote": "팀 과제 발표 자료 제작"
+          }
+        ],
+        "supplements": [],
+        "expect": {
+          "S": [],
+          "T": [],
+          "A": [
+            "C9031"
+          ],
+          "R": []
+        },
+        "learned": []
+      },
+      {
+        "id": 904,
+        "content": "교내 해커톤에서 우수상을 받았다",
+        "actor": "TEAM",
+        "competencies": [
+          "IMPLEMENTATION"
+        ],
+        "citations": [
+          {
+            "id": 9041,
+            "quote": "교내 해커톤 우수상 수상"
+          }
+        ],
+        "supplements": [],
+        "expect": {
+          "S": [],
+          "T": [],
+          "A": [],
+          "R": [
+            "C9041"
+          ]
+        },
+        "learned": []
+      },
+      {
+        "id": 905,
+        "content": "공모전에 냈지만 예선에서 떨어졌다",
+        "actor": "ME",
+        "competencies": [
+          "PROBLEM_SOLVING"
+        ],
+        "citations": [
+          {
+            "id": 9051,
+            "quote": "공모전 예선 탈락"
+          }
+        ],
+        "supplements": [],
+        "expect": {
+          "S": [],
+          "T": [],
+          "A": [],
+          "R": [
+            "C9051"
+          ]
+        },
+        "learned": []
+      },
+      {
+        "id": 906,
+        "content": "지역 아동센터에서 코딩 수업 봉사를 했다",
+        "actor": "ME",
+        "competencies": [
+          "COMMUNICATION"
+        ],
+        "citations": [
+          {
+            "id": 9061,
+            "quote": "지역 아동센터 코딩 수업 봉사 (주 1회)"
+          }
+        ],
+        "supplements": [],
+        "expect": {
+          "S": [],
+          "T": null,
+          "A": null,
+          "R": []
+        },
+        "learned": []
+      },
+      {
+        "id": 907,
+        "content": "스터디에서 처음 발표했다",
+        "actor": "UNKNOWN",
+        "competencies": [
+          "COMMUNICATION"
+        ],
+        "citations": [
+          {
+            "id": 9071,
+            "quote": "오늘 스터디에서 처음 발표했다"
+          }
+        ],
+        "supplements": [],
+        "expect": {
+          "S": [],
+          "T": [],
+          "A": [
+            "C9071"
+          ],
+          "R": []
+        },
+        "learned": []
+      }
+    ]
   }
 ]
