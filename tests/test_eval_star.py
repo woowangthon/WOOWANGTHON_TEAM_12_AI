@@ -9,8 +9,8 @@ from scripts.eval_star import load_data, report, request_body, score_dir
 def test_samples_are_valid():
     activities = load_data()
     exps = [e for a in activities for e in a["experiences"]]
-    assert len(exps) == 20
-    assert len({e["id"] for e in exps}) == 20
+    assert len(exps) == 27
+    assert len({e["id"] for e in exps}) == 27
     for a in activities:
         StarRequest.model_validate(request_body(a))
     for e in exps:
