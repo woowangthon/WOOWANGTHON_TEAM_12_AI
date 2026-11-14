@@ -38,6 +38,9 @@ FETCH_SECONDS = 15
 MAX_BYTES = 2 * 1024 * 1024
 MAX_REDIRECTS = 3
 MIN_CHARS = 200
+# 상세 본문(iframe)에 이미지가 있고 직종 분류 · 주소 같은 틀 글을 빼면 남는 글이 이보다 적으면 본문이 이미지인 공고로 본다(AI#145).
+# 2026-11-14 표본: 이미지 본문 사람인 93자 · 글 본문 사람인 · 잡코리아 591 ~ 13,363자
+IMAGE_BODY_CHARS = 300
 MAX_CHARS = 20000
 
 # scout net.py 와 같다 — 파이썬 기본 UA 를 막는 사이트가 있다(사람인 robots.txt 가 400).
@@ -73,6 +76,7 @@ MSG_NO_RESPONSE = "페이지를 받지 못했어요(응답 없음)"
 MSG_NOT_HTML = "웹 페이지가 아니에요 — PDF · 이미지는 읽지 않아요"
 MSG_TOO_BIG = "페이지가 너무 커요(2MB 넘음)"
 MSG_TOO_SHORT = "글이 거의 없는 페이지예요 — 화면을 그림이나 스크립트로 그리는 사이트일 수 있어요"
+MSG_IMAGE_BODY = "공고 본문이 이미지예요 — 캡처해 넣어 주세요"
 
 
 def msg_status(status: int) -> str:
@@ -415,6 +419,17 @@ def _read_html(req: "_Request", url: str) -> str:
     return extract_text(_read_page(req, url)[1])
 
 
+def _image_body(html: str, text: str) -> bool:
+    """상세 본문이 이미지 한 장 · 몇 장인 공고 — 글로 뽑히는 건 직종 분류(「… > …」 · 「선택 : …」) · 주소 정도다(AI#145).
+
+    그 글로 나누면 공고 내용 없이 엉뚱한 결과가 나와, 못 읽은 것으로 알리고 캡처로 안내한다.
+    """
+    if BeautifulSoup(html, "html.parser").find("img") is None:
+        return False
+    content = [ln for ln in text.splitlines() if " > " not in ln and not ln.startswith("선택")]
+    return len(squeeze("\n".join(content))) < IMAGE_BODY_CHARS
+
+
 def fetch_text(url: str) -> str:
     """링크 → 뽑은 글(최대 20000자). 못 읽으면 UrlBlocked · UrlUnreadable."""
     req = _Request()
@@ -427,9 +442,14 @@ def _page_text(req: "_Request", url: str, text: str) -> str:
     if detail is not None:
         # 상세 본문을 앞에 — 못 받으면 공고 페이지 글만 쓴다(그 글도 실제 페이지라 지어낸 것이 아니다)
         try:
-            text = f"{_read_html(req, detail)}\n\n{text}"
+            html = _read_page(req, detail)[1]
         except (UrlBlocked, UrlUnreadable) as e:
             log.info("상세 본문 못 받음 url=%s result=%s(%s)", detail, e.code, e.why)
+        else:
+            detail_text = extract_text(html)
+            if _image_body(html, detail_text):
+                raise UrlUnreadable(MSG_IMAGE_BODY, why="image-body")
+            text = f"{detail_text}\n\n{text}"
     if len(squeeze(text)) < MIN_CHARS:
         raise UrlUnreadable(MSG_TOO_SHORT, why="too-short")
     return text[:MAX_CHARS]

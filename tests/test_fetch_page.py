@@ -380,6 +380,32 @@ def test_detail_failure_keeps_main_page(web):
     assert "https://www.jobkorea.co.kr/Recruit/GI_Read_Comt_Ifrm?Gno=9" in web.seen
 
 
+def test_detail_body_that_is_an_image_is_unreadable(web):
+    # AI#145 — 상세 본문이 이미지 한 장이고 글은 직종 분류 · 주소뿐인 공고(사람인 신세계센트럴 rec_idx=55455220 모양)
+    web.hosts["www.saramin.co.kr"] = [PUBLIC]
+    base = "https://www.saramin.co.kr/zf_user/jobs/relay"
+    web.pages[f"{base}/view?rec_idx=124"] = page("<html><body><h1>공고 제목</h1>" + "<p>모집 요강</p>" * 60 + "</body></html>")
+    taxonomy = "".join(f"<p>선택 : 영업·판매·무역 &gt; 직무·직업 &gt; 영업{i}</p>" for i in range(80))
+    web.pages[f"{base}/view-detail?rec_idx=124&rec_seq=0"] = page(
+        f"<html><body><img src='//img.example/poster.png'>{taxonomy}<p>근무지 주소 서울</p></body></html>"
+    )
+    with pytest.raises(UrlUnreadable) as e:
+        fetch_page.fetch_text(f"{base}/view?rec_idx=124")
+    assert e.value.why == "image-body"
+    assert e.value.message == fetch_page.MSG_IMAGE_BODY
+
+
+def test_detail_body_with_images_and_text_is_read(web):
+    # 글 본문에 아이콘 · 단계 이미지가 섞인 보통 공고(클리오 모양)는 그대로 읽는다
+    web.hosts["www.saramin.co.kr"] = [PUBLIC]
+    base = "https://www.saramin.co.kr/zf_user/jobs/relay"
+    web.pages[f"{base}/view?rec_idx=125"] = page("<html><body><h1>공고 제목</h1></body></html>")
+    web.pages[f"{base}/view-detail?rec_idx=125&rec_seq=0"] = page(
+        "<html><body><img src='//img.example/top.png'><p>" + "브랜드 상품 전략을 세우고 신제품을 기획합니다. " * 20 + "</p></body></html>"
+    )
+    assert "신제품을 기획합니다" in fetch_page.fetch_text(f"{base}/view?rec_idx=125")
+
+
 def test_detail_url_only_for_known_sites():
     assert fetch_page.detail_url("https://example.com/zf_user/jobs/view?rec_idx=1") is None
     assert fetch_page.detail_url("https://www.saramin.co.kr/zf_user/jobs/view?rec_idx=x") is None
