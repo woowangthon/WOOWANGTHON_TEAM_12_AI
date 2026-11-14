@@ -406,6 +406,18 @@ def test_detail_body_with_images_and_text_is_read(web):
     assert "신제품을 기획합니다" in fetch_page.fetch_text(f"{base}/view?rec_idx=125")
 
 
+def test_short_text_detail_with_a_logo_is_read(web):
+    # 회사 이미지 한 장 + 짧은 글 본문(잡코리아 50359824 — 틀 글 뺀 글 398자)은 이미지 본문이 아니다
+    web.hosts["www.jobkorea.co.kr"] = [PUBLIC]
+    web.pages["https://www.jobkorea.co.kr/Recruit/GI_Read/10"] = page("<html><body><h1>공고 제목</h1></body></html>")
+    body = "모집부서 생산팀 신입 자격요건 공업고등학교 졸업 위험물자격증 우대 근무지 경남 양산시 전형절차 서류 면접 " * 4
+    web.pages["https://www.jobkorea.co.kr/Recruit/GI_Read_Comt_Ifrm?Gno=10"] = page(
+        f"<html><body><img src='//img.example/logo.png'><p>{body}</p></body></html>"
+    )
+    assert 200 <= len(fetch_page.squeeze(body)) < 300
+    assert "위험물자격증" in fetch_page.fetch_text("https://www.jobkorea.co.kr/Recruit/GI_Read/10")
+
+
 def test_detail_url_only_for_known_sites():
     assert fetch_page.detail_url("https://example.com/zf_user/jobs/view?rec_idx=1") is None
     assert fetch_page.detail_url("https://www.saramin.co.kr/zf_user/jobs/view?rec_idx=x") is None
