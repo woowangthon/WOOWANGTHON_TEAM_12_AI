@@ -23,6 +23,11 @@ from urllib.parse import parse_qsl, urljoin, urlsplit
 import requests
 from bs4 import BeautifulSoup
 from charset_normalizer import from_bytes
+from requests.adapters import HTTPAdapter
+from urllib3.connection import HTTPConnection, HTTPSConnection
+from urllib3.connectionpool import HTTPConnectionPool, HTTPSConnectionPool
+from urllib3.exceptions import LocationParseError
+from urllib3.util import parse_url
 
 from app.errors import UrlBlocked, UrlUnreadable
 from app.google_forms import GoogleForm, is_form_url, parse_form, unreadable
@@ -85,6 +90,53 @@ class Raw:
     too_big: bool = False
 
 
+def _public_ip(addr: str) -> bool:
+    ip = ipaddress.ip_address(addr.split("%")[0])
+    if ip.version == 6 and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
+    return ip.is_global and not ip.is_multicast
+
+
+class _PrivatePeer(Exception):
+    """연결된 상대가 공개 주소가 아니다 — 요청을 보내기 전에 끊었다."""
+
+
+class _PublicOnly:
+    """소켓이 붙은 순간 상대 IP 를 본다 — 검사 뒤 DNS 답이 바뀌어도(리바인딩) 내부로는 요청을 보내지 않는다."""
+
+    def _new_conn(self):
+        sock = super()._new_conn()
+        if not _public_ip(sock.getpeername()[0]):
+            sock.close()
+            raise _PrivatePeer()
+        return sock
+
+
+class _PublicHTTPConnection(_PublicOnly, HTTPConnection):
+    pass
+
+
+class _PublicHTTPSConnection(_PublicOnly, HTTPSConnection):
+    pass
+
+
+class _PublicHTTPPool(HTTPConnectionPool):
+    ConnectionCls = _PublicHTTPConnection
+
+
+class _PublicHTTPSPool(HTTPSConnectionPool):
+    ConnectionCls = _PublicHTTPSConnection
+
+
+class _PublicOnlyAdapter(HTTPAdapter):
+    def init_poolmanager(self, *args, **kwargs):
+        super().init_poolmanager(*args, **kwargs)
+        self.poolmanager.pool_classes_by_scheme = {
+            "http": _PublicHTTPPool,
+            "https": _PublicHTTPSPool,
+        }
+
+
 # ──────────────────────────────────────────────
 # 네트워크 — 시험이 바꿔 끼우는 두 자리
 # ──────────────────────────────────────────────
@@ -94,9 +146,20 @@ def _resolve(host: str) -> list[str]:
 
 
 def _open(url: str, timeout: float, deadline: float) -> Raw:
-    """GET 한 번(리다이렉트 안 따라감). 본문은 MAX_BYTES 까지만 읽는다. 실패하면 requests 예외."""
+    """GET 한 번(리다이렉트 안 따라감). 본문은 MAX_BYTES 까지만 읽는다. 실패하면 requests 예외.
+    연결된 상대가 공개 주소가 아니면 _PrivatePeer. 프록시 환경 변수는 따르지 않는다."""
     headers = {"User-Agent": UA, "Accept-Language": "ko-KR,ko;q=0.9"}
-    with requests.get(
+    with requests.Session() as session:
+        session.trust_env = False
+        session.mount("http://", _PublicOnlyAdapter())
+        session.mount("https://", _PublicOnlyAdapter())
+        return _read(session, url, headers, timeout, deadline)
+
+
+def _read(
+    session: requests.Session, url: str, headers: dict, timeout: float, deadline: float
+) -> Raw:
+    with session.get(
         url, headers=headers, timeout=timeout, allow_redirects=False, stream=True
     ) as r:
         raw = Raw(r.status_code, r.headers.get("content-type", ""), r.headers.get("location"))
@@ -119,23 +182,55 @@ def _open(url: str, timeout: float, deadline: float) -> Raw:
 # ──────────────────────────────────────────────
 # 주소 · robots
 # ──────────────────────────────────────────────
-def check_public(url: str) -> None:
-    """http(s) 이고 호스트가 풀리는 IP 가 모두 공개 주소인가(SSRF — AI 서버는 BE · DB 와 같은 내부망)."""
+# 주소에 쓰지 않는 글자 — 역슬래시 · 공백 · 제어 문자. 해석기마다 다르게 읽는다
+_UNSAFE_URL = re.compile(r"[\\\x00-\x20\x7f]")
+
+
+def _connect_host(url: str) -> str | None:
+    """requests(urllib3)가 실제로 연결할 호스트 — 검사도 이 호스트로 한다."""
+    try:
+        host = parse_url(url).host
+    except LocationParseError:
+        return None
+    return host.strip("[]").lower() if host else None
+
+
+def _same_host(checked: str, connect: str | None) -> bool:
+    if connect is None:
+        return False
+    if checked == connect:
+        return True
+    try:
+        return checked.encode("idna").decode("ascii") == connect
+    except UnicodeError:
+        return False
+
+
+def check_url(url: str) -> str:
+    """http(s) 이고, 검사하는 호스트와 연결할 호스트가 같은가 — 다르게 읽힐 수 있는 주소는 받지 않는다. 호스트를 돌려준다."""
     parts = urlsplit(url)
     if parts.scheme not in ("http", "https") or not parts.hostname:
         raise UrlUnreadable(MSG_NOT_PUBLIC, why="scheme")
+    if (
+        _UNSAFE_URL.search(url)
+        or "@" in parts.netloc
+        or not _same_host(parts.hostname, _connect_host(url))
+    ):
+        raise UrlUnreadable(MSG_NOT_PUBLIC, why="url")
+    return parts.hostname
+
+
+def check_public(url: str) -> None:
+    """주소 모양(check_url)을 보고, 호스트가 풀리는 IP 가 모두 공개 주소인가(SSRF — AI 서버는 BE · DB 와 같은 내부망)."""
+    host = check_url(url)
     try:
-        addrs = _resolve(parts.hostname)
+        addrs = _resolve(host)
     except (OSError, UnicodeError):
         raise UrlUnreadable(MSG_NO_HOST, why="dns") from None
     if not addrs:
         raise UrlUnreadable(MSG_NO_HOST, why="dns")
-    for addr in addrs:
-        ip = ipaddress.ip_address(addr.split("%")[0])
-        if ip.version == 6 and ip.ipv4_mapped is not None:
-            ip = ip.ipv4_mapped
-        if not ip.is_global or ip.is_multicast:
-            raise UrlUnreadable(MSG_NOT_PUBLIC, why="private")
+    if not all(_public_ip(addr) for addr in addrs):
+        raise UrlUnreadable(MSG_NOT_PUBLIC, why="private")
 
 
 class _Request:
@@ -153,6 +248,8 @@ class _Request:
             raise UrlUnreadable(MSG_TIMEOUT, why="timeout")
         try:
             return _open(url, left, self.deadline)
+        except _PrivatePeer:
+            raise UrlUnreadable(MSG_NOT_PUBLIC, why="private") from None
         except requests.Timeout:
             raise UrlUnreadable(MSG_TIMEOUT, why="timeout") from None
         except requests.RequestException:
@@ -161,6 +258,7 @@ class _Request:
     def follow(self, url: str, *, robots: bool) -> tuple[str, Raw]:
         """리다이렉트를 3번까지 따라간다 — 넘어갈 때마다 주소(와 robots)를 다시 본다."""
         for _ in range(MAX_REDIRECTS + 1):
+            check_url(url)
             if robots:
                 self.check_robots(url)
             raw = self.get(url)
@@ -184,7 +282,7 @@ class _Request:
         try:
             _, raw = self.follow(f"{origin}/robots.txt", robots=False)
         except UrlUnreadable as e:
-            if e.why == "private":
+            if e.why in ("private", "url"):
                 raise
             raise UrlUnreadable(MSG_ROBOTS_UNKNOWN, why=f"robots-{e.why}") from None
         if 400 <= raw.status < 500:
