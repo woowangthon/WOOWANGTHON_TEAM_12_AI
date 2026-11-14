@@ -3,9 +3,13 @@
 실제 사이트 시험은 scripts/try_links.py(손으로).
 """
 
+import http.server
+import threading
+
 import pytest
 
 from app import fetch_page
+from app.errors import UrlUnreadable
 from app.fetch_page import Raw
 from tests.conftest import FakeLLM
 
@@ -172,6 +176,55 @@ def test_redirect_to_private_is_refused(client_with, web):
     llm, res = post(client_with, "https://example.com/go")
     assert_unreadable(res, llm)
     assert not any("internal.example" in u for u in web.seen)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://127.0.0.1\\@example.com/job",
+        "http://user@example.com/job",
+        "http://example.com\t/job",
+        "http://exa mple.com/job",
+    ],
+)
+def test_url_read_differently_by_parsers_is_refused(client_with, web, url):
+    # 검사하는 호스트와 연결할 호스트가 같아야 한다 — 다르게 읽힐 수 있는 주소는 받지 않는다
+    llm, res = post(client_with, url)
+    assert_unreadable(res, llm)
+    assert web.seen == []
+
+
+def test_redirect_read_differently_by_parsers_is_refused(client_with, web):
+    web.pages["https://example.com/go"] = Raw(302, location="http://127.0.0.1\\@example.com/")
+    llm, res = post(client_with, "https://example.com/go")
+    assert_unreadable(res, llm)
+    assert res.json()["error"]["message"] == fetch_page.MSG_NOT_PUBLIC
+    assert web.seen == ["https://example.com/robots.txt", "https://example.com/go"]
+
+
+def test_connection_to_private_peer_is_cut_before_request(monkeypatch):
+    # 검사 땐 공개 IP 로 풀리던 이름이 연결 땐 내부 IP 로 풀리는 경우(리바인딩) — 실제 연결로 본다
+    hits = []
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            hits.append(self.path)
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        monkeypatch.setattr(fetch_page, "_resolve", lambda host: [PUBLIC])
+        with pytest.raises(UrlUnreadable) as e:
+            fetch_page._Request().get(f"http://localhost:{server.server_address[1]}/job")
+        assert e.value.why == "private"
+        assert hits == []
+    finally:
+        server.shutdown()
 
 
 def test_redirect_is_followed_and_robots_checked_again(client_with, web):
