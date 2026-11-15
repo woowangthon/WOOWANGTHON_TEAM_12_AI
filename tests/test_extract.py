@@ -10,14 +10,17 @@ from fastapi.testclient import TestClient
 from app.config import load_settings
 from app.errors import LLMError, LLMTimeout
 from app.extract import (
+    LOG_CHUNK,
     SYSTEM_PROMPT,
     TARGET_RULE,
     WORK_LOG_RULE,
     build_user_message,
     is_work_log,
+    merge_outputs,
+    split_github,
 )
 from app.main import app
-from app.schemas import ExistingActivity
+from app.schemas import ExistingActivity, LLMOutput
 from tests.conftest import FakeLLM
 
 GOOD = {
@@ -483,3 +486,115 @@ def test_non_github_source_keeps_prompt_exactly(client_with):
     res = client_with(llm).post("/extract", json={"sourceName": "메모.md", "text": text})
     assert res.status_code == 200
     assert llm.system == SYSTEM_PROMPT
+
+
+# 커밋 · PR 이 많은 GitHub 자료 나눠 부르기(AI#160)
+def _github(n_commits, n_pulls, readme=True):
+    head = "# kim/recipe-box — GitHub\n링크: https://github.com/kim/recipe-box"
+    parts = [head]
+    if readme:
+        parts.append(
+            "## README\n레시피 상자 — 냉장고 재료로 레시피를 찾는다.\n\n## 기능\n- 재료 검색"
+        )
+    commits = [f"- 2025-03-{1 + i % 28:02d} feat: 기능 {i}" for i in range(n_commits)]
+    pulls = [f"- 2025-03-{1 + i % 28:02d} #{i} 기능 {i} (merged)" for i in range(n_pulls)]
+    if commits:
+        parts.append(
+            "\n".join([f"## 내가 쓴 커밋 제목 (GitHub 아이디 kim · 최근 {n_commits}개)", *commits])
+        )
+    if pulls:
+        parts.append("\n".join([f"## 내가 연 PR 제목 ({n_pulls}개)", *pulls]))
+    return "\n\n".join(parts)
+
+
+def _log_lines(text):
+    return sorted(line for line in text.split("\n") if line.startswith("- 2025"))
+
+
+def test_small_github_source_is_one_call():
+    assert split_github(_github(40, 40)) is None
+    assert split_github((SAMPLES / "github-commits.md").read_text(encoding="utf-8")) is None
+
+
+def test_big_github_source_splits_readme_and_date_windows():
+    text = _github(100, 81)
+    parts = split_github(text)
+    assert parts is not None and len(parts) >= 3
+    assert "## README" in parts[0] and "## 내가" not in parts[0]
+    for part in parts[1:]:
+        assert part.startswith("# kim/recipe-box — GitHub")  # 레포 머리 — 활동 이름 단서
+        assert "## README" not in part and is_work_log(part)
+        assert len(_log_lines(part)) <= LOG_CHUNK
+    # 모든 줄이 빠짐없이 한 번씩
+    assert sorted(line for p in parts[1:] for line in _log_lines(p)) == _log_lines(text)
+
+
+def test_one_day_over_chunk_is_split_by_lines():
+    text = (
+        _github(0, 0, readme=False)
+        + "\n\n## 내가 쓴 커밋 제목 (x)\n"
+        + "\n".join(f"- 2025-03-01 fix {i}" for i in range(150))
+    )
+    parts = split_github(text)
+    assert [len(_log_lines(p)) for p in parts] == [100, 50]
+
+
+def _act(name, start, end, category, n, ongoing=False):
+    exp = {"content": "일", "competencies": ["IMPLEMENTATION"], "actor": "ME", "quotes": ["기능"]}
+    return {
+        "name": name,
+        "period": {"start": start, "end": end, "ongoing": ongoing},
+        "sameAsActivityId": None,
+        "category": category,
+        "experiences": [exp] * n,
+    }
+
+
+def test_merge_one_activity_per_part():
+    outs = [
+        LLMOutput.model_validate({"activities": [_act("레시피 상자", "2025", None, "PROJECT", 3)]}),
+        LLMOutput.model_validate(
+            {"activities": [_act("recipe-box", "2025-03-01", "2025-03-14", None, 2)]}
+        ),
+        LLMOutput.model_validate({"activities": []}),
+        LLMOutput.model_validate(
+            {"activities": [_act("recipe-box", "2025-03-15", "2025-03-28", None, 4)]}
+        ),
+    ]
+    merged = merge_outputs(outs)
+    assert len(merged.activities) == 1
+    a = merged.activities[0]
+    assert (a.name, a.category, len(a.experiences)) == ("레시피 상자", "PROJECT", 9)
+    assert (a.period.start, a.period.end, a.period.ongoing) == ("2025", "2025-03-28", False)
+
+
+def test_merge_keeps_many_activities_apart():
+    two = {"activities": [_act("가", None, None, None, 1), _act("나", None, None, None, 1)]}
+    one = {"activities": [_act("다", None, None, None, 1)]}
+    merged = merge_outputs([LLMOutput.model_validate(two), LLMOutput.model_validate(one)])
+    assert [a.name for a in merged.activities] == ["가", "나", "다"]
+
+
+def test_big_github_source_calls_parts_and_returns_one_activity(client_with):
+    text = _github(100, 81)
+    n = len(split_github(text))
+    out = {"activities": [_act("recipe-box", "2025-03-01", "2025-03-28", "PROJECT", 2)]}
+    llm = FakeLLM(*[out] * n)
+    res = client_with(llm).post(
+        "/extract", json={"sourceName": "kim/recipe-box (GitHub).md", "text": text}
+    )
+    assert res.status_code == 200
+    assert llm.calls == n
+    assert all(s["system"] == SYSTEM_PROMPT + WORK_LOG_RULE for s in llm.seen)
+    acts = res.json()["activities"]
+    assert len(acts) == 1 and len(acts[0]["experiences"]) == 2 * n
+    assert all(e["sourceStatus"] == "SOURCE_CONFIRMED" for e in acts[0]["experiences"])
+
+
+def test_big_github_source_fails_whole_when_a_part_fails(client_with):
+    text = _github(100, 81)
+    n = len(split_github(text))
+    out = {"activities": [_act("recipe-box", None, None, None, 1)]}
+    llm = FakeLLM(*([out] * (n - 1) + [LLMError("모델을 못 씀")]))
+    res = client_with(llm).post("/extract", json={"sourceName": "x", "text": text})
+    assert res.status_code == 502

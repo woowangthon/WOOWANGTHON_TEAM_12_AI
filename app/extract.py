@@ -13,13 +13,18 @@ null 로 바꿔 「같은 활동 없음」처럼 보이게 하지 않는다. 판
 작업 로그 묶기(AI#109 · AI#113): 자료 글에 FE 의 GitHub 가져오기(S-64) 절 제목이 있을 때만 규칙 14(WORK_LOG_RULE)를
 더한다 — 커밋 제목 줄을 같은 일끼리 경험 하나로 묶는다. 다른 자료(이력 목록 · 회고 · 붙여 넣은 커밋 메모)엔 붙지 않는다.
 
+많은 작업 로그 나눠 부르기(AI#160): GitHub 자료의 커밋 · PR 줄이 LOG_CHUNK 개를 넘으면 README 부분과 날짜 구간 조각으로
+나눠 동시에 부르고 한 활동으로 합친다(split_github · merge_outputs).
+
 활동 분류(S-57): 활동마다 category 하나 또는 null 을 같은 호출로 받는다. 원문 사실이 아니라 AI 해석이다.
 목록 밖 값은 app.schemas.LLMActivity 가 막아 다시 부른 뒤 LLM_INVALID_OUTPUT — null 로 바꾸지 않는다.
 """
 
+import asyncio
 import copy
 import logging
 import re
+from collections import Counter
 from typing import Any
 
 from app.citations import SourceIndex
@@ -35,9 +40,11 @@ from app.schemas import (
     Experience,
     ExtractRequest,
     ExtractResponse,
+    LLMActivity,
     LLMExperience,
     LLMOutput,
     Location,
+    Period,
 )
 
 log = logging.getLogger(__name__)
@@ -321,6 +328,84 @@ def is_work_log(text: str) -> bool:
     return WORK_LOG_MARK.search(text) is not None
 
 
+# 커밋 · PR 이 많은 GitHub 자료(AI#160) — 한 번에 부르면 경험 60 ~ 80개를 써야 해 terra 도 98초가 걸려 전체 100초를
+# 넘겼다(시간은 출력 양이 정한다 — 추론 강도로는 안 줄었다). 줄이 LOG_CHUNK 개를 넘을 때만 README 부분 하나와 커밋 · PR 줄을
+# 날짜 구간으로 묶은 조각들로 나눠 동시에 부른다 — 같은 일의 커밋 · PR 은 날짜가 가까워 같은 조각에 들어 묶기(규칙 14)가
+# 산다. 60줄 · 100줄 조각 둘 다 50초 안팎이라 호출이 적은 100(우리 AI · ETC 레포 — 3 · 4조각, 경험 102 · 103개).
+# 조각마다 활동이 하나면 한 활동으로 합친다(레포 하나 = 활동 하나). 줄이 적으면(시험 자료 github-commits 47줄) 지금과 같다.
+LOG_CHUNK = 100
+_LOG_SECTION = re.compile(r"^(?=## 내가 (?:쓴 커밋|연 PR) 제목)", re.MULTILINE)
+_LOG_DATE = re.compile(r"^- (\d{4}-\d{2}-\d{2}) ")
+
+
+def split_github(text: str, max_lines: int = LOG_CHUNK) -> list[str] | None:
+    """나눌 필요가 없으면 None. 조각마다 레포 머리(이름 · 링크 · 설명)를 붙인다 — 활동 이름 · 같은 활동 판단의 단서."""
+    mark = WORK_LOG_MARK.search(text)
+    if mark is None:
+        return None
+    before, log_text = text[: mark.start()].rstrip(), text[mark.start() :]
+    sections: list[tuple[str, list[tuple[str, str]]]] = []
+    for block in _LOG_SECTION.split(log_text):
+        lines = [line for line in block.rstrip().split("\n") if line.strip()]
+        if not lines:
+            continue
+        items = []
+        for line in lines[1:]:
+            m = _LOG_DATE.match(line)
+            items.append((m.group(1) if m else "", line))
+        sections.append((lines[0], items))
+    # (날짜, 절 번호, 줄) — 날짜순. 같은 날짜는 되도록 한 조각에, 하루치가 max_lines 를 넘을 때만 그날을 줄로 나눈다
+    rows = sorted(
+        ((day, i, line) for i, (_, items) in enumerate(sections) for day, line in items),
+        key=lambda r: (r[0], r[1]),
+    )
+    if len(rows) <= max_lines:
+        return None
+    per_date = Counter(day for day, _, _ in rows)
+    windows: list[list[tuple[str, int, str]]] = [[]]
+    for day in sorted(per_date):
+        rows_of_day = [r for r in rows if r[0] == day]
+        if windows[-1] and len(windows[-1]) + len(rows_of_day) > max_lines:
+            windows.append([])
+        for row in rows_of_day:
+            if len(windows[-1]) >= max_lines:
+                windows.append([])
+            windows[-1].append(row)
+    head = before.split("\n## README", 1)[0].rstrip()
+    parts = [before] if before != head else []  # README 가 있으면 README 부분 하나
+    for window in windows:
+        chunk = [head]
+        for i, (header, _) in enumerate(sections):
+            picked = [line for _, j, line in window if j == i]
+            if picked:
+                chunk.append("\n".join([header, *picked]))
+        parts.append("\n\n".join(chunk))
+    return parts
+
+
+def merge_outputs(outputs: list[LLMOutput]) -> LLMOutput:
+    """조각마다 활동이 하나 이하면 한 활동으로(이름 · 분류 · 같은 활동은 앞 조각 = README 쪽부터). 아니면 이어 붙인다."""
+    acts = [a for o in outputs for a in o.activities]
+    if not acts or any(len(o.activities) > 1 for o in outputs):
+        return LLMOutput(activities=acts)
+    starts = [a.period.start for a in acts if a.period.start]
+    ongoing = any(a.period.ongoing for a in acts)
+    ends = [a.period.end for a in acts if a.period.end]
+    first = acts[0]
+    merged = LLMActivity(
+        name=first.name,
+        period=Period(
+            start=min(starts) if starts else None,
+            end=None if ongoing or not ends else max(ends),
+            ongoing=ongoing,
+        ),
+        sameAsActivityId=next((a.sameAsActivityId for a in acts if a.sameAsActivityId), None),
+        category=next((a.category for a in acts if a.category), None),
+        experiences=[e for a in acts for e in a.experiences],
+    )
+    return LLMOutput(activities=[merged])
+
+
 def _target(req: ExtractRequest) -> ExistingActivity | None:
     return next((a for a in req.existingActivities if a.id == req.targetActivityId), None)
 
@@ -342,18 +427,41 @@ async def extract(
         return check_output(LLMOutput.model_validate_json(raw), existing)
 
     schema = llm_json_schema([a.id for a in existing])
-    got = await generate_valid(llm, system, user, schema, parse, settings)
+    parts = split_github(text)
+    if parts is None:
+        got = await generate_valid(llm, system, user, schema, parse, settings)
+        output, model, attempt, seconds = got.value, got.model, got.attempt, got.seconds
+    else:
+        # 조각을 동시에 — 하나라도 실패하면 전체가 실패다(일부만 저장하지 않는다)
+        gots = await asyncio.gather(
+            *(
+                generate_valid(
+                    llm,
+                    system,
+                    build_user_message(req.sourceName, part, existing, target),
+                    schema,
+                    parse,
+                    settings,
+                )
+                for part in parts
+            )
+        )
+        output = merge_outputs([g.value for g in gots])
+        model = ", ".join(dict.fromkeys(g.model for g in gots))
+        attempt = max(g.attempt for g in gots)
+        seconds = max(g.seconds for g in gots)
     log.info(
-        "추출 완료 attempt=%d model=%s elapsed=%.1fs chars=%d existing=%d target=%s activities=%d "
-        "same=%s category=%s",
-        got.attempt,
-        got.model,
-        got.seconds,
+        "추출 완료 attempt=%d model=%s elapsed=%.1fs chars=%d parts=%d existing=%d target=%s "
+        "activities=%d same=%s category=%s",
+        attempt,
+        model,
+        seconds,
         len(text),
+        len(parts or [text]),
         len(existing),
         req.targetActivityId,
-        len(got.value.activities),
-        [a.sameAsActivityId for a in got.value.activities],
-        [a.category for a in got.value.activities],
+        len(output.activities),
+        [a.sameAsActivityId for a in output.activities],
+        [a.category for a in output.activities],
     )
-    return to_response(got.value, got.model, text)
+    return to_response(output, model, text)
