@@ -180,7 +180,10 @@ async def run(models: list[str], runs: int, inputs: list[dict], out: Path, env: 
     clients = {}  # 모델마다 한 번만 만든다 — eval_extract 의 까닭과 같다
     for model in models:
         settings = replace(base, llm_models=parse_models(model))
-        clients[model] = (settings, build_llm(settings))
+        clients[model] = (
+            settings,
+            build_llm(settings, call_timeout=settings.llm_extract_call_timeout_seconds),
+        )
 
     async def one(model: str, n: int, item: dict) -> None:
         settings, llm = clients[model]

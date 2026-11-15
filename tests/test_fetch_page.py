@@ -384,8 +384,12 @@ def test_detail_body_that_is_an_image_is_unreadable(web):
     # AI#145 — 상세 본문이 이미지 한 장이고 글은 직종 분류 · 주소뿐인 공고(사람인 신세계센트럴 rec_idx=55455220 모양)
     web.hosts["www.saramin.co.kr"] = [PUBLIC]
     base = "https://www.saramin.co.kr/zf_user/jobs/relay"
-    web.pages[f"{base}/view?rec_idx=124"] = page("<html><body><h1>공고 제목</h1>" + "<p>모집 요강</p>" * 60 + "</body></html>")
-    taxonomy = "".join(f"<p>선택 : 영업·판매·무역 &gt; 직무·직업 &gt; 영업{i}</p>" for i in range(80))
+    web.pages[f"{base}/view?rec_idx=124"] = page(
+        "<html><body><h1>공고 제목</h1>" + "<p>모집 요강</p>" * 60 + "</body></html>"
+    )
+    taxonomy = "".join(
+        f"<p>선택 : 영업·판매·무역 &gt; 직무·직업 &gt; 영업{i}</p>" for i in range(80)
+    )
     web.pages[f"{base}/view-detail?rec_idx=124&rec_seq=0"] = page(
         f"<html><body><img src='//img.example/poster.png'>{taxonomy}<p>근무지 주소 서울</p></body></html>"
     )
@@ -401,7 +405,9 @@ def test_detail_body_with_images_and_text_is_read(web):
     base = "https://www.saramin.co.kr/zf_user/jobs/relay"
     web.pages[f"{base}/view?rec_idx=125"] = page("<html><body><h1>공고 제목</h1></body></html>")
     web.pages[f"{base}/view-detail?rec_idx=125&rec_seq=0"] = page(
-        "<html><body><img src='//img.example/top.png'><p>" + "브랜드 상품 전략을 세우고 신제품을 기획합니다. " * 20 + "</p></body></html>"
+        "<html><body><img src='//img.example/top.png'><p>"
+        + "브랜드 상품 전략을 세우고 신제품을 기획합니다. " * 20
+        + "</p></body></html>"
     )
     assert "신제품을 기획합니다" in fetch_page.fetch_text(f"{base}/view?rec_idx=125")
 
@@ -409,8 +415,13 @@ def test_detail_body_with_images_and_text_is_read(web):
 def test_short_text_detail_with_a_logo_is_read(web):
     # 회사 이미지 한 장 + 짧은 글 본문(잡코리아 50359824 — 틀 글 뺀 글 398자)은 이미지 본문이 아니다
     web.hosts["www.jobkorea.co.kr"] = [PUBLIC]
-    web.pages["https://www.jobkorea.co.kr/Recruit/GI_Read/10"] = page("<html><body><h1>공고 제목</h1></body></html>")
-    body = "모집부서 생산팀 신입 자격요건 공업고등학교 졸업 위험물자격증 우대 근무지 경남 양산시 전형절차 서류 면접 " * 4
+    web.pages["https://www.jobkorea.co.kr/Recruit/GI_Read/10"] = page(
+        "<html><body><h1>공고 제목</h1></body></html>"
+    )
+    body = (
+        "모집부서 생산팀 신입 자격요건 공업고등학교 졸업 위험물자격증 우대 근무지 경남 양산시 전형절차 서류 면접 "
+        * 4
+    )
     web.pages["https://www.jobkorea.co.kr/Recruit/GI_Read_Comt_Ifrm?Gno=10"] = page(
         f"<html><body><img src='//img.example/logo.png'><p>{body}</p></body></html>"
     )
