@@ -11,8 +11,13 @@ AI 는 「어느 글(근거 발췌문 · 보완 답)의 어느 부분이 어느 
   근거 원문의 배운 점 · 느낀 점 낱말을 R 에 안 씀. 어기면 다시 부르고, 마지막 시도에서도 어긴 칸만 빈칸(질문 null)으로
   내린다 — 전체를 실패로 만들지 않는다. 내린 수는 로그에 남긴다.
 질문 내용(원문에 없는 전제 · 칸에 맞나)과 배운 점의 나머지는 코드로 다 못 막아 scripts/eval_star.py 로 잰다.
+
+나눠 부르기(AI#157): 요청은 1 ~ 30개지만 LLM 은 CHUNK 개 안쪽 묶음으로 고르게 나눠 동시에 부른다. terra 가 경험 10개
+32.9초 · 23개 57.1초 · 30개 67.1초라 한 번에 부르면 모델 한 번 제한 45초에 걸려 셋 다 시간 초과였다. 경험마다 칸을 따로
+나누는 일이라 묶음을 갈라도 판단이 바뀌지 않는다. 한 묶음이라도 실패하면 전체가 실패다(정해진 칸으로 채우지 않는다).
 """
 
+import asyncio
 import logging
 import re
 from dataclasses import dataclass, field
@@ -37,6 +42,7 @@ log = logging.getLogger(__name__)
 
 MAX_EXPERIENCES = 30
 MAX_QUESTION = 80
+CHUNK = 10  # LLM 한 번에 싣는 경험 수 상한 — 위 「나눠 부르기」
 
 # 배운 점 · 느낀 점 · 교훈 — 사용자 답(SUPPLEMENT)에서만 R 을 채운다(S-95). 근거 원문의 이런 문장은 R 에 못 쓴다.
 # 낱말로만 거르는 것이라 다 막지는 못한다 — 나머지는 채점(eval_star 「만들어 낸 배운 점」)
@@ -308,6 +314,36 @@ async def star_run(
 ) -> StarRun:
     """응답과 함께 빈칸으로 내린 칸 · 시도 수 — 채점(scripts/eval_star.py)이 본다. system 은 시험용만 바꾼다."""
     experiences = check_request(req, settings)
+    runs = await asyncio.gather(
+        *(_run_chunk(c, llm, settings, system) for c in chunks(experiences))
+    )
+    result = [e for r in runs for e in r.experiences]
+    dropped = [d for r in runs for d in r.dropped]
+    models = list(
+        dict.fromkeys(r.model for r in runs)
+    )  # 묶음마다 다른 모델이 답했으면 모두(순서대로)
+    response = StarResponse(experiences=result, model=", ".join(models))
+    return StarRun(response=response, dropped=dropped, attempt=max(r.attempt for r in runs))
+
+
+def chunks(experiences: list[StarExperience]) -> list[list[StarExperience]]:
+    """CHUNK 개 안쪽으로 고르게 — 23개면 8 · 8 · 7(한 묶음만 느려지지 않게). 요청 순서는 그대로."""
+    n = -(-len(experiences) // CHUNK)
+    size = -(-len(experiences) // n)
+    return [experiences[i : i + size] for i in range(0, len(experiences), size)]
+
+
+@dataclass
+class _ChunkRun:
+    experiences: list[StarExperienceSlots]
+    dropped: list[str]
+    model: str
+    attempt: int
+
+
+async def _run_chunk(
+    experiences: list[StarExperience], llm: JsonLLM, settings: Settings, system: str
+) -> _ChunkRun:
     user = build_user_message(experiences)
     attempts = 0
 
@@ -331,8 +367,7 @@ async def star_run(
         len(checked.dropped),
         checked.dropped,
     )
-    response = StarResponse(experiences=checked.experiences, model=got.model)
-    return StarRun(response=response, dropped=checked.dropped, attempt=got.attempt)
+    return _ChunkRun(checked.experiences, checked.dropped, got.model, got.attempt)
 
 
 async def star(req: StarRequest, llm: JsonLLM, settings: Settings) -> StarResponse:
