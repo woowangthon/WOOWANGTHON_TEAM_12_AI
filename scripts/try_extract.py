@@ -43,7 +43,7 @@ async def main() -> None:
 
     load_dotenv(ROOT / ".env")  # 값은 화면에 찍지 않는다
     settings = load_settings()
-    llm = build_llm(settings)
+    llm = build_llm(settings, call_timeout=settings.llm_extract_call_timeout_seconds)
     for path in args.files:
         req = ExtractRequest(sourceName=path.name, text=path.read_text(encoding="utf-8"))
         try:
