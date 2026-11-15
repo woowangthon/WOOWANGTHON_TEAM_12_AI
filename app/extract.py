@@ -13,6 +13,9 @@ null 로 바꿔 「같은 활동 없음」처럼 보이게 하지 않는다. 판
 작업 로그 묶기(AI#109 · AI#113): 자료 글에 FE 의 GitHub 가져오기(S-64) 절 제목이 있을 때만 규칙 14(WORK_LOG_RULE)를
 더한다 — 커밋 제목 줄을 같은 일끼리 경험 하나로 묶는다. 다른 자료(이력 목록 · 회고 · 붙여 넣은 커밋 메모)엔 붙지 않는다.
 
+글쓴이가 적힌 글(AI#159): 「작성자 이름」 · 「이름 → 이름」이 있을 때만 규칙 16(AUTHOR_RULE)을 더한다 — 그 글의 「나」는
+그 사람이라 ME 가 아니라 UNKNOWN. 팀 공용 노션에서 다른 팀원의 일이 ME 가 되던 것.
+
 활동 분류(S-57): 활동마다 category 하나 또는 null 을 같은 호출로 받는다. 원문 사실이 아니라 AI 해석이다.
 목록 밖 값은 app.schemas.LLMActivity 가 막아 다시 부른 뒤 LLM_INVALID_OUTPUT — null 로 바꾸지 않는다.
 """
@@ -321,6 +324,27 @@ def is_work_log(text: str) -> bool:
     return WORK_LOG_MARK.search(text) is not None
 
 
+# 글쓴이가 사람 이름으로 적힌 글에만 SYSTEM_PROMPT 뒤에 붙인다(AI#159). 팀 공용 노션은 페이지마다 쓴 사람이 달라
+# 「글 속의 나 = 사용자」로 보면 다른 팀원의 일이 ME 가 됐다(실제 노션 내보내기 — 「OO → XX 원고」 · 「작성자 OO」 페이지).
+# 늘 붙이면 「작성: 나」 회의록 · 내 회고로 번질 수 있어 알아볼 때만 — AI#113 · AI#154 와 같은 방식.
+# 알아보는 법: 「작성자 · 글쓴이 · 보낸 사람」 뒤에 이름(두 글자 이상), 또는 제목 줄 · 원본 이름이 「이름 → 이름」
+_NAME = r"[가-힣]{2,5}|[A-Za-z][A-Za-z0-9._-]{1,30}"
+AUTHOR_MARK = re.compile(
+    rf"(?:작성자|글쓴이|보낸\s?사람)\**\s*[:：]?\s*\**\s*(?:{_NAME})(?![가-힣A-Za-z])"
+    rf"|^\s*#*\s*(?:{_NAME})\s*(?:→|->)\s*(?:{_NAME})",
+    re.MULTILINE,
+)
+AUTHOR_RULE = """16. 글쓴이가 적힌 글(4번에 더한다): 이 자료엔 작성자 · 보낸 사람이 사람 이름으로 적혀 있다(「작성자 김하늘」
+   「김하늘 → 박서준」). 그 글의 「나」 「제가」 「저도」 「내 담당」은 그 사람이고, 자료를 넣은 사용자인지 알 수 없다 —
+   그 사람이 한 일은 ME 가 아니라 UNKNOWN 이다. 다른 사람이 이름으로 주어인 문장(「박서준이 실험했다」)은 4번대로 TEAM.
+   절마다 글쓴이가 다르면 절마다 따른다. 글쓴이 이름이 없는 절의 「나」는 4번대로다.
+"""
+
+
+def has_author(source_name: str | None, text: str) -> bool:
+    return AUTHOR_MARK.search(text) is not None or AUTHOR_MARK.search(source_name or "") is not None
+
+
 def _target(req: ExtractRequest) -> ExistingActivity | None:
     return next((a for a in req.existingActivities if a.id == req.targetActivityId), None)
 
@@ -337,6 +361,8 @@ async def extract(
         system += TARGET_RULE
     if is_work_log(text):
         system += WORK_LOG_RULE
+    if has_author(req.sourceName, text):
+        system += AUTHOR_RULE
 
     def parse(raw: str) -> LLMOutput:
         return check_output(LLMOutput.model_validate_json(raw), existing)

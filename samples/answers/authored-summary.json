@@ -1,0 +1,17 @@
+{
+  "activities": [
+    {
+      "name": "동아리 축제 부스 준비",
+      "category": ["CLUB"],
+      "keys": ["부스"],
+      "experiences": [
+        { "anchor": "내가 부스 동선을 그려서 학생회에 냈다", "actor": ["UNKNOWN", "TEAM"] },
+        { "anchor": "김하늘이 굿즈 단가를 세 곳에서 비교해 제일 싼 곳으로 정했다", "actor": ["TEAM"] },
+        { "anchor": "판매 기록을 구글 시트로 옮겼고", "actor": ["UNKNOWN", "TEAM"] },
+        { "anchor": "재고를 첫날 다 써서 둘째 날 오후엔 팔 게 없었다", "actor": ["UNKNOWN", "TEAM"] },
+        { "anchor": "시간대별 판매량을 정리했다", "actor": ["UNKNOWN", "TEAM"], "optional": true }
+      ]
+    }
+  ],
+  "notExperiences": []
+}

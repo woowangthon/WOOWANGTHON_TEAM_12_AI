@@ -10,10 +10,12 @@ from fastapi.testclient import TestClient
 from app.config import load_settings
 from app.errors import LLMError, LLMTimeout
 from app.extract import (
+    AUTHOR_RULE,
     SYSTEM_PROMPT,
     TARGET_RULE,
     WORK_LOG_RULE,
     build_user_message,
+    has_author,
     is_work_log,
 )
 from app.main import app
@@ -483,3 +485,36 @@ def test_non_github_source_keeps_prompt_exactly(client_with):
     res = client_with(llm).post("/extract", json={"sourceName": "메모.md", "text": text})
     assert res.status_code == 200
     assert llm.system == SYSTEM_PROMPT
+
+
+# 글쓴이가 적힌 글(AI#159) — 알아볼 때만 AUTHOR_RULE 을 끝에 붙이고, 다른 자료는 프롬프트가 그대로
+@pytest.mark.parametrize(
+    "name,text,want",
+    [
+        (None, "**작성일** 2026-07-30 · **작성자** 상영 · **버전** v1.0", True),
+        (None, "작성자: Kim", True),
+        (None, "글쓴이 이도윤", True),
+        ("이인수 → 상영 결과보고서 원고.md", "본문", True),
+        (None, "# 한결 → 서윤: 중간 발표 원고", True),
+        (None, "- 작성: 나", False),
+        (None, "작성일 2026-07-30", False),
+        (None, "- 회장이 엑셀에 옮김 → 누락이 잦음", False),
+        (None, "c2e8f44 fix: slug 깨지는 문제 → encodeURIComponent 로", False),
+    ],
+)
+def test_has_author(name, text, want):
+    assert has_author(name, text) is want
+
+
+def test_samples_without_author_keep_prompt():
+    marked = {"teammate-handoff", "authored-summary"}
+    for p in (p for p in SAMPLES.glob("*.md") if p.name != "README.md"):  # README 는 자료 목록
+        assert has_author(p.name, p.read_text(encoding="utf-8")) is (p.stem in marked), p.name
+
+
+def test_authored_source_gets_author_rule_at_end(client_with):
+    llm = SpyLLM(GOOD)
+    text = (SAMPLES / "authored-summary.md").read_text(encoding="utf-8")
+    res = client_with(llm).post("/extract", json={"sourceName": "정리.md", "text": text})
+    assert res.status_code == 200
+    assert llm.system == SYSTEM_PROMPT + AUTHOR_RULE
