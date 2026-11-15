@@ -10,11 +10,15 @@ from fastapi.testclient import TestClient
 from app.config import load_settings
 from app.errors import LLMError, LLMTimeout
 from app.extract import (
+    AUTHOR_RULE,
     LOG_CHUNK,
+    SPEC_RULE,
     SYSTEM_PROMPT,
     TARGET_RULE,
     WORK_LOG_RULE,
     build_user_message,
+    has_author,
+    is_spec_doc,
     is_work_log,
     merge_outputs,
     split_github,
@@ -486,6 +490,92 @@ def test_non_github_source_keeps_prompt_exactly(client_with):
     res = client_with(llm).post("/extract", json={"sourceName": "메모.md", "text": text})
     assert res.status_code == 200
     assert llm.system == SYSTEM_PROMPT
+
+
+# 명세 문서(AI#154) — 알아볼 때만 SPEC_RULE 을 끝에 붙이고, 다른 자료는 프롬프트가 그대로
+@pytest.mark.parametrize(
+    "name,text,want",
+    [
+        ("SPEC.md", "아무 글", True),
+        ("ADR-003-stack.md", "아무 글", True),
+        ("서비스 요구사항 명세서.pdf", "아무 글", True),
+        ("prd", "아무 글", True),
+        ("메모.md", "# SPEC — 모여봐\n", True),
+        ("메모.md", "## 1. 요구사항\n", True),
+        ("메모.md", "## 기능 명세\n", True),
+        ("README.md", "## 기술 선택 — 결정 기록(ADR)\n", False),
+        ("special-notes.md", "spec 이라는 낱말이 본문에만 있다", False),
+        ("inspection.md", "요구사항이 본문에만 있다", False),
+        (None, "## 회고\n", False),
+    ],
+)
+def test_is_spec_doc(name, text, want):
+    assert is_spec_doc(name, text) is want
+
+
+def test_other_samples_are_not_spec_docs():
+    others = [p for p in SAMPLES.glob("*.md") if p.stem != "study-spec"]
+    assert others
+    for p in others:
+        assert not is_spec_doc(p.name, p.read_text(encoding="utf-8")), p.name
+
+
+def test_spec_doc_gets_spec_rule_at_end(client_with):
+    llm = SpyLLM(GOOD)
+    text = (SAMPLES / "study-spec.md").read_text(encoding="utf-8")
+    res = client_with(llm).post("/extract", json={"sourceName": "기획.md", "text": text})
+    assert res.status_code == 200
+    # 앞부분이 늘 같다 — 프롬프트 캐시가 산다
+    assert llm.system == SYSTEM_PROMPT + SPEC_RULE
+
+
+def test_spec_doc_with_target_keeps_target_rule_first(client_with):
+    llm = SpyLLM(GOOD)
+    body = {"sourceName": "SPEC.md", "text": "기능 설명", "existingActivities": EXISTING}
+    res = client_with(llm).post("/extract", json={**body, "targetActivityId": 7})
+    assert res.status_code == 200
+    assert llm.system == SYSTEM_PROMPT + TARGET_RULE + SPEC_RULE
+
+
+# 글쓴이가 적힌 글(AI#159) — 알아볼 때만 AUTHOR_RULE 을 끝에 붙이고, 다른 자료는 프롬프트가 그대로
+@pytest.mark.parametrize(
+    "name,text,want",
+    [
+        (None, "**작성일** 2026-07-30 · **작성자** 상영 · **버전** v1.0", True),
+        (None, "작성자: Kim", True),
+        (None, "글쓴이 이도윤", True),
+        ("이인수 → 상영 결과보고서 원고.md", "본문", True),
+        (None, "# 한결 → 서윤: 중간 발표 원고", True),
+        (None, "- 작성: 나", False),
+        (None, "작성일 2026-07-30", False),
+        (None, "- 회장이 엑셀에 옮김 → 누락이 잦음", False),
+        (None, "c2e8f44 fix: slug 깨지는 문제 → encodeURIComponent 로", False),
+    ],
+)
+def test_has_author(name, text, want):
+    assert has_author(name, text) is want
+
+
+def test_samples_without_author_keep_prompt():
+    marked = {"teammate-handoff", "authored-summary"}
+    for p in (p for p in SAMPLES.glob("*.md") if p.name != "README.md"):  # README 는 자료 목록
+        assert has_author(p.name, p.read_text(encoding="utf-8")) is (p.stem in marked), p.name
+
+
+def test_authored_source_gets_author_rule_at_end(client_with):
+    llm = SpyLLM(GOOD)
+    text = (SAMPLES / "authored-summary.md").read_text(encoding="utf-8")
+    res = client_with(llm).post("/extract", json={"sourceName": "정리.md", "text": text})
+    assert res.status_code == 200
+    assert llm.system == SYSTEM_PROMPT + AUTHOR_RULE
+
+
+def test_spec_doc_with_author_gets_both_rules_in_order(client_with):
+    llm = SpyLLM(GOOD)
+    text = "# SPEC — 모여봐\n\n**작성자** 김하늘\n\n## 1. 요구사항\n"
+    res = client_with(llm).post("/extract", json={"sourceName": "SPEC.md", "text": text})
+    assert res.status_code == 200
+    assert llm.system == SYSTEM_PROMPT + SPEC_RULE + AUTHOR_RULE
 
 
 # 커밋 · PR 이 많은 GitHub 자료 나눠 부르기(AI#160)

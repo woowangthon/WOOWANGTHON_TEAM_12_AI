@@ -13,6 +13,12 @@ null 로 바꿔 「같은 활동 없음」처럼 보이게 하지 않는다. 판
 작업 로그 묶기(AI#109 · AI#113): 자료 글에 FE 의 GitHub 가져오기(S-64) 절 제목이 있을 때만 규칙 14(WORK_LOG_RULE)를
 더한다 — 커밋 제목 줄을 같은 일끼리 경험 하나로 묶는다. 다른 자료(이력 목록 · 회고 · 붙여 넣은 커밋 메모)엔 붙지 않는다.
 
+기획 문서(AI#154): 원본 이름이나 제목 줄이 명세 · 요구사항 · ADR 일 때만 규칙 15(SPEC_RULE)를 더한다 — 기능 절 · 결정
+하나를 기획 경험 하나로. 다른 자료엔 붙지 않는다.
+
+글쓴이가 적힌 글(AI#159): 「작성자 이름」 · 「이름 → 이름」이 있을 때만 규칙 16(AUTHOR_RULE)을 더한다 — 그 글의 「나」는
+그 사람이라 ME 가 아니라 UNKNOWN. 팀 공용 노션에서 다른 팀원의 일이 ME 가 되던 것.
+
 많은 작업 로그 나눠 부르기(AI#160): GitHub 자료의 커밋 · PR 줄이 LOG_CHUNK 개를 넘으면 README 부분과 날짜 구간 조각으로
 나눠 동시에 부르고 한 활동으로 합친다(split_github · merge_outputs).
 
@@ -328,6 +334,59 @@ def is_work_log(text: str) -> bool:
     return WORK_LOG_MARK.search(text) is not None
 
 
+# 명세 · 요구사항 · 결정 문서(SPEC · PRD · ADR)에만 SYSTEM_PROMPT 뒤에 붙인다(AI#154). 규칙 2 「단순한 소개는 경험이
+# 아니다」대로면 「기능은 이렇게 동작한다」를 다 버려 49k자 SPEC 에서 5 ~ 7개만 나왔다 — README 의 「~ 기능이 있다」는
+# 「구현했다」로 뽑으면서. 늘 붙이면 README · 회고의 소개 문장까지 경험이 될 수 있어 알아볼 때만 붙인다(AI#113 과 같은 방식).
+# 알아보는 법: 원본 이름(SPEC.md · PRD · ADR-003-… · 요구사항 명세서) 또는 그런 제목 줄(「# SPEC」 「## 1. 요구사항」)
+SPEC_NAME_MARK = re.compile(
+    r"(?<![a-z])(?:spec|prd|adr|srs)(?![a-z])|명세|요구사항|기획서", re.IGNORECASE
+)
+SPEC_HEADING_MARK = re.compile(
+    r"^#{1,6}[^\n]*?(?:\bSPEC\b|\bPRD\b|\bADR-\d+|요구사항|기능 명세)", re.MULTILINE | re.IGNORECASE
+)
+SPEC_RULE = """\
+15. 기획 문서(2번 · 9번에 더한다): 이 자료는 서비스 · 제품의 명세 · 요구사항 · 결정 문서(SPEC · PRD · ADR 등)다.
+   「기능은 이렇게 동작한다」처럼 쓴 글이라도, 그 동작 · 규칙을 정한 것이 이 문서를 만든 활동의 기획 경험이다:
+   - 기능 하나(제목이 붙은 기능 절 하나)를 경험 하나로 옮긴다. content 는 그 절에서 정한 핵심 동작 · 규칙 · 예외를
+     한두 가지 담아 「~ 기능의 ~ 을 정의했다」처럼 쓴다. 절 안의 세부 동작 줄(S-01 …)마다 따로 나누지 않는다.
+   - 무엇을 고르고 무엇을 버렸는지 적은 결정(「정해 둔 것」 「결정」 「~ 대신 ~」 · ADR 하나)은 결정마다 경험 하나로.
+     버린 안 · 이유가 원문에 있으면 content 에 담는다.
+   - 문제 정의 · 대상 · 근거(조사 · 설문) · 차별점처럼 서비스 방향을 정한 줄도 한 가지씩 경험이다.
+   - 아직 정하지 않은 것(「미결정」 「TBD」 질문 목록) · 문서를 쓰는 규칙 · 목차 · 링크는 경험이 아니다.
+   - content 는 「정의했다 · 정했다 · 설계했다」로 쓴다. 원문에 없는 「구현했다 · 출시했다 · 운영했다」를 쓰지 않는다.
+   - competencies 는 대개 PLANNING 이다. 조사 · 비교 · 측정이 원문에 있으면 ANALYSIS.
+   - actor 는 4번 그대로다 — 문서가 누가 정했는지 밝히지 않으면 UNKNOWN, 「우리 팀은」이면 TEAM.
+   - quotes 엔 그 기능 절의 제목 줄(「F-01 출석 체크」처럼 # 은 빼고)과 핵심 줄 1 ~ 2개를 따로 붙인다.
+     그 절에 왜 만드는지 적은 줄(「의도」 「배경」 「문제」)이 있으면 그 줄도 따로 붙인다.
+"""
+
+
+def is_spec_doc(source_name: str | None, text: str) -> bool:
+    stem = (source_name or "").rsplit(".", 1)[0]
+    return SPEC_NAME_MARK.search(stem) is not None or SPEC_HEADING_MARK.search(text) is not None
+
+
+# 글쓴이가 사람 이름으로 적힌 글에만 SYSTEM_PROMPT 뒤에 붙인다(AI#159). 팀 공용 노션은 페이지마다 쓴 사람이 달라
+# 「글 속의 나 = 사용자」로 보면 다른 팀원의 일이 ME 가 됐다(실제 노션 내보내기 — 「OO → XX 원고」 · 「작성자 OO」 페이지).
+# 늘 붙이면 「작성: 나」 회의록 · 내 회고로 번질 수 있어 알아볼 때만 — AI#113 · AI#154 와 같은 방식.
+# 알아보는 법: 「작성자 · 글쓴이 · 보낸 사람」 뒤에 이름(두 글자 이상), 또는 제목 줄 · 원본 이름이 「이름 → 이름」
+_NAME = r"[가-힣]{2,5}|[A-Za-z][A-Za-z0-9._-]{1,30}"
+AUTHOR_MARK = re.compile(
+    rf"(?:작성자|글쓴이|보낸\s?사람)\**\s*[:：]?\s*\**\s*(?:{_NAME})(?![가-힣A-Za-z])"
+    rf"|^\s*#*\s*(?:{_NAME})\s*(?:→|->)\s*(?:{_NAME})",
+    re.MULTILINE,
+)
+AUTHOR_RULE = """16. 글쓴이가 적힌 글(4번에 더한다): 이 자료엔 작성자 · 보낸 사람이 사람 이름으로 적혀 있다(「작성자 김하늘」
+   「김하늘 → 박서준」). 그 글의 「나」 「제가」 「저도」 「내 담당」은 그 사람이고, 자료를 넣은 사용자인지 알 수 없다 —
+   그 사람이 한 일은 ME 가 아니라 UNKNOWN 이다. 다른 사람이 이름으로 주어인 문장(「박서준이 실험했다」)은 4번대로 TEAM.
+   절마다 글쓴이가 다르면 절마다 따른다. 글쓴이 이름이 없는 절의 「나」는 4번대로다.
+"""
+
+
+def has_author(source_name: str | None, text: str) -> bool:
+    return AUTHOR_MARK.search(text) is not None or AUTHOR_MARK.search(source_name or "") is not None
+
+
 # 커밋 · PR 이 많은 GitHub 자료(AI#160) — 한 번에 부르면 경험 60 ~ 80개를 써야 해 terra 도 98초가 걸려 전체 100초를
 # 넘겼다(시간은 출력 양이 정한다 — 추론 강도로는 안 줄었다). 줄이 LOG_CHUNK 개를 넘을 때만 README 부분 하나와 커밋 · PR 줄을
 # 날짜 구간으로 묶은 조각들로 나눠 동시에 부른다 — 같은 일의 커밋 · PR 은 날짜가 가까워 같은 조각에 들어 묶기(규칙 14)가
@@ -422,6 +481,10 @@ async def extract(
         system += TARGET_RULE
     if is_work_log(text):
         system += WORK_LOG_RULE
+    if is_spec_doc(req.sourceName, text):
+        system += SPEC_RULE
+    if has_author(req.sourceName, text):
+        system += AUTHOR_RULE
 
     def parse(raw: str) -> LLMOutput:
         return check_output(LLMOutput.model_validate_json(raw), existing)

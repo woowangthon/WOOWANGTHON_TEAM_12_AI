@@ -4,6 +4,7 @@
 """
 
 import json
+import re
 
 from app.errors import LLMError
 from tests.conftest import FakeLLM
@@ -259,3 +260,52 @@ def test_llm_error(client_with):
     res = client_with(FakeLLM(LLMError("down"))).post("/star", json=BODY)
     assert res.status_code == 502
     assert res.json()["error"]["code"] == "LLM_ERROR"
+
+
+# 나눠 부르기(AI#157) — 요청은 30개까지, LLM 은 10개 안쪽 묶음으로 동시에
+class EchoLLM:
+    """받은 묶음의 경험마다 빈칸 넷(질문 있음)을 돌려준다. 실패할 묶음 번호를 줄 수 있다."""
+
+    def __init__(self, fail_call=None):
+        self.batches: list[list[int]] = []
+        self.fail_call = fail_call
+
+    async def generate_json(self, system, user, schema, deadline, images=()):
+        from app.llm import LLMResult
+
+        ids = [int(m) for m in re.findall(r"^\[경험 (\d+)\]$", user, re.MULTILINE)]
+        self.batches.append(ids)
+        if self.fail_call is not None and len(self.batches) == self.fail_call:
+            raise LLMError("모델을 못 씀")
+        slots = [_slot(s, question=f"{s} 칸 질문") for s in "STAR"]
+        out = {"experiences": [{"id": i, "slots": slots} for i in ids]}
+        return LLMResult(text=json.dumps(out, ensure_ascii=False), model="fake-model")
+
+
+def _many(n):
+    return {
+        "experiences": [
+            {**EXP_102, "id": i, "citations": [{"id": 1000 + i, "quote": f"근거 {i}"}]}
+            for i in range(1, n + 1)
+        ]
+    }
+
+
+def test_large_request_is_split_evenly_and_keeps_order(client_with):
+    llm = EchoLLM()
+    res = client_with(llm).post("/star", json=_many(23))
+    assert res.status_code == 200
+    assert sorted(len(b) for b in llm.batches) == [7, 8, 8]
+    assert [e["id"] for e in res.json()["experiences"]] == list(range(1, 24))
+    assert res.json()["model"] == "fake-model"
+
+
+def test_ten_or_less_is_one_call(client_with):
+    llm = EchoLLM()
+    assert client_with(llm).post("/star", json=_many(10)).status_code == 200
+    assert len(llm.batches) == 1
+
+
+def test_one_chunk_failing_fails_whole(client_with):
+    res = client_with(EchoLLM(fail_call=2)).post("/star", json=_many(30))
+    assert res.status_code == 502

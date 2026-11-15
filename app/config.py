@@ -63,6 +63,10 @@ class Settings:
     llm_vision_call_timeout_seconds: float
     # 모델 하나를 한 번 부를 때 제한 시간 — 한 모델이 전체 시간을 다 먹지 않게
     llm_call_timeout_seconds: float
+    # 추출(/extract)만 — 경험이 많은 README 에서 terra 가 41 ~ 46초라 45초면 실행마다 luna 로 넘어가
+    # 경험이 1/3 만 나왔다(AI#153 — 26 · 29개 → 9 · 11개). 전체 100초(계약 ai-api)는 그대로라 terra 가 멈추면
+    # 다음 모델은 35초 안 — 긴 자료면 LLM_TIMEOUT 「다시 시도」가 될 수 있다(조용히 적게 뽑는 것보다 낫다)
+    llm_extract_call_timeout_seconds: float
     # 차곡이 일 전체 — BE 가 끊는 시간(CHAGOK_TIMEOUT_SECONDS 120초)보다 짧게
     agent_timeout_seconds: float
     # BE 한도(experience-api, 제안 50000자)보다 작으면 안 된다
@@ -103,6 +107,9 @@ def load_settings() -> Settings:
             os.environ.get("LLM_VISION_CALL_TIMEOUT_SECONDS", "25")
         ),
         llm_call_timeout_seconds=float(os.environ.get("LLM_CALL_TIMEOUT_SECONDS", "45")),
+        llm_extract_call_timeout_seconds=float(
+            os.environ.get("LLM_EXTRACT_CALL_TIMEOUT_SECONDS", "65")
+        ),
         agent_timeout_seconds=float(os.environ.get("AGENT_TIMEOUT_SECONDS", "110")),
         max_text_chars=int(os.environ.get("MAX_TEXT_CHARS", "50000")),
         max_match_chars=int(os.environ.get("MAX_MATCH_CHARS", "100000")),

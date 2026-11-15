@@ -1,0 +1,18 @@
+{
+  "activities": [
+    {
+      "name": "모여라",
+      "category": ["PROJECT"],
+      "keys": ["모여라"],
+      "experiences": [
+        { "anchor": "QR 코드를 찍으면 출석이 기록되게 만들었다", "actor": ["UNKNOWN", "TEAM"] },
+        { "anchor": "모임 시작 10분 전에 푸시를 보내게 했다", "actor": ["UNKNOWN", "TEAM"] },
+        { "anchor": "서윤 님이 실제 폰으로 돌려 보다가 중복 기록 버그를 찾아 줬고", "actor": ["TEAM", "UNKNOWN"] },
+        { "anchor": "저도 서윤 님 화면 코드를 읽고 로딩이 두 번 뜨는 문제를 찾았습니다", "actor": ["UNKNOWN", "TEAM"] },
+        { "anchor": "문서로 먼저 합의하고 나눠 짠 덕분에", "actor": ["UNKNOWN", "TEAM"] },
+        { "anchor": "같은 학생이 두 번 찍으면 처음 기록만 남긴다", "actor": ["UNKNOWN", "TEAM"], "optional": true }
+      ]
+    }
+  ],
+  "notExperiences": []
+}

@@ -68,7 +68,9 @@ def get_settings() -> Settings:
 
 @lru_cache
 def get_llm() -> JsonLLM:
-    return build_llm(get_settings())
+    # /extract 만 쓴다 — 모델 한 번 제한은 추출 것(AI#153)
+    settings = get_settings()
+    return build_llm(settings, call_timeout=settings.llm_extract_call_timeout_seconds)
 
 
 @lru_cache
