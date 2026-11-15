@@ -253,7 +253,10 @@ async def run(
     clients = {}
     for model in models:
         settings = replace(base, llm_models=parse_models(model))
-        clients[model] = (settings, build_llm(settings))
+        clients[model] = (
+            settings,
+            build_llm(settings, call_timeout=settings.llm_extract_call_timeout_seconds),
+        )
 
     async def one(model: str, prompt: str, n: int, stem: str, source: str) -> None:
         settings, llm = clients[model]
